@@ -1,38 +1,60 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"; // Importante para redirecionar
 import { memberService } from "../services/memberService";
 import { Member } from "../types/member";
 
 export default function Home() {
+  const router = useRouter();
+  
+  // Estados de controle
   const [loading, setLoading] = useState(false);
+  const [churchId, setChurchId] = useState("");
+  const [churchName, setChurchName] = useState("");
+  
+  // Estados do formulário
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [membros, setMembros] = useState<Member[]>([]); // Estado para guardar a lista
+  const [membros, setMembros] = useState<Member[]>([]);
 
-  // Função para buscar os membros no banco
-  const carregarMembros = async () => {
+  // 1. Verifica login e Carrega dados ao abrir a tela
+  useEffect(() => {
+    // Tenta pegar o ID salvo no login (navegador)
+    const idSalvo = localStorage.getItem("churchId");
+    const nomeSalvo = localStorage.getItem("churchName");
+
+    if (!idSalvo) {
+      // Se não tem ID, chuta o usuário para a tela de login
+      router.push("/login");
+      return;
+    }
+
+    // Se tem ID, salva no estado e carrega os membros
+    setChurchId(idSalvo);
+    if (nomeSalvo) setChurchName(nomeSalvo);
+    carregarMembros(idSalvo);
+  }, [router]);
+
+  const carregarMembros = async (idDaIgreja: string) => {
     try {
-      const lista = await memberService.listByChurch("igreja-teste-01");
+      const lista = await memberService.listByChurch(idDaIgreja);
       setMembros(lista);
     } catch (error) {
       console.error("Erro ao listar membros:", error);
     }
   };
 
-  // useEffect roda assim que a tela abre
-  useEffect(() => {
-    carregarMembros();
-  }, []);
-
   const handleCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!churchId) return; // Segurança extra
+
     setLoading(true);
 
     try {
       await memberService.create({
         fullName: nome,
         email: email,
-        churchId: "igreja-teste-01",
+        churchId: churchId, // <--- USA O ID REAL DA IGREJA LOGADA
         role: "member",
         status: "active",
         photoUrl: "",
@@ -47,7 +69,7 @@ export default function Home() {
       alert("✅ Membro cadastrado com sucesso!");
       setNome("");
       setEmail("");
-      carregarMembros(); // Atualiza a lista na hora!
+      carregarMembros(churchId); // Atualiza a lista na hora
     } catch (error) {
       alert("❌ Erro ao cadastrar");
       console.error(error);
@@ -56,8 +78,20 @@ export default function Home() {
     }
   };
 
+  // Enquanto verifica o login, mostra "Carregando" para não piscar a tela errada
+  if (!churchId) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-100 text-gray-500">Verificando acesso...</div>;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 p-8">
+      {/* Cabeçalho */}
+      <div className="max-w-4xl mx-auto mb-6">
+        {/* MUDANÇA VISUAL AQUI: Mudamos de Dashboard para Painel Principal */}
+        <h1 className="text-2xl font-bold text-gray-800">Painel Principal</h1>
+        <p className="text-gray-500">Gerenciando: <span className="font-semibold text-blue-600">{churchName}</span></p>
+      </div>
+
       <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* LADO ESQUERDO: Formulário */}
@@ -104,11 +138,14 @@ export default function Home() {
           </h2>
           
           {membros.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Nenhum membro cadastrado.</p>
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-2">Nenhum membro nesta igreja ainda.</p>
+              <p className="text-xs text-gray-400">Cadastre o primeiro ao lado!</p>
+            </div>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
               {membros.map((membro) => (
-                <li key={membro.id} className="py-3 flex justify-between items-center">
+                <li key={membro.id} className="py-3 flex justify-between items-center pr-2">
                   <div>
                     <p className="font-medium text-gray-800">{membro.fullName}</p>
                     <p className="text-sm text-gray-500">{membro.email}</p>
