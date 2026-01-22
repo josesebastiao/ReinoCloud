@@ -1,166 +1,161 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // Importante para o redirecionamento
-import { memberService } from "../services/memberService";
-import { Member } from "../types/member";
+// CORREÇÃO AQUI: Note os dois pontos ../../ para voltar duas pastas
+import { churchService } from "../../services/churchService"; 
+import { Church } from "../../types/church";
+import { Building2, Plus, ShieldAlert, CheckCircle } from "lucide-react";
 
-export default function Home() {
-  const router = useRouter();
-  
-  // Estados de controle
-  const [loading, setLoading] = useState(false);
-  const [churchId, setChurchId] = useState("");
-  const [churchName, setChurchName] = useState("");
+export default function SuperAdmin() {
+  const [churches, setChurches] = useState<Church[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // Estados do formulário
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [membros, setMembros] = useState<Member[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
 
-  // 1. Verifica login e Carrega dados ao abrir a tela
-  useEffect(() => {
-    // Tenta pegar o ID salvo no login
-    const idSalvo = localStorage.getItem("churchId");
-    const nomeSalvo = localStorage.getItem("churchName");
-
-    if (!idSalvo) {
-      // Se não tem ID, chuta para a tela de login
-      router.push("/login");
-      return;
-    }
-
-    setChurchId(idSalvo);
-    if (nomeSalvo) setChurchName(nomeSalvo);
-
-    // Carrega os membros dessa igreja
-    carregarMembros(idSalvo);
-  }, [router]);
-
-  const carregarMembros = async (idDaIgreja: string) => {
+  const loadChurches = async () => {
     try {
-      const lista = await memberService.listByChurch(idDaIgreja);
-      setMembros(lista);
+      const list = await churchService.listAll();
+      setChurches(list);
     } catch (error) {
-      console.error("Erro ao listar membros:", error);
-    }
-  };
-
-  const handleCadastro = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!churchId) return; // Segurança extra
-
-    setLoading(true);
-
-    try {
-      await memberService.create({
-        fullName: nome,
-        email: email,
-        churchId: churchId, // USANDO O ID REAL AGORA
-        role: "member",
-        status: "active",
-        photoUrl: "",
-        phone: "",
-        address: { street: "", district: "", city: "", state: "", zipCode: "" },
-        birthDate: "",
-        gender: "M",
-        maritalStatus: "single",
-        ministries: []
-      });
-
-      alert("✅ Membro cadastrado com sucesso!");
-      setNome("");
-      setEmail("");
-      carregarMembros(churchId); // Recarrega a lista
-    } catch (error) {
-      alert("❌ Erro ao cadastrar");
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Se ainda não carregou o ID (está redirecionando), mostra tela em branco ou carregando
-  if (!churchId) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
-  }
+  useEffect(() => {
+    loadChurches();
+  }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await churchService.create({
+        name: newName,
+        slug: newName.toLowerCase().replace(/ /g, '-'),
+        adminEmail: newEmail,
+        plan: 'basic',
+        active: true,
+        maxMembers: 100
+      });
+      setShowForm(false);
+      setNewName("");
+      setNewEmail("");
+      loadChurches();
+      alert("✅ Igreja criada com sucesso!");
+    } catch (error) {
+      alert("❌ Erro ao criar igreja");
+      console.error(error);
+    }
+  };
+
+  const toggleStatus = async (church: Church) => {
+    if(!church.id) return;
+    if(confirm(`Deseja ${church.active ? 'BLOQUEAR' : 'ATIVAR'} a igreja ${church.name}?`)) {
+        await churchService.toggleStatus(church.id, church.active);
+        loadChurches();
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      {/* Cabeçalho da Página */}
-      <div className="max-w-4xl mx-auto mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-500">Gerenciando: <span className="font-semibold text-blue-600">{churchName}</span></p>
-      </div>
-
-      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* LADO ESQUERDO: Formulário */}
-        <div className="bg-white p-6 rounded-lg shadow-md h-fit">
-          <h2 className="text-xl font-bold mb-4 text-blue-600">Novo Membro</h2>
-          <form onSubmit={handleCadastro} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Nome</label>
-              <input
-                type="text"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                className="mt-1 block w-full p-2 border border-gray-300 rounded-md text-black"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">E-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full p-2 border border-gray-300 rounded-md text-black"
-                required
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400"
-            >
-              {loading ? "Salvando..." : "Cadastrar"}
-            </button>
-          </form>
+    <div className="min-h-screen bg-slate-900 text-white p-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-blue-400">ReinoCloud <span className="text-white text-base font-normal opacity-50">| Super Admin</span></h1>
+            <p className="text-slate-400">Gestão dos Tenants (Clientes)</p>
+          </div>
+          <button 
+            onClick={() => setShowForm(!showForm)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <Plus size={20} /> Nova Igreja
+          </button>
         </div>
 
-        {/* LADO DIREITO: Lista de Membros */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4 text-gray-800 flex justify-between items-center">
-            Membros da Igreja
-            <span className="text-sm font-normal bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-              Total: {membros.length}
-            </span>
-          </h2>
-          
-          {membros.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 mb-2">Nenhum membro nesta igreja ainda.</p>
-              <p className="text-xs text-gray-400">Cadastre o primeiro ao lado!</p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
-              {membros.map((membro) => (
-                <li key={membro.id} className="py-3 flex justify-between items-center pr-2">
-                  <div>
-                    <p className="font-medium text-gray-800">{membro.fullName}</p>
-                    <p className="text-sm text-gray-500">{membro.email}</p>
-                  </div>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    membro.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {membro.status === 'active' ? 'Ativo' : 'Inativo'}
-                  </span>
-                </li>
+        {/* Formulário de Cadastro Rápido */}
+        {showForm && (
+          <div className="bg-slate-800 p-6 rounded-lg mb-8 border border-slate-700 animate-in fade-in slide-in-from-top-4">
+            <h3 className="font-bold mb-4">Cadastrar Novo Cliente</h3>
+            <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input 
+                placeholder="Nome da Igreja" 
+                className="bg-slate-900 border border-slate-700 p-2 rounded text-white"
+                value={newName} onChange={e => setNewName(e.target.value)} required
+              />
+              <input 
+                placeholder="E-mail do Pastor" 
+                className="bg-slate-900 border border-slate-700 p-2 rounded text-white"
+                value={newEmail} onChange={e => setNewEmail(e.target.value)} required
+              />
+              <button type="submit" className="bg-green-600 hover:bg-green-700 text-white p-2 rounded">
+                Confirmar Cadastro
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Lista de Clientes */}
+        <div className="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+          <table className="w-full text-left">
+            <thead className="bg-slate-900 text-slate-400">
+              <tr>
+                <th className="p-4">Igreja</th>
+                <th className="p-4">Plano</th>
+                <th className="p-4">Status</th>
+                <th className="p-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700">
+              {churches.map(church => (
+                <tr key={church.id} className="hover:bg-slate-700/50">
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-slate-700 p-2 rounded-full">
+                        <Building2 size={20} className="text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{church.name}</p>
+                        <p className="text-xs text-slate-500">{church.adminEmail}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className="bg-slate-700 px-2 py-1 rounded text-xs uppercase font-bold text-slate-300">
+                      {church.plan}
+                    </span>
+                  </td>
+                  <td className="p-4">
+                    {church.active ? (
+                        <span className="flex items-center gap-1 text-green-400 text-sm"><CheckCircle size={14}/> Ativa</span>
+                    ) : (
+                        <span className="flex items-center gap-1 text-red-400 text-sm"><ShieldAlert size={14}/> Bloqueada</span>
+                    )}
+                  </td>
+                  <td className="p-4 text-right">
+                    <button 
+                        onClick={() => toggleStatus(church)}
+                        className={`text-xs px-3 py-1 rounded border ${
+                            church.active 
+                            ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' 
+                            : 'border-green-500/30 text-green-400 hover:bg-green-500/10'
+                        }`}
+                    >
+                        {church.active ? 'Bloquear Acesso' : 'Reativar'}
+                    </button>
+                  </td>
+                </tr>
               ))}
-            </ul>
+            </tbody>
+          </table>
+          {churches.length === 0 && !loading && (
+            <div className="p-8 text-center text-slate-500">
+                Nenhuma igreja cadastrada ainda.
+            </div>
           )}
         </div>
-
       </div>
     </div>
   );
