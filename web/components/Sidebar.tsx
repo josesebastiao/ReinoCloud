@@ -3,8 +3,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, Music, Settings, LogOut } from "lucide-react";
 
+
+// ... imports ...
+
 export function Sidebar() {
   const pathname = usePathname();
+
+  // NOVO: Se for a página de login, não renderiza nada (retorna null)
+  if (pathname === "/login") {
+    return null;
+  }
 
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/" },
