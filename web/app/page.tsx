@@ -16,10 +16,10 @@ export default function Home() {
       await memberService.create({
         fullName: nome,
         email: email,
-        churchId: "igreja-teste-01", // Simula uma igreja logada
+        churchId: "igreja-teste-01",
         role: "member",
         status: "active",
-        searchKeywords: [], // O serviço gera isso automático
+        // A LINHA searchKeywords FOI REMOVIDA DAQUI
         photoUrl: "",
         phone: "",
         address: { street: "", district: "", city: "", state: "", zipCode: "" },
