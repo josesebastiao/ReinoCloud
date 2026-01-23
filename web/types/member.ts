@@ -1,29 +1,28 @@
-export type MemberStatus = 'active' | 'inactive' | 'disciplined' | 'moved';
-export type MemberRole = 'visitor' | 'member' | 'leader' | 'pastor' | 'admin';
-
 export interface Member {
   id?: string;
   fullName: string;
-  searchKeywords: string[];
-  photoUrl?: string;
   email: string;
-  phone: string;
+  churchId: string;
+  role: 'admin' | 'pastor' | 'leader' | 'member';
+  status: 'active' | 'inactive';
+  searchKeywords?: string[]; // Para a busca funcionar
+  createdAt?: any;
+
+  // --- NOVOS CAMPOS ---
+  phone: string;     // Telefone / WhatsApp
+  document: string;  // CPF ou Bilhete de Identidade
+  birthDate: string; // Data de Nascimento
+  baptismDate: string; // Data de Batismo
+  
+  // Endereço
   address: {
     street: string;
-    district: string;
+    number: string;
+    neighborhood: string; // Bairro
     city: string;
-    state: string;
-    zipCode: string;
+    state: string; // Estado ou Província
+    zipCode: string; // CEP (Opcional para Angola)
   };
-  birthDate: string;
-  gender: 'M' | 'F';
-  maritalStatus: string;
-  profession?: string;
-  role: MemberRole;
-  status: MemberStatus;
-  baptismDate?: string;
-  conversionDate?: string;
-  ministries: string[];
-  churchId: string;
-  createdAt: any;
+  
+  ministries: string[]; // Ministérios que participa
 }
