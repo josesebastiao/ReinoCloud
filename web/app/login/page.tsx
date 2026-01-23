@@ -103,6 +103,12 @@ export default function Login() {
             {loading ? "Entrando..." : "Acessar Sistema"}
           </button>
         </form>
+        <div className="mt-6 text-center text-sm">
+            <span className="text-gray-500">É seu primeiro acesso? </span>
+            <a href="/register" className="text-blue-600 font-medium hover:underline">
+                Ativar minha conta
+            </a>
+        </div>
       </div>
     </div>
   );
