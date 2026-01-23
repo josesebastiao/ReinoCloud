@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { memberService } from "../services/memberService";
-import { Member } from "../types/member";
+import { memberService } from "../../services/memberService";
+import { Member } from "../../types/member";
 import { Pencil, Trash2, X, User, CheckCircle, MapPin, Calendar, Phone, FileText } from "lucide-react";
 
 export default function Home() {
