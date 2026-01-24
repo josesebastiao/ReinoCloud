@@ -1,29 +1,24 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { AppLayout } from "../components/AppLayout"; // <--- Importamos o novo componente
+"use client";
+import { usePathname } from "next/navigation";
+import { Sidebar } from "./Sidebar";
 
-const inter = Inter({ subsets: ["latin"] });
+// REMOVA A PALAVRA 'default' DAQUI
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  
+  // Lista de páginas que NÃO devem ter menu lateral
+  const isAuthPage = pathname === "/login" || pathname === "/register";
 
-export const metadata: Metadata = {
-  title: "ReinoCloud - Gestão para Igrejas",
-  description: "Sistema de gestão eclesiástica",
-};
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
 
-// ATENÇÃO: Aqui PRECISA ter o 'default' para o Next.js funcionar
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
   return (
-    <html lang="pt-BR">
-      <body className={`${inter.className} bg-gray-50 text-gray-900`}>
-        {/* Usamos o AppLayout para controlar o menu */}
-        <AppLayout>
-          {children}
-        </AppLayout>
-      </body>
-    </html>
+    <div className="flex min-h-screen">
+      <Sidebar />
+      <main className="flex-1 md:ml-64 transition-all duration-300">
+        {children}
+      </main>
+    </div>
   );
 }
