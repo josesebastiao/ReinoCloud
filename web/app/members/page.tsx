@@ -3,9 +3,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { memberService } from "../../services/memberService";
 import { Member } from "../../types/member";
+import { ministryService } from "../../services/ministryService"; // <--- NOVO IMPORT
+import { Ministry } from "../../types/ministry"; // <--- NOVO IMPORT
 import { 
-  Pencil, Trash2, X, User, CheckCircle, MapPin, 
-  Calendar, Phone, FileText, Search // <--- NOVO ÍCONE
+  Pencil, Trash2, X, User, MapPin, 
+  Phone, FileText, Search, Users // <--- NOVO ÍCONE
 } from "lucide-react";
 
 export default function MembersPage() {
@@ -15,18 +17,19 @@ export default function MembersPage() {
   const [churchId, setChurchId] = useState("");
   const [churchName, setChurchName] = useState("");
   const [membros, setMembros] = useState<Member[]>([]);
+  
+  // --- NOVO: Lista de Ministérios Disponíveis ---
+  const [availableMinistries, setAvailableMinistries] = useState<Ministry[]>([]);
 
-  // --- NOVO: Estado para a Busca ---
   const [busca, setBusca] = useState("");
-
-  // Estado do Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Estados do Formulário
+  // Estados do Formulário (Adicionado o array de ministries)
   const [formData, setFormData] = useState({
     fullName: "", email: "", phone: "", document: "", birthDate: "", baptismDate: "",
-    street: "", number: "", neighborhood: "", city: "", state: ""
+    street: "", number: "", neighborhood: "", city: "", state: "",
+    ministries: [] as string[] // <--- ARRAY DE IDs DOS MINISTÉRIOS
   });
 
   useEffect(() => {
@@ -40,15 +43,22 @@ export default function MembersPage() {
 
     setChurchId(idSalvo);
     if (nomeSalvo) setChurchName(nomeSalvo);
-    carregarMembros(idSalvo);
+    
+    // Carrega Membros E Ministérios
+    carregarDados(idSalvo);
   }, [router]);
 
-  const carregarMembros = async (idDaIgreja: string) => {
-    const lista = await memberService.listByChurch(idDaIgreja);
-    setMembros(lista);
+  const carregarDados = async (idDaIgreja: string) => {
+    // Carregamos os dois em paralelo para ser rápido
+    const [listaMembros, listaMinisterios] = await Promise.all([
+      memberService.listByChurch(idDaIgreja),
+      ministryService.listByChurch(idDaIgreja)
+    ]);
+    
+    setMembros(listaMembros);
+    setAvailableMinistries(listaMinisterios);
   };
 
-  // --- NOVO: Lógica de Filtro (Pesquisa) ---
   const membrosFiltrados = membros.filter(membro => 
     membro.fullName.toLowerCase().includes(busca.toLowerCase()) ||
     membro.email.toLowerCase().includes(busca.toLowerCase()) ||
@@ -59,7 +69,8 @@ export default function MembersPage() {
     setEditingId(null);
     setFormData({
       fullName: "", email: "", phone: "", document: "", birthDate: "", baptismDate: "",
-      street: "", number: "", neighborhood: "", city: "", state: ""
+      street: "", number: "", neighborhood: "", city: "", state: "",
+      ministries: [] // Começa vazio
     });
     setIsModalOpen(true);
   };
@@ -77,9 +88,24 @@ export default function MembersPage() {
       number: membro.address?.number || "",
       neighborhood: membro.address?.neighborhood || "",
       city: membro.address?.city || "",
-      state: membro.address?.state || ""
+      state: membro.address?.state || "",
+      ministries: membro.ministries || [] // Carrega o que ele já participa
     });
     setIsModalOpen(true);
+  };
+
+  // --- NOVA LÓGICA: Marcar/Desmarcar Ministério ---
+  const toggleMinistry = (ministryId: string) => {
+    setFormData(prev => {
+      const exists = prev.ministries.includes(ministryId);
+      if (exists) {
+        // Se já tem, remove
+        return { ...prev, ministries: prev.ministries.filter(id => id !== ministryId) };
+      } else {
+        // Se não tem, adiciona
+        return { ...prev, ministries: [...prev.ministries, ministryId] };
+      }
+    });
   };
 
   const handleSalvar = async (e: React.FormEvent) => {
@@ -101,6 +127,7 @@ export default function MembersPage() {
         state: formData.state,
         zipCode: ""
       },
+      ministries: formData.ministries, // <--- SALVANDO AS EQUIPES
       churchId: churchId,
       status: "active",
       role: "member"
@@ -115,7 +142,9 @@ export default function MembersPage() {
         alert("✅ Membro cadastrado!");
       }
       setIsModalOpen(false);
-      carregarMembros(churchId);
+      // Recarrega apenas a lista de membros
+      const lista = await memberService.listByChurch(churchId);
+      setMembros(lista);
     } catch (error) {
       alert("Erro ao salvar.");
       console.error(error);
@@ -125,10 +154,11 @@ export default function MembersPage() {
   };
 
   const handleExcluir = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation(); // Impede que o clique abra o modal ao excluir
+    e.stopPropagation();
     if (confirm("Tem certeza que deseja excluir?")) {
         await memberService.delete(id);
-        carregarMembros(churchId);
+        const lista = await memberService.listByChurch(churchId);
+        setMembros(lista);
     }
   };
 
@@ -139,11 +169,20 @@ export default function MembersPage() {
 
   const getInitials = (name: string) => name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
 
+  // Helper para mostrar os nomes dos ministérios na lista (opcional, visual)
+  const getMinistryNames = (ids: string[]) => {
+    if (!ids || ids.length === 0) return null;
+    return ids.map(id => {
+      const min = availableMinistries.find(m => m.id === id);
+      return min ? min.name : null;
+    }).filter(Boolean).join(", ");
+  };
+
   if (!churchId) return <div className="flex h-screen items-center justify-center">Carregando...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      {/* Topo com Título e Botão */}
+      {/* Topo */}
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Membros</h1>
@@ -154,7 +193,7 @@ export default function MembersPage() {
         </button>
       </div>
 
-      {/* --- BARRA DE PESQUISA (NOVO) --- */}
+      {/* Busca */}
       <div className="max-w-6xl mx-auto mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-3 text-gray-400" size={20} />
@@ -168,17 +207,17 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* Lista */}
+      {/* Tabela */}
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {membrosFiltrados.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            {busca ? "Nenhum membro encontrado para esta busca." : "Nenhum membro cadastrado."}
+            {busca ? "Nenhum membro encontrado." : "Nenhum membro cadastrado."}
           </div>
         ) : (
           <table className="w-full text-left">
             <thead className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
               <tr>
-                <th className="p-4 font-medium">Nome / Documento</th>
+                <th className="p-4 font-medium">Nome / Equipes</th>
                 <th className="p-4 font-medium hidden md:table-cell">Contato</th>
                 <th className="p-4 font-medium hidden md:table-cell">Cidade</th>
                 <th className="p-4 font-medium text-right">Ações</th>
@@ -188,8 +227,8 @@ export default function MembersPage() {
               {membrosFiltrados.map((membro) => (
                 <tr 
                   key={membro.id} 
-                  onClick={() => abrirModalEdicao(membro)} // <--- CLIQUE NA LINHA ABRE O MODAL
-                  className="hover:bg-blue-50/50 transition cursor-pointer group" // Cursor de mãozinha
+                  onClick={() => abrirModalEdicao(membro)} 
+                  className="hover:bg-blue-50/50 transition cursor-pointer group"
                 >
                   <td className="p-4">
                     <div className="flex items-center gap-3">
@@ -198,7 +237,22 @@ export default function MembersPage() {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{membro.fullName}</p>
-                        <p className="text-xs text-gray-400">{membro.document || "Sem doc"}</p>
+                        {/* Mostra as etiquetas dos ministérios na lista */}
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {membro.ministries && membro.ministries.length > 0 ? (
+                             membro.ministries.map(minId => {
+                               const min = availableMinistries.find(m => m.id === minId);
+                               if(!min) return null;
+                               return (
+                                 <span key={minId} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                   {min.name}
+                                 </span>
+                               )
+                             })
+                          ) : (
+                            <p className="text-xs text-gray-400">{membro.document || "Sem doc"}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -207,20 +261,14 @@ export default function MembersPage() {
                     <p className="text-xs text-gray-500">{membro.phone}</p>
                   </td>
                   <td className="p-4 text-sm text-gray-600 hidden md:table-cell">
-                    {membro.address?.city} {membro.address?.state ? `- ${membro.address?.state}` : ''}
+                    {membro.address?.city}
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); abrirModalEdicao(membro); }} // stopPropagation evita clique duplo
-                        className="p-2 text-gray-400 hover:text-blue-600 rounded-lg transition"
-                      >
+                      <button onClick={(e) => { e.stopPropagation(); abrirModalEdicao(membro); }} className="p-2 text-gray-400 hover:text-blue-600 rounded-lg">
                         <Pencil size={18} />
                       </button>
-                      <button 
-                        onClick={(e) => handleExcluir(e, membro.id!)} 
-                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg transition"
-                      >
+                      <button onClick={(e) => handleExcluir(e, membro.id!)} className="p-2 text-gray-400 hover:text-red-600 rounded-lg">
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -232,19 +280,20 @@ export default function MembersPage() {
         )}
       </div>
 
-      {/* --- MODAL DE CADASTRO/EDIÇÃO --- */}
+      {/* --- MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
               <h2 className="text-lg font-bold text-gray-800">
                 {editingId ? "Ficha do Membro" : "Novo Cadastro"}
               </h2>
               <button onClick={() => setIsModalOpen(false)}><X size={20} className="text-gray-400" /></button>
             </div>
             
-            <form onSubmit={handleSalvar} className="p-6 overflow-y-auto max-h-[80vh]">
-              {/* Campos do Formulário (Mesmo de antes) */}
+            <form onSubmit={handleSalvar} className="p-6 overflow-y-auto">
+              
+              {/* Seção 1: Dados Pessoais */}
               <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
                 <User size={14}/> Dados Pessoais
               </h3>
@@ -254,22 +303,14 @@ export default function MembersPage() {
                   <input name="fullName" value={formData.fullName} onChange={handleChange} className="w-full p-2 border rounded-lg" required />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-700">CPF / Bilhete Identidade</label>
+                  <label className="text-xs font-medium text-gray-700">CPF / Doc</label>
                   <div className="relative">
                     <FileText size={16} className="absolute left-2.5 top-2.5 text-gray-400" />
                     <input name="document" value={formData.document} onChange={handleChange} className="w-full pl-9 p-2 border rounded-lg" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-700">Data de Nascimento</label>
-                  <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-                </div>
-                <div>
-                    <label className="text-xs font-medium text-gray-700">Data de Batismo</label>
-                    <input type="date" name="baptismDate" value={formData.baptismDate} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-                </div>
-                <div>
-                    <label className="text-xs font-medium text-gray-700">Telefone / WhatsApp</label>
+                    <label className="text-xs font-medium text-gray-700">Telefone</label>
                     <div className="relative">
                         <Phone size={16} className="absolute left-2.5 top-2.5 text-gray-400" />
                         <input name="phone" value={formData.phone} onChange={handleChange} className="w-full pl-9 p-2 border rounded-lg" />
@@ -281,36 +322,62 @@ export default function MembersPage() {
                 </div>
               </div>
 
+              {/* Seção 2: Endereço (Compactado para caber mais coisa) */}
               <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 border-t pt-4">
-                <MapPin size={14}/> Endereço Residencial
+                <MapPin size={14}/> Localização
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-1">
-                    <label className="text-xs font-medium text-gray-700">Rua / Logradouro</label>
-                    <input name="street" value={formData.street} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-                </div>
-                <div>
-                    <label className="text-xs font-medium text-gray-700">Número</label>
-                    <input name="number" value={formData.number} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-                </div>
-                <div>
-                    <label className="text-xs font-medium text-gray-700">Bairro</label>
-                    <input name="neighborhood" value={formData.neighborhood} onChange={handleChange} className="w-full p-2 border rounded-lg" />
-                </div>
-                <div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="col-span-2">
                     <label className="text-xs font-medium text-gray-700">Cidade</label>
                     <input name="city" value={formData.city} onChange={handleChange} className="w-full p-2 border rounded-lg" />
                 </div>
-                <div>
-                    <label className="text-xs font-medium text-gray-700">Estado / Província</label>
+                <div className="col-span-2">
+                    <label className="text-xs font-medium text-gray-700">Estado</label>
                     <input name="state" value={formData.state} onChange={handleChange} className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
+
+              {/* Seção 3: Ministérios (NOVA!) */}
+              <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 border-t pt-4">
+                <Users size={14}/> Ministérios e Equipes
+              </h3>
               
-              <div className="pt-6 flex gap-3">
+              {availableMinistries.length === 0 ? (
+                <div className="bg-gray-50 p-4 rounded-lg text-center text-sm text-gray-500 mb-6">
+                  Nenhum ministério cadastrado na igreja.
+                  <br/>
+                  <a href="/ministries" className="text-blue-600 hover:underline">Crie as equipes primeiro.</a>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {availableMinistries.map(min => {
+                    const isSelected = formData.ministries.includes(min.id!);
+                    return (
+                      <div 
+                        key={min.id}
+                        onClick={() => toggleMinistry(min.id!)}
+                        className={`
+                          cursor-pointer p-3 rounded-lg border flex items-center gap-3 transition
+                          ${isSelected 
+                            ? "bg-blue-50 border-blue-200 text-blue-800" 
+                            : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"}
+                        `}
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300"}`}>
+                          {isSelected && <span className="text-white text-[10px]">✓</span>}
+                        </div>
+                        <span className="text-sm font-medium">{min.name}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Botões */}
+              <div className="pt-2 flex gap-3 border-t">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2 border rounded-lg hover:bg-gray-50">Cancelar</button>
                 <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400">
-                  {loading ? "Salvando..." : "Salvar Dados"}
+                  {loading ? "Salvando..." : "Salvar Ficha"}
                 </button>
               </div>
             </form>
