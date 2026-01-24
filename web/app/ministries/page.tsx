@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link"; // <--- NOVO IMPORT AQUI
 import { ministryService } from "../../services/ministryService";
-import { memberService } from "../../services/memberService"; // <--- Importamos o MemberService
+import { memberService } from "../../services/memberService";
 import { Ministry } from "../../types/ministry";
-import { Member } from "../../types/member"; // <--- Importamos o Member Type
+import { Member } from "../../types/member";
 import { Users, Plus, Pencil, Trash2, Music, Heart, BookOpen, Mic2, X, Search, UserPlus, UserMinus } from "lucide-react";
 
 export default function Ministries() {
@@ -13,7 +14,7 @@ export default function Ministries() {
   
   // Dados
   const [ministries, setMinistries] = useState<Ministry[]>([]);
-  const [allMembers, setAllMembers] = useState<Member[]>([]); // <--- Lista de todos os membros para contar
+  const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Modal CRIAR/EDITAR Ministério
@@ -22,7 +23,7 @@ export default function Ministries() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  // Modal GERENCIAR EQUIPE (Novo!)
+  // Modal GERENCIAR EQUIPE
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
   const [searchMember, setSearchMember] = useState("");
@@ -38,7 +39,6 @@ export default function Ministries() {
   }, [router]);
 
   const carregarDados = async (id: string) => {
-    // Carrega ministérios E membros para fazer a contagem e gestão
     const [listaMin, listaMembros] = await Promise.all([
       ministryService.listByChurch(id),
       memberService.listByChurch(id)
@@ -47,12 +47,10 @@ export default function Ministries() {
     setAllMembers(listaMembros);
   };
 
-  // --- LÓGICA DE CONTAGEM ---
   const countMembers = (ministryId: string) => {
     return allMembers.filter(m => m.ministries?.includes(ministryId)).length;
   };
 
-  // --- LÓGICA DO MODAL DE EQUIPE ---
   const abrirGestaoEquipe = (ministry: Ministry) => {
     setSelectedMinistry(ministry);
     setSearchMember("");
@@ -62,13 +60,10 @@ export default function Ministries() {
   const handleAddMemberToMinistry = async (member: Member) => {
     if (!selectedMinistry) return;
     
-    // Adiciona o ID do ministério na lista do membro
     const currentMinistries = member.ministries || [];
     const newMinistries = [...currentMinistries, selectedMinistry.id!];
 
     await memberService.update(member.id!, { ministries: newMinistries });
-    
-    // Atualiza lista localmente para refletir na hora
     carregarDados(churchId);
   };
 
@@ -82,7 +77,6 @@ export default function Ministries() {
     carregarDados(churchId);
   };
 
-  // --- LÓGICA DO CRUD DE MINISTÉRIO (Manteve igual) ---
   const abrirModal = (ministry?: Ministry) => {
     if (ministry) {
       setEditingId(ministry.id || null);
@@ -127,13 +121,10 @@ export default function Ministries() {
     return <IconComponent size={24} />;
   };
 
-  // --- FILTROS PARA O MODAL DE EQUIPE ---
-  // Quem já está na equipe
   const membersInTeam = selectedMinistry 
     ? allMembers.filter(m => m.ministries?.includes(selectedMinistry.id!)) 
     : [];
 
-  // Quem NÃO está na equipe (para adicionar)
   const membersNotInTeam = selectedMinistry
     ? allMembers.filter(m => 
         !m.ministries?.includes(selectedMinistry.id!) && 
@@ -165,13 +156,16 @@ export default function Ministries() {
               {getRandomIcon(index)}
             </div>
             
-            <h3 className="text-lg font-bold text-gray-800 mb-1">{m.name}</h3>
+            {/* AQUI ESTÁ A MUDANÇA: O Título agora é um Link clicável */}
+            <Link href={`/ministries/${m.id}`} className="hover:underline cursor-pointer block">
+                <h3 className="text-lg font-bold text-gray-800 mb-1">{m.name}</h3>
+            </Link>
+
             <p className="text-sm text-gray-500 line-clamp-2 min-h-[40px] mb-4">{m.description || "Sem descrição."}</p>
             
             <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
               <span className="text-xs font-medium text-gray-400 uppercase">Membros: {countMembers(m.id!)}</span>
               
-              {/* BOTÃO DE GERENCIAR EQUIPE */}
               <button 
                 onClick={() => abrirGestaoEquipe(m)}
                 className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-100 transition font-medium flex items-center gap-1"
@@ -200,12 +194,11 @@ export default function Ministries() {
         </div>
       )}
 
-      {/* --- MODAL 2: GERENCIAR EQUIPE (O NOVO!) --- */}
+      {/* --- MODAL 2: GERENCIAR EQUIPE --- */}
       {isTeamModalOpen && selectedMinistry && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl h-[600px] flex flex-col overflow-hidden">
             
-            {/* Header do Modal */}
             <div className="p-4 border-b flex justify-between items-center bg-gray-50">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">Gerenciar Equipe</h2>
@@ -215,8 +208,6 @@ export default function Ministries() {
             </div>
 
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-              
-              {/* LADO ESQUERDO: Quem já está na equipe */}
               <div className="flex-1 p-4 overflow-y-auto border-r border-gray-100 bg-white">
                 <h3 className="text-xs font-bold text-gray-400 uppercase mb-3">Membros Atuais ({membersInTeam.length})</h3>
                 {membersInTeam.length === 0 && <p className="text-sm text-gray-400 italic">Ninguém nesta equipe ainda.</p>}
@@ -237,10 +228,8 @@ export default function Ministries() {
                 </div>
               </div>
 
-              {/* LADO DIREITO: Adicionar novos */}
               <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
                 <h3 className="text-xs font-bold text-gray-400 uppercase mb-3">Adicionar Membro</h3>
-                
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                   <input 
@@ -269,7 +258,6 @@ export default function Ministries() {
                   )}
                 </div>
               </div>
-
             </div>
           </div>
         </div>
