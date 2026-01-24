@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   description: "Sistema de gestão eclesiástica",
 };
 
+// ATENÇÃO: Aqui PRECISA ter o 'default' para o Next.js funcionar
 export default function RootLayout({
   children,
 }: Readonly<{
