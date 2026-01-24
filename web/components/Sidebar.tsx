@@ -12,8 +12,6 @@ export function Sidebar() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false); // Controle do menu mobile
 
-  if (pathname === "/login" || pathname === "/register") return null;
-
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
     { icon: Users, label: "Membros", href: "/members" },
