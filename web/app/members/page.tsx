@@ -3,9 +3,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { memberService } from "../../services/memberService";
 import { Member } from "../../types/member";
-import { Pencil, Trash2, X, User, CheckCircle, MapPin, Calendar, Phone, FileText } from "lucide-react";
+import { 
+  Pencil, Trash2, X, User, CheckCircle, MapPin, 
+  Calendar, Phone, FileText, Search // <--- NOVO ÍCONE
+} from "lucide-react";
 
-export default function Home() {
+export default function MembersPage() {
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
@@ -13,23 +16,17 @@ export default function Home() {
   const [churchName, setChurchName] = useState("");
   const [membros, setMembros] = useState<Member[]>([]);
 
+  // --- NOVO: Estado para a Busca ---
+  const [busca, setBusca] = useState("");
+
   // Estado do Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // --- ESTADOS DO FORMULÁRIO (Todos os campos) ---
+  // Estados do Formulário
   const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    document: "",
-    birthDate: "",
-    baptismDate: "",
-    street: "",
-    number: "",
-    neighborhood: "",
-    city: "",
-    state: ""
+    fullName: "", email: "", phone: "", document: "", birthDate: "", baptismDate: "",
+    street: "", number: "", neighborhood: "", city: "", state: ""
   });
 
   useEffect(() => {
@@ -50,6 +47,13 @@ export default function Home() {
     const lista = await memberService.listByChurch(idDaIgreja);
     setMembros(lista);
   };
+
+  // --- NOVO: Lógica de Filtro (Pesquisa) ---
+  const membrosFiltrados = membros.filter(membro => 
+    membro.fullName.toLowerCase().includes(busca.toLowerCase()) ||
+    membro.email.toLowerCase().includes(busca.toLowerCase()) ||
+    (membro.document && membro.document.includes(busca))
+  );
 
   const abrirModalCriacao = () => {
     setEditingId(null);
@@ -82,7 +86,6 @@ export default function Home() {
     e.preventDefault();
     setLoading(true);
 
-    // Objeto organizado para salvar
     const dadosParaSalvar: Partial<Member> = {
       fullName: formData.fullName,
       email: formData.email,
@@ -96,7 +99,7 @@ export default function Home() {
         neighborhood: formData.neighborhood,
         city: formData.city,
         state: formData.state,
-        zipCode: "" // Deixamos vazio por enquanto
+        zipCode: ""
       },
       churchId: churchId,
       status: "active",
@@ -108,7 +111,6 @@ export default function Home() {
         await memberService.update(editingId, dadosParaSalvar);
         alert("✅ Dados atualizados!");
       } else {
-        // Create exige campos obrigatórios, o Partial resolve o erro de tipagem no update mas aqui precisamos garantir
         await memberService.create(dadosParaSalvar as any); 
         alert("✅ Membro cadastrado!");
       }
@@ -122,56 +124,76 @@ export default function Home() {
     }
   };
 
-  const handleExcluir = async (id: string) => {
+  const handleExcluir = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Impede que o clique abra o modal ao excluir
     if (confirm("Tem certeza que deseja excluir?")) {
         await memberService.delete(id);
         carregarMembros(churchId);
     }
   };
 
-  const getInitials = (name: string) => name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
-
-  // Função genérica para atualizar os inputs
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const getInitials = (name: string) => name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+
   if (!churchId) return <div className="flex h-screen items-center justify-center">Carregando...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
-      {/* Topo */}
-      <div className="max-w-6xl mx-auto flex justify-between items-center mb-8">
+      {/* Topo com Título e Botão */}
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Membros</h1>
           <p className="text-gray-500">{churchName}</p>
         </div>
-        <button onClick={abrirModalCriacao} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm">
+        <button onClick={abrirModalCriacao} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm w-full md:w-auto justify-center">
           <User size={20} /> Novo Membro
         </button>
       </div>
 
+      {/* --- BARRA DE PESQUISA (NOVO) --- */}
+      <div className="max-w-6xl mx-auto mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+          <input 
+            type="text"
+            placeholder="Buscar por nome, e-mail ou documento..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            className="w-full pl-10 p-3 border border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-gray-700"
+          />
+        </div>
+      </div>
+
       {/* Lista */}
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {membros.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">Nenhum membro cadastrado.</div>
+        {membrosFiltrados.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            {busca ? "Nenhum membro encontrado para esta busca." : "Nenhum membro cadastrado."}
+          </div>
         ) : (
           <table className="w-full text-left">
             <thead className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
               <tr>
                 <th className="p-4 font-medium">Nome / Documento</th>
-                <th className="p-4 font-medium">Contato</th>
-                <th className="p-4 font-medium">Cidade</th>
+                <th className="p-4 font-medium hidden md:table-cell">Contato</th>
+                <th className="p-4 font-medium hidden md:table-cell">Cidade</th>
                 <th className="p-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {membros.map((membro) => (
-                <tr key={membro.id} className="hover:bg-gray-50/50 transition group">
+              {membrosFiltrados.map((membro) => (
+                <tr 
+                  key={membro.id} 
+                  onClick={() => abrirModalEdicao(membro)} // <--- CLIQUE NA LINHA ABRE O MODAL
+                  className="hover:bg-blue-50/50 transition cursor-pointer group" // Cursor de mãozinha
+                >
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">
                         {getInitials(membro.fullName)}
                       </div>
                       <div>
@@ -180,19 +202,25 @@ export default function Home() {
                       </div>
                     </div>
                   </td>
-                  <td className="p-4">
+                  <td className="p-4 hidden md:table-cell">
                     <p className="text-sm text-gray-700">{membro.email}</p>
                     <p className="text-xs text-gray-500">{membro.phone}</p>
                   </td>
-                  <td className="p-4 text-sm text-gray-600">
-                    {membro.address?.city} - {membro.address?.state}
+                  <td className="p-4 text-sm text-gray-600 hidden md:table-cell">
+                    {membro.address?.city} {membro.address?.state ? `- ${membro.address?.state}` : ''}
                   </td>
                   <td className="p-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => abrirModalEdicao(membro)} className="p-2 text-gray-400 hover:text-blue-600">
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); abrirModalEdicao(membro); }} // stopPropagation evita clique duplo
+                        className="p-2 text-gray-400 hover:text-blue-600 rounded-lg transition"
+                      >
                         <Pencil size={18} />
                       </button>
-                      <button onClick={() => handleExcluir(membro.id!)} className="p-2 text-gray-400 hover:text-red-600">
+                      <button 
+                        onClick={(e) => handleExcluir(e, membro.id!)} 
+                        className="p-2 text-gray-400 hover:text-red-600 rounded-lg transition"
+                      >
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -204,20 +232,19 @@ export default function Home() {
         )}
       </div>
 
-      {/* --- MODAL DE CADASTRO COMPLETO --- */}
+      {/* --- MODAL DE CADASTRO/EDIÇÃO --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h2 className="text-lg font-bold text-gray-800">
-                {editingId ? "Editar Ficha de Membro" : "Novo Cadastro"}
+                {editingId ? "Ficha do Membro" : "Novo Cadastro"}
               </h2>
               <button onClick={() => setIsModalOpen(false)}><X size={20} className="text-gray-400" /></button>
             </div>
             
             <form onSubmit={handleSalvar} className="p-6 overflow-y-auto max-h-[80vh]">
-              
-              {/* Seção Pessoal */}
+              {/* Campos do Formulário (Mesmo de antes) */}
               <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2">
                 <User size={14}/> Dados Pessoais
               </h3>
@@ -230,7 +257,7 @@ export default function Home() {
                   <label className="text-xs font-medium text-gray-700">CPF / Bilhete Identidade</label>
                   <div className="relative">
                     <FileText size={16} className="absolute left-2.5 top-2.5 text-gray-400" />
-                    <input name="document" value={formData.document} onChange={handleChange} className="w-full pl-9 p-2 border rounded-lg" placeholder="000.000.000-00" />
+                    <input name="document" value={formData.document} onChange={handleChange} className="w-full pl-9 p-2 border rounded-lg" />
                   </div>
                 </div>
                 <div>
@@ -245,7 +272,7 @@ export default function Home() {
                     <label className="text-xs font-medium text-gray-700">Telefone / WhatsApp</label>
                     <div className="relative">
                         <Phone size={16} className="absolute left-2.5 top-2.5 text-gray-400" />
-                        <input name="phone" value={formData.phone} onChange={handleChange} className="w-full pl-9 p-2 border rounded-lg" placeholder="+55 27 99999-9999" />
+                        <input name="phone" value={formData.phone} onChange={handleChange} className="w-full pl-9 p-2 border rounded-lg" />
                     </div>
                 </div>
                 <div className="md:col-span-2">
@@ -254,7 +281,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Seção Endereço */}
               <h3 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 border-t pt-4">
                 <MapPin size={14}/> Endereço Residencial
               </h3>
@@ -277,14 +303,14 @@ export default function Home() {
                 </div>
                 <div>
                     <label className="text-xs font-medium text-gray-700">Estado / Província</label>
-                    <input name="state" value={formData.state} onChange={handleChange} className="w-full p-2 border rounded-lg" placeholder="ES ou Luanda" />
+                    <input name="state" value={formData.state} onChange={handleChange} className="w-full p-2 border rounded-lg" />
                 </div>
               </div>
               
               <div className="pt-6 flex gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2 border rounded-lg hover:bg-gray-50">Cancelar</button>
                 <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400">
-                  {loading ? "Salvando..." : "Salvar Ficha"}
+                  {loading ? "Salvando..." : "Salvar Dados"}
                 </button>
               </div>
             </form>
