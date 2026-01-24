@@ -6,8 +6,8 @@ import { Sidebar } from "../components/Sidebar";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ReinoCloud - Gestão",
-  description: "Sistema de gestão para igrejas",
+  title: "ReinoCloud - Gestão para Igrejas",
+  description: "Sistema de gestão eclesiástica",
 };
 
 export default function RootLayout({
@@ -17,14 +17,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.className} bg-gray-50 flex`}>
-        {/* O Menu fica fixo na esquerda */}
-        <Sidebar />
-        
-        {/* O conteúdo da página carrega aqui na direita */}
-        <main className="flex-1 h-screen overflow-auto">
-          {children}
-        </main>
+      <body className={`${inter.className} bg-gray-50 text-gray-900`}>
+        <div className="flex min-h-screen">
+          {/* Menu Lateral (Fixo) */}
+          <Sidebar />
+          
+          {/* Conteúdo Principal (Com margem para não ficar embaixo do menu) */}
+          <main className="flex-1 md:ml-64 transition-all duration-300">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );
