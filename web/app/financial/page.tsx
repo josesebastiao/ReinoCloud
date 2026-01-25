@@ -5,14 +5,18 @@ import { financeService } from "../../services/financeService";
 import { memberService } from "../../services/memberService";
 import { Transaction } from "../../types/finance";
 import { Member } from "../../types/member";
+import { useChurch } from "../../contexts/ChurchContext"; // <--- IMPORTAÇÃO NOVA
 import { 
   DollarSign, TrendingUp, TrendingDown, Plus, 
-  Trash2, Calendar, User, ArrowUpCircle, ArrowDownCircle, X 
+  Trash2, ArrowUpCircle, ArrowDownCircle, X 
 } from "lucide-react";
 
 export default function FinancialPage() {
   const router = useRouter();
   const [churchId, setChurchId] = useState("");
+  
+  // Pegamos a função de formatar dinheiro do contexto global
+  const { formatMoney } = useChurch(); 
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -35,7 +39,6 @@ export default function FinancialPage() {
     }
     setChurchId(idSalvo);
     
-    // Data de hoje padrão para o formulário
     const hoje = new Date().toISOString().split('T')[0];
     setDate(hoje);
 
@@ -43,15 +46,18 @@ export default function FinancialPage() {
   }, [router]);
 
   const carregarDados = async (id: string) => {
-    const [listaTransacoes, listaMembros] = await Promise.all([
-      financeService.listByChurch(id),
-      memberService.listByChurch(id)
-    ]);
-    setTransactions(listaTransacoes);
-    setMembers(listaMembros);
+    try {
+      const [listaTransacoes, listaMembros] = await Promise.all([
+        financeService.listByChurch(id),
+        memberService.listByChurch(id)
+      ]);
+      setTransactions(listaTransacoes);
+      setMembers(listaMembros);
+    } catch (error) {
+      console.error("Erro ao carregar dados (verifique índices):", error);
+    }
   };
 
-  // --- CÁLCULOS DOS TOTAIS ---
   const totalIncome = transactions
     .filter(t => t.type === 'income')
     .reduce((acc, curr) => acc + Number(curr.amount), 0);
@@ -67,14 +73,11 @@ export default function FinancialPage() {
     setLoading(true);
 
     try {
-      // Se for dízimo e tiver membro selecionado, ajusta a descrição
       let finalDesc = description;
       if (category === 'Dízimo' && selectedMember) {
         const memberName = members.find(m => m.id === selectedMember)?.fullName;
         finalDesc = `Dízimo - ${memberName}`;
       }
-
-    // Dentro de handleSave
 
       await financeService.create({
         churchId,
@@ -83,23 +86,17 @@ export default function FinancialPage() {
         type,
         category,
         date,
-        // AGORA VAI: Se não tiver membro, manda null (que o Firebase aceita)
+        // Mantendo a correção: Envia null se vazio
         memberId: selectedMember || null 
       });
 
       setIsModalOpen(false);
       resetForm();
       carregarDados(churchId);
-      alert("✅ Lançamento salvo!");
-    } catch (error: any) { // <--- Adicione : any para o typescript deixar ler o erro
-      
-      // ESTE CÓDIGO VAI MOSTRAR O ERRO REAL NO CONSOLE
-      console.error("🔥 ERRO DETALHADO FIREBASE 🔥");
-      console.error("Código:", error.code);
-      console.error("Mensagem:", error.message);
-      console.error("Objeto completo:", error);
-
-      alert(`Erro ao salvar: ${error.message}`); // Mostra na tela tbm
+      // alert("✅ Lançamento salvo!"); // Opcional, removi para ficar mais fluido
+    } catch (error: any) {
+      console.error("Erro Firebase:", error);
+      alert(`Erro ao salvar: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -119,12 +116,6 @@ export default function FinancialPage() {
     }
   };
 
-  // Formata moeda (Simples)
-  const formatMoney = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-    // Para Angola trocar 'BRL' por 'AOA' e 'pt-BR' por 'pt-AO' futuramente
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto flex justify-between items-center mb-8">
@@ -140,13 +131,14 @@ export default function FinancialPage() {
         </button>
       </div>
 
-      {/* --- CARDS DE RESUMO --- */}
+      {/* CARDS DE RESUMO */}
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Entrada */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm font-medium text-gray-500">Entradas</p>
+              {/* Usando formatMoney do contexto */}
               <h3 className="text-2xl font-bold text-green-600">{formatMoney(totalIncome)}</h3>
             </div>
             <div className="p-2 bg-green-50 text-green-600 rounded-lg">
@@ -182,7 +174,7 @@ export default function FinancialPage() {
         </div>
       </div>
 
-      {/* --- TABELA DE LANÇAMENTOS --- */}
+      {/* TABELA DE LANÇAMENTOS */}
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {transactions.length === 0 ? (
           <div className="text-center py-12 text-gray-500">Nenhum lançamento financeiro ainda.</div>
@@ -225,7 +217,7 @@ export default function FinancialPage() {
         )}
       </div>
 
-      {/* --- MODAL DE LANÇAMENTO --- */}
+      {/* MODAL DE LANÇAMENTO */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
@@ -235,7 +227,6 @@ export default function FinancialPage() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-4">
-              {/* Tipo: Entrada ou Saída */}
               <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-lg">
                 <button
                   type="button"
@@ -277,7 +268,6 @@ export default function FinancialPage() {
                 />
               </div>
 
-              {/* Se for Entrada, mostra opções de Dízimo/Oferta */}
               {type === 'income' && (
                 <>
                   <div>
@@ -294,7 +284,6 @@ export default function FinancialPage() {
                     </select>
                   </div>
 
-                  {/* Se for Dízimo, mostra a lista de membros */}
                   {category === 'Dízimo' && (
                     <div className="animate-in fade-in slide-in-from-top-2">
                       <label className="text-xs font-bold text-gray-500">Membro Dizimista</label>
@@ -314,7 +303,6 @@ export default function FinancialPage() {
                 </>
               )}
 
-              {/* Se for Saída ou Oferta (sem membro), mostra campo de descrição manual */}
               {(type === 'expense' || category !== 'Dízimo') && (
                 <div>
                   <label className="text-xs font-bold text-gray-500">Descrição</label>

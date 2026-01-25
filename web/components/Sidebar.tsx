@@ -6,13 +6,17 @@ import {
   LayoutDashboard, Users, Music, Settings, DollarSign, LogOut, Menu, X 
 } from "lucide-react";
 import { auth } from "../lib/firebase";
+import { useChurch } from "../contexts/ChurchContext"; // <--- IMPORTAÇÃO NOVA
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Pegamos a configuração global (Ministério ou Departamento?)
+  const { settings } = useChurch(); 
 
-  // --- TRAVA DE SEGURANÇA: Se for Login, o Sidebar NEM RENDERIZA ---
+  // Trava de segurança: Se for Login, não mostra nada
   if (pathname === "/login" || pathname === "/register") {
     return null;
   }
@@ -20,7 +24,8 @@ export function Sidebar() {
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
     { icon: Users, label: "Membros", href: "/members" },
-    { icon: Music, label: "Ministérios", href: "/ministries" },
+    // AQUI ESTÁ A MÁGICA: O rótulo muda sozinho
+    { icon: Music, label: settings.ministryLabel, href: "/ministries" }, 
     { icon: DollarSign, label: "Financeiro", href: "/financial" },
     { icon: Settings, label: "Configurações", href: "/settings" },
   ];
@@ -41,7 +46,7 @@ export function Sidebar() {
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Sidebar Desktop/Mobile */}
+      {/* Sidebar */}
       <aside className={`
         fixed left-0 top-0 h-full bg-slate-900 text-white w-64 z-40 transition-transform duration-300 ease-in-out flex flex-col
         ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
@@ -78,6 +83,7 @@ export function Sidebar() {
         </div>
       </aside>
 
+      {/* Fundo escuro no mobile */}
       {isOpen && <div onClick={() => setIsOpen(false)} className="fixed inset-0 bg-black/50 z-30 md:hidden" />}
     </>
   );
