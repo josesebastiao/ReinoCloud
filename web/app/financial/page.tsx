@@ -74,6 +74,8 @@ export default function FinancialPage() {
         finalDesc = `Dízimo - ${memberName}`;
       }
 
+    // Dentro de handleSave
+
       await financeService.create({
         churchId,
         description: finalDesc,
@@ -81,7 +83,8 @@ export default function FinancialPage() {
         type,
         category,
         date,
-        memberId: selectedMember || undefined
+        // AGORA VAI: Se não tiver membro, manda null (que o Firebase aceita)
+        memberId: selectedMember || null 
       });
 
       setIsModalOpen(false);
