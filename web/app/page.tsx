@@ -2,7 +2,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { memberService } from "../services/memberService";
-import { financeService } from "../services/financeService"; // <--- NOVO
+import { financeService } from "../services/financeService";
+import { Member } from "../types/member";           // <--- IMPORTANTE
+import { Transaction } from "../types/finance";     // <--- IMPORTANTE
 import { Users, UserCheck, UserX, DollarSign, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -40,7 +42,8 @@ export default function Dashboard() {
       setError("");
 
       // 1. Buscando Membros
-      let members = [];
+      // AQUI ESTAVA O ERRO: Agora tipamos explicitamente como Member[]
+      let members: Member[] = []; 
       try {
         members = await memberService.listByChurch(churchId);
       } catch (err) {
@@ -48,7 +51,8 @@ export default function Dashboard() {
       }
 
       // 2. Buscando Finanças
-      let transactions = [];
+      // AQUI TAMBÉM: Tipamos como Transaction[]
+      let transactions: Transaction[] = [];
       try {
         transactions = await financeService.listByChurch(churchId);
       } catch (err) {
