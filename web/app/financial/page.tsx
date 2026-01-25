@@ -88,8 +88,15 @@ export default function FinancialPage() {
       resetForm();
       carregarDados(churchId);
       alert("✅ Lançamento salvo!");
-    } catch (error) {
-      alert("Erro ao salvar.");
+    } catch (error: any) { // <--- Adicione : any para o typescript deixar ler o erro
+      
+      // ESTE CÓDIGO VAI MOSTRAR O ERRO REAL NO CONSOLE
+      console.error("🔥 ERRO DETALHADO FIREBASE 🔥");
+      console.error("Código:", error.code);
+      console.error("Mensagem:", error.message);
+      console.error("Objeto completo:", error);
+
+      alert(`Erro ao salvar: ${error.message}`); // Mostra na tela tbm
     } finally {
       setLoading(false);
     }
