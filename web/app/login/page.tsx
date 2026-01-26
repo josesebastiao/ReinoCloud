@@ -19,58 +19,42 @@ export default function Login() {
     setError("");
 
     try {
-      // 1. Login no Firebase (Autenticação Básica)
+      // 1. Login no Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. DESCOBRIR QUEM É ESSA PESSOA (Busca no Banco de Membros)
-      // Procuramos um membro que tenha esse e-mail
+      // 2. Busca quem é o usuário no banco de Membros
       const membersRef = collection(db, "members");
       const q = query(membersRef, where("email", "==", email));
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        // --- CENÁRIO A: É UM MEMBRO DA EQUIPE (Tesoureiro, Líder, etc) ---
+        // --- É ALGUÉM DA EQUIPE (OU PASTOR CADASTRADO) ---
         const memberData = querySnapshot.docs[0].data();
         
-        // Salva as credenciais corretas da igreja dele
         localStorage.setItem("churchId", memberData.churchId);
-        localStorage.setItem("userRole", memberData.role); // Pega o cargo real do banco!
-        localStorage.setItem("userName", memberData.fullName);
+        localStorage.setItem("userRole", memberData.role);
+        // SALVAMOS O NOME PARA O "OLÁ, FULANO"
+        localStorage.setItem("userName", memberData.fullName); 
         
-        console.log(`🔓 Login de Equipe: ${memberData.fullName} é ${memberData.role}`);
-        router.push("/"); // Manda pro Dashboard
+        router.push("/");
       
       } else {
-        // --- CENÁRIO B: NÃO ACHOU NO BANCO DE MEMBROS ---
-        // Pode ser o Pastor Titular (Dono da conta) que criou a igreja e talvez não esteja na lista de membros ainda
-        // Ou pode ser um erro. Vamos tentar achar se ele tem um churchId salvo de sessão anterior ou tratar como Admin se criou a conta.
-        
-        // *Estratégia:* Se logou no Firebase mas não tá na lista de membros, 
-        // assumimos que é o Admin/Dono se ele já tiver um churchId no navegador, 
-        // ou verificamos se ele criou a igreja (lógica mais complexa).
-        
-        // Para simplificar e não travar você: Se logou e não achou membro, 
-        // mantemos o que estiver no localStorage ou definimos como 'admin' por segurança se ele souber o ID.
-        
+        // --- É O DONO (ADMIN) ---
         const savedChurchId = localStorage.getItem("churchId");
-        
         if (savedChurchId) {
-             // É o Pastor logando na própria máquina
              localStorage.setItem("userRole", "admin");
+             // Se não tiver nome salvo, usamos "Pastor"
+             if (!localStorage.getItem("userName")) {
+                 localStorage.setItem("userName", "Pastor");
+             }
              router.push("/");
         } else {
-            // Se é um login novo e não achamos vínculo, pode ser problema.
-            // Mas vamos deixar passar como Admin para você não se trancar fora, 
-            // mas idealmente ele deveria criar a igreja primeiro.
-             setError("Usuário não vinculado a uma igreja. Fale com seu Pastor.");
-             // Se for você testando, pode ser que seu email de login não esteja cadastrado em 'members'.
-             // DICA: Cadastre você mesmo como membro com cargo 'pastor' ou 'admin' para garantir!
+             setError("Usuário não vinculado. Fale com seu Pastor.");
         }
       }
 
     } catch (err: any) {
-      console.error(err);
       if (err.code === 'auth/invalid-credential') {
         setError("E-mail ou senha incorretos.");
       } else {
@@ -130,8 +114,14 @@ export default function Login() {
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          <p>É sua primeira vez? <Link href="/register" className="text-blue-600 hover:underline">Criar nova Igreja</Link></p>
-          <p className="mt-2 text-xs">Se você é da equipe (Tesoureiro/Líder), peça para o Pastor te cadastrar e use o "Recuperar Senha" (em breve) ou crie uma conta com o mesmo e-mail.</p>
+          <p>É sua primeira vez?</p>
+          {/* MUDANÇA AQUI: Link mais genérico */}
+          <Link href="/register" className="text-blue-600 hover:underline font-bold">
+            Criar Conta / Primeiro Acesso
+          </Link>
+          <p className="mt-2 text-xs text-gray-400">
+            Válido para Pastores (Nova Igreja) e Equipe (Já cadastrados).
+          </p>
         </div>
       </div>
     </div>

@@ -5,14 +5,16 @@ import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { Member } from "../types/member";
 import { Transaction } from "../types/finance";
-import { useChurch } from "../contexts/ChurchContext"; // <--- USANDO O CONTEXTO
+import { useChurch } from "../contexts/ChurchContext";
 import { Users, UserCheck, UserX, DollarSign, TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default function Dashboard() {
   const router = useRouter();
-  const { formatMoney, settings } = useChurch(); // <--- IMPORTANTE
+  const { formatMoney } = useChurch();
   const [churchName, setChurchName] = useState("");
+  // Estado para o nome do usuário (Começa genérico, depois atualiza)
+  const [userName, setUserName] = useState("Pastor"); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -26,25 +28,29 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
-    // Verifica login
+    // Carrega dados do usuário
     const idSalvo = localStorage.getItem("churchId");
-    const nomeSalvo = localStorage.getItem("churchName");
+    const nomeIgreja = localStorage.getItem("churchName");
+    const nomeUsuario = localStorage.getItem("userName"); // <--- Pega o nome salvo no login
+
+    if (nomeUsuario) {
+      // Pega só o primeiro nome para ficar amigável (ex: "Matias" de "Matias Souza")
+      setUserName(nomeUsuario.split(' ')[0]);
+    }
 
     if (!idSalvo) {
-      // Se não tiver ID, redireciona, mas espera o componente montar
       return; 
     }
 
-    setChurchName(nomeSalvo || "Minha Igreja");
+    setChurchName(nomeIgreja || "Minha Igreja");
     carregarDados(idSalvo);
-  }, []); // Array vazio para rodar apenas 1 vez
+  }, []);
 
   const carregarDados = async (churchId: string) => {
     try {
       setLoading(true);
       setError("");
 
-      // 1. Buscando Membros (Com tipagem Member[])
       let members: Member[] = [];
       try {
         members = await memberService.listByChurch(churchId);
@@ -52,7 +58,6 @@ export default function Dashboard() {
         console.error("Erro membros:", err);
       }
 
-      // 2. Buscando Finanças (Com tipagem Transaction[])
       let transactions: Transaction[] = [];
       try {
         transactions = await financeService.listByChurch(churchId);
@@ -60,7 +65,6 @@ export default function Dashboard() {
         console.error("Erro finanças:", err);
       }
 
-      // 3. Cálculos
       const active = members.filter(m => m.status === 'active').length;
       const inactive = members.filter(m => m.status !== 'active').length;
 
@@ -83,7 +87,7 @@ export default function Dashboard() {
 
     } catch (err: any) {
       console.error("Erro geral Dashboard:", err);
-      setError("Erro ao carregar dados. Verifique sua conexão.");
+      setError("Erro ao carregar dados.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +100,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Olá, Pastor! 👋</h1>
+        {/* AQUI ESTÁ A MUDANÇA: Usa a variável userName */}
+        <h1 className="text-3xl font-bold text-gray-900">Olá, {userName}! 👋</h1>
         <p className="text-gray-500">Resumo financeiro e de membresia da {churchName}.</p>
         {error && (
           <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-lg text-sm">⚠️ {error}</div>
@@ -122,7 +127,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* CARD SALDO - Usando formatMoney do Contexto */}
+        {/* CARD SALDO */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
@@ -159,7 +164,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Atalhos com Link Dinâmico para Ministérios/Departamentos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Link href="/financial" className="block p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-between">
             <div className="flex items-center gap-3">
