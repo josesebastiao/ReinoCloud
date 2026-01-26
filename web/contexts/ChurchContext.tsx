@@ -3,7 +3,6 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 
 type ChurchSettings = {
   currency: 'BRL' | 'AOA';
-  ministryLabel: 'Ministérios' | 'Departamentos';
 };
 
 interface ChurchContextType {
@@ -12,10 +11,9 @@ interface ChurchContextType {
   formatMoney: (value: number) => string;
 }
 
-// Valor padrão inicial
+// Configuração Padrão
 const defaultSettings: ChurchSettings = {
-  currency: 'BRL',
-  ministryLabel: 'Ministérios'
+  currency: 'BRL'
 };
 
 const ChurchContext = createContext<ChurchContextType>({
@@ -25,48 +23,46 @@ const ChurchContext = createContext<ChurchContextType>({
 });
 
 export function ChurchProvider({ children }: { children: ReactNode }) {
-  // Inicializa com o padrão
   const [settings, setSettings] = useState<ChurchSettings>(defaultSettings);
   const [mounted, setMounted] = useState(false);
 
-  // 1. Carrega do LocalStorage assim que a tela abre
   useEffect(() => {
-    setMounted(true); // Indica que o componente montou
+    setMounted(true);
+    // Tenta carregar do Cache (LocalStorage) ao iniciar
     const saved = localStorage.getItem("churchSettings");
     if (saved) {
       try {
         setSettings(JSON.parse(saved));
       } catch (e) {
-        console.error("Erro ao carregar config", e);
+        console.error("Erro ao ler cache", e);
       }
     }
   }, []);
 
-  // 2. Função Poderosa para Atualizar e Salvar
   const updateSettings = (newSettings: Partial<ChurchSettings>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
+      // Grava no Cache imediatamente
       localStorage.setItem("churchSettings", JSON.stringify(updated));
-      return updated; // Isso força o React a atualizar a tela NA HORA
+      return updated;
     });
   };
 
   const formatMoney = (value: number) => {
-    // Se ainda não montou (SSR), usa um fallback simples
-    if (!mounted) return `... ${value}`;
+    if (!mounted) return "...";
 
-    const locale = settings.currency === 'AOA' ? 'pt-AO' : 'pt-BR';
-    const currency = settings.currency;
+    // --- CORREÇÃO AQUI: Formatação Manual Garantida ---
     
-    try {
-      return new Intl.NumberFormat(locale, { 
-        style: 'currency', 
-        currency: currency,
-        minimumFractionDigits: 2 
-      }).format(value);
-    } catch (error) {
-      return `${currency} ${value}`;
+    if (settings.currency === 'AOA') {
+      // Angola: Kz 5.000,00 (Forçamos o 'Kz' manualmente)
+      return `Kz ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
+
+    // Brasil: R$ 5.000,00 (Padrão nativo)
+    return new Intl.NumberFormat('pt-BR', { 
+      style: 'currency', 
+      currency: 'BRL' 
+    }).format(value);
   };
 
   return (
