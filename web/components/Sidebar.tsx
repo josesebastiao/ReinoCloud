@@ -27,13 +27,12 @@ export function Sidebar() {
   const accessRules = {
     dashboard: ['admin', 'pastor', 'treasurer', 'leader', 'secretary'],
     agenda:    ['admin', 'pastor', 'leader', 'secretary'], 
-    
-    // MEMBROS: Apenas Pastor e Secretário (Tesoureiro NÃO vê mais)
     members:   ['admin', 'pastor', 'secretary'], 
-    
     ministry:  ['admin', 'pastor', 'leader'], 
     financial: ['admin', 'pastor', 'treasurer'], 
-    settings:  ['admin', 'pastor'] 
+    
+    // AQUI: Adicionei 'treasurer' para o Matias poder mudar a moeda
+    settings:  ['admin', 'pastor', 'treasurer'] 
   };
 
   const canAccess = (module: keyof typeof accessRules) => accessRules[module].includes(userRole);

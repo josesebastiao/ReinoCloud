@@ -1,6 +1,6 @@
 import { db } from "../lib/firebase";
 import { 
-  collection, addDoc, getDocs, doc, updateDoc, getDoc, // <--- ADICIONEI getDoc
+  collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc, // <--- deleteDoc e getDoc novos
   serverTimestamp, query, orderBy 
 } from "firebase/firestore";
 import { Church } from "../types/church";
@@ -8,13 +8,13 @@ import { Church } from "../types/church";
 const COLLECTION = "churches";
 
 export const churchService = {
-  // 1. Criar uma nova igreja (Onboarding de cliente)
+  // 1. Criar nova igreja
   create: async (data: Omit<Church, 'id' | 'createdAt'>) => {
     try {
       const docRef = await addDoc(collection(db, COLLECTION), {
         ...data,
         createdAt: serverTimestamp(),
-        active: true, // Nasce ativa
+        active: true,
       });
       return docRef.id;
     } catch (error) {
@@ -23,7 +23,7 @@ export const churchService = {
     }
   },
 
-  // 2. Listar todas as igrejas (Para seu dashboard de Super Admin)
+  // 2. Listar todas (Super Admin)
   listAll: async () => {
     try {
       const q = query(collection(db, COLLECTION), orderBy("name"));
@@ -33,12 +33,12 @@ export const churchService = {
         ...doc.data()
       })) as Church[];
     } catch (error) {
-      console.error("Erro ao listar igrejas:", error);
+      console.error("Erro ao listar:", error);
       throw error;
     }
   },
 
-  // 3. Bloquear/Desbloquear Igreja (Ex: Falta de pagamento)
+  // 3. Bloquear/Desbloquear
   toggleStatus: async (churchId: string, currentStatus: boolean) => {
     try {
       const ref = doc(db, COLLECTION, churchId);
@@ -49,25 +49,34 @@ export const churchService = {
     }
   },
 
-  // --- NOVAS FUNÇÕES PARA CONFIGURAÇÃO NA NUVEM ---
+  // 4. DELETAR IGREJA (NOVO - CUIDADO!)
+  delete: async (churchId: string) => {
+    try {
+      // Nota: Isso deleta o cadastro da igreja, mas não deleta as sub-coleções (membros, finanças) automaticamente no Firebase Client.
+      // Para um MVP, isso remove da lista visual.
+      await deleteDoc(doc(db, COLLECTION, churchId));
+    } catch (error) {
+      console.error("Erro ao excluir igreja:", error);
+      throw error;
+    }
+  },
 
-  // 4. Buscar Configurações (Moeda, Termos, etc)
+  // 5. Buscar Configurações (Para o Matias ver Kz)
   getSettings: async (churchId: string) => {
     try {
       const docRef = doc(db, COLLECTION, churchId);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
-        // Retorna as configs ou um padrão se ainda não tiver
         return snap.data().settings || { currency: 'BRL' }; 
       }
       return null;
     } catch (error) {
-      console.error("Erro ao buscar configurações:", error);
+      console.error("Erro config:", error);
       return null;
     }
   },
 
-  // 5. Salvar Configurações (Quando o Pastor clica em Salvar)
+  // 6. Salvar Configurações
   updateSettings: async (churchId: string, settings: any) => {
     try {
       const ref = doc(db, COLLECTION, churchId);
@@ -75,7 +84,7 @@ export const churchService = {
         settings: settings
       });
     } catch (error) {
-      console.error("Erro ao atualizar configurações:", error);
+      console.error("Erro update config:", error);
       throw error;
     }
   }
