@@ -14,11 +14,13 @@ export default function SettingsPage() {
   }, [settings]);
 
   const handleSave = () => {
-    // Atualiza apenas a moeda. O termo não precisa mais ser salvo pois removemos a opção.
+    // Atualiza o contexto globalmente
     updateSettings({ currency });
     
-    alert(`✅ Moeda alterada para: ${currency === 'BRL' ? 'Real (R$)' : 'Kwanza (Kz)'}`);
-    window.location.reload(); 
+    // Alerta simples
+    alert(`✅ Configuração salva!\nMoeda definida para: ${currency === 'BRL' ? 'Real (R$)' : 'Kwanza (Kz)'}`);
+    
+    // REMOVIDO O RELOAD PARA A MUDANÇA SER IMEDIATA E NÃO PERDER O STATE
   };
 
   return (

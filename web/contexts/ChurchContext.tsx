@@ -8,10 +8,9 @@ type ChurchSettings = {
 interface ChurchContextType {
   settings: ChurchSettings;
   updateSettings: (newSettings: Partial<ChurchSettings>) => void;
-  formatMoney: (value: number) => string;
+  formatMoney: (value: number | string) => string;
 }
 
-// Configuração Padrão
 const defaultSettings: ChurchSettings = {
   currency: 'BRL'
 };
@@ -24,17 +23,15 @@ const ChurchContext = createContext<ChurchContextType>({
 
 export function ChurchProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<ChurchSettings>(defaultSettings);
-  const [mounted, setMounted] = useState(false);
-
+  
+  // Carrega configuração ao iniciar
   useEffect(() => {
-    setMounted(true);
-    // Tenta carregar do Cache (LocalStorage) ao iniciar
     const saved = localStorage.getItem("churchSettings");
     if (saved) {
       try {
         setSettings(JSON.parse(saved));
       } catch (e) {
-        console.error("Erro ao ler cache", e);
+        console.error("Erro config", e);
       }
     }
   }, []);
@@ -42,27 +39,32 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
   const updateSettings = (newSettings: Partial<ChurchSettings>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
-      // Grava no Cache imediatamente
       localStorage.setItem("churchSettings", JSON.stringify(updated));
       return updated;
     });
   };
 
-  const formatMoney = (value: number) => {
-    if (!mounted) return "...";
+  // --- FORMATAÇÃO BLINDADA ---
+  const formatMoney = (value: number | string) => {
+    // 1. Garante que é número
+    const num = Number(value);
+    if (isNaN(num)) return "0,00";
 
-    // --- CORREÇÃO AQUI: Formatação Manual Garantida ---
-    
+    // 2. Se for Kwanza (Angola)
     if (settings.currency === 'AOA') {
-      // Angola: Kz 5.000,00 (Forçamos o 'Kz' manualmente)
-      return `Kz ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      // Converte para texto com 2 casas decimais (ex: "5000.00")
+      // Troca ponto por vírgula (ex: "5000,00")
+      // Adiciona ponto de milhar usando Regex
+      const parts = num.toFixed(2).split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      return `Kz ${parts.join(',')}`;
     }
 
-    // Brasil: R$ 5.000,00 (Padrão nativo)
+    // 3. Se for Real (Brasil)
     return new Intl.NumberFormat('pt-BR', { 
       style: 'currency', 
       currency: 'BRL' 
-    }).format(value);
+    }).format(num);
   };
 
   return (
