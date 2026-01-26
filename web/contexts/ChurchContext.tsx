@@ -12,7 +12,7 @@ interface ChurchContextType {
   formatMoney: (value: number) => string;
 }
 
-// Valores padrão (Brasil) para evitar erro de Build
+// Valor padrão inicial
 const defaultSettings: ChurchSettings = {
   currency: 'BRL',
   ministryLabel: 'Ministérios'
@@ -25,39 +25,36 @@ const ChurchContext = createContext<ChurchContextType>({
 });
 
 export function ChurchProvider({ children }: { children: ReactNode }) {
+  // Inicializa com o padrão
   const [settings, setSettings] = useState<ChurchSettings>(defaultSettings);
-  const [loaded, setLoaded] = useState(false); // Para evitar salvar BRL em cima do AOA no inicio
+  const [mounted, setMounted] = useState(false);
 
+  // 1. Carrega do LocalStorage assim que a tela abre
   useEffect(() => {
-    // 1. Ao abrir o site, tenta ler do LocalStorage
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("churchSettings");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          console.log("📂 Configuração Carregada:", parsed);
-          setSettings(parsed);
-        } catch (e) {
-          console.error("Erro ao ler configuração", e);
-        }
+    setMounted(true); // Indica que o componente montou
+    const saved = localStorage.getItem("churchSettings");
+    if (saved) {
+      try {
+        setSettings(JSON.parse(saved));
+      } catch (e) {
+        console.error("Erro ao carregar config", e);
       }
-      setLoaded(true);
     }
   }, []);
 
+  // 2. Função Poderosa para Atualizar e Salvar
   const updateSettings = (newSettings: Partial<ChurchSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    
-    // Salva no navegador
-    if (typeof window !== "undefined") {
+    setSettings((prev) => {
+      const updated = { ...prev, ...newSettings };
       localStorage.setItem("churchSettings", JSON.stringify(updated));
-      console.log("💾 Configuração Salva:", updated);
-    }
+      return updated; // Isso força o React a atualizar a tela NA HORA
+    });
   };
 
   const formatMoney = (value: number) => {
-    // Se ainda não carregou a config, usa o padrão do estado atual
+    // Se ainda não montou (SSR), usa um fallback simples
+    if (!mounted) return `... ${value}`;
+
     const locale = settings.currency === 'AOA' ? 'pt-AO' : 'pt-BR';
     const currency = settings.currency;
     
@@ -68,7 +65,7 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
         minimumFractionDigits: 2 
       }).format(value);
     } catch (error) {
-      return `${currency} ${value}`; // Fallback se der erro no Intl
+      return `${currency} ${value}`;
     }
   };
 

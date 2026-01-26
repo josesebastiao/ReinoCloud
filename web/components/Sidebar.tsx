@@ -6,26 +6,23 @@ import {
   LayoutDashboard, Users, Music, Settings, DollarSign, LogOut, Menu, X 
 } from "lucide-react";
 import { auth } from "../lib/firebase";
-import { useChurch } from "../contexts/ChurchContext"; // <--- IMPORTAÇÃO NOVA
+// Removemos o import do useChurch pois não vamos mais usar para o label
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  
-  // Pegamos a configuração global (Ministério ou Departamento?)
-  const { settings } = useChurch(); 
 
-  // Trava de segurança: Se for Login, não mostra nada
-  if (pathname === "/login" || pathname === "/register") {
+  // Se for Login, não renderiza nada
+  if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) {
     return null;
   }
 
   const menuItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/" },
     { icon: Users, label: "Membros", href: "/members" },
-    // AQUI ESTÁ A MÁGICA: O rótulo muda sozinho
-    { icon: Music, label: settings.ministryLabel, href: "/ministries" }, 
+    // AQUI ESTÁ A MUDANÇA: Texto fixo e claro para todos
+    { icon: Music, label: "Ministérios / Deptos", href: "/ministries" }, 
     { icon: DollarSign, label: "Financeiro", href: "/financial" },
     { icon: Settings, label: "Configurações", href: "/settings" },
   ];
@@ -46,7 +43,6 @@ export function Sidebar() {
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Sidebar */}
       <aside className={`
         fixed left-0 top-0 h-full bg-slate-900 text-white w-64 z-40 transition-transform duration-300 ease-in-out flex flex-col
         ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
@@ -67,7 +63,7 @@ export function Sidebar() {
               }`}
             >
               <item.icon size={20} />
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium text-sm">{item.label}</span>
             </Link>
           ))}
         </nav>
@@ -83,7 +79,6 @@ export function Sidebar() {
         </div>
       </aside>
 
-      {/* Fundo escuro no mobile */}
       {isOpen && <div onClick={() => setIsOpen(false)} className="fixed inset-0 bg-black/50 z-30 md:hidden" />}
     </>
   );
