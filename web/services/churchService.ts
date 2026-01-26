@@ -1,5 +1,8 @@
 import { db } from "../lib/firebase";
-import { collection, addDoc, getDocs, doc, updateDoc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { 
+  collection, addDoc, getDocs, doc, updateDoc, getDoc, // <--- ADICIONEI getDoc
+  serverTimestamp, query, orderBy 
+} from "firebase/firestore";
 import { Church } from "../types/church";
 
 const COLLECTION = "churches";
@@ -20,7 +23,7 @@ export const churchService = {
     }
   },
 
-  // 2. Listar todas as igrejas (Para seu dashboard)
+  // 2. Listar todas as igrejas (Para seu dashboard de Super Admin)
   listAll: async () => {
     try {
       const q = query(collection(db, COLLECTION), orderBy("name"));
@@ -42,6 +45,37 @@ export const churchService = {
       await updateDoc(ref, { active: !currentStatus });
     } catch (error) {
       console.error("Erro ao alterar status:", error);
+      throw error;
+    }
+  },
+
+  // --- NOVAS FUNÇÕES PARA CONFIGURAÇÃO NA NUVEM ---
+
+  // 4. Buscar Configurações (Moeda, Termos, etc)
+  getSettings: async (churchId: string) => {
+    try {
+      const docRef = doc(db, COLLECTION, churchId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        // Retorna as configs ou um padrão se ainda não tiver
+        return snap.data().settings || { currency: 'BRL' }; 
+      }
+      return null;
+    } catch (error) {
+      console.error("Erro ao buscar configurações:", error);
+      return null;
+    }
+  },
+
+  // 5. Salvar Configurações (Quando o Pastor clica em Salvar)
+  updateSettings: async (churchId: string, settings: any) => {
+    try {
+      const ref = doc(db, COLLECTION, churchId);
+      await updateDoc(ref, {
+        settings: settings
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar configurações:", error);
       throw error;
     }
   }

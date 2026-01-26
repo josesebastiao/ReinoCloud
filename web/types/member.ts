@@ -4,32 +4,28 @@ export interface Member {
   email: string;
   churchId: string;
   
-  // Adicionei 'treasurer' aqui para podermos dar acesso à tesouraria depois
-  role: 'admin' | 'pastor' | 'leader' | 'member' | 'treasurer';
+  // ADICIONADO: 'secretary'
+  role: 'admin' | 'pastor' | 'leader' | 'member' | 'treasurer' | 'secretary';
   
   status: 'active' | 'inactive';
-  searchKeywords?: string[]; // Para a busca funcionar
+  searchKeywords?: string[];
   createdAt?: any;
 
-  // --- SEUS CAMPOS (MANTIDOS) ---
-  phone: string;     // Telefone / WhatsApp
-  document: string;  // CPF ou Bilhete de Identidade
-  birthDate: string; // Data de Nascimento
-  baptismDate: string; // Data de Batismo
+  // Seus campos personalizados
+  phone: string;
+  document: string;
+  birthDate: string;
+  baptismDate: string;
   
-  // Endereço (Objeto Aninhado)
   address: {
     street: string;
     number: string;
-    neighborhood: string; // Bairro
+    neighborhood: string;
     city: string;
-    state: string; // Estado ou Província
-    zipCode: string; // CEP (Opcional para Angola)
+    state: string;
+    zipCode: string;
   };
   
-  ministries: string[]; // IDs dos Ministérios que participa (como integrante)
-  
-  // --- NOVO CAMPO PARA A SEGURANÇA ---
-  // Se o role for 'leader', aqui vai o ID do ministério que ele chefia
+  ministries: string[];
   leadershipId?: string; 
 }

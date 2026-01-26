@@ -11,78 +11,54 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  
-  // Estado para guardar o cargo atual (Padrão: admin)
   const [userRole, setUserRole] = useState("admin");
 
   useEffect(() => {
-    // Carrega o cargo salvo (ou define admin se não tiver)
-    // Isso vem do Login ou do Simulador de Acesso
     if (typeof window !== "undefined") {
-      const savedRole = localStorage.getItem("userRole") || "admin";
-      setUserRole(savedRole);
+      setUserRole(localStorage.getItem("userRole") || "admin");
     }
   }, []);
 
-  // Se estiver na tela de Login ou Registro, esconde o menu
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) {
     return null;
   }
 
-  // --- REGRAS DE ACESSO ---
-  // Define quais cargos podem ver cada módulo
+  // --- REGRAS DE ACESSO ATUALIZADAS ---
   const accessRules = {
-    dashboard: ['admin', 'pastor', 'treasurer', 'leader'],
-    agenda:    ['admin', 'pastor', 'leader'], // <--- Agenda: Pastor e Líderes vêem
-    members:   ['admin', 'pastor'], // Só Pastor mexe no cadastro
-    ministry:  ['admin', 'pastor', 'leader'], // Líder vê a escala
-    financial: ['admin', 'pastor', 'treasurer'], // Tesoureiro vê o dinheiro
-    settings:  ['admin', 'pastor'] // Só Pastor configura o sistema
+    dashboard: ['admin', 'pastor', 'treasurer', 'leader', 'secretary'],
+    agenda:    ['admin', 'pastor', 'leader', 'secretary'], 
+    
+    // MEMBROS: Apenas Pastor e Secretário (Tesoureiro NÃO vê mais)
+    members:   ['admin', 'pastor', 'secretary'], 
+    
+    ministry:  ['admin', 'pastor', 'leader'], 
+    financial: ['admin', 'pastor', 'treasurer'], 
+    settings:  ['admin', 'pastor'] 
   };
 
-  // Função auxiliar para verificar permissão
-  const canAccess = (module: keyof typeof accessRules) => {
-    return accessRules[module].includes(userRole);
-  };
+  const canAccess = (module: keyof typeof accessRules) => accessRules[module].includes(userRole);
 
-  // Lista de itens do menu (Dinâmica baseada no cargo)
   const menuItems = [
-    // Dashboard (Todos vêem)
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Dashboard", href: "/" }] : []),
-    
-    // Agenda (Novo Item)
     ...(canAccess('agenda')    ? [{ icon: Calendar, label: "Agenda Pastoral", href: "/agenda" }] : []),
-    
-    // Membros (Só Pastor)
     ...(canAccess('members')   ? [{ icon: Users, label: "Membros", href: "/members" }] : []),
-    
-    // Ministérios (Pastor e Líderes)
     ...(canAccess('ministry')  ? [{ icon: Music, label: "Ministérios / Deptos", href: "/ministries" }] : []),
-    
-    // Financeiro (Pastor e Tesoureiro)
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Financeiro", href: "/financial" }] : []),
-    
-    // Configurações (Só Pastor)
     ...(canAccess('settings')  ? [{ icon: Settings, label: "Configurações", href: "/settings" }] : []),
   ];
 
   const handleLogout = () => {
     auth.signOut();
-    localStorage.clear(); // Limpa tudo, inclusive o cargo simulado
+    localStorage.clear();
     router.push("/login");
   };
 
   return (
     <>
-      {/* Botão Mobile (Hambúrguer) */}
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden fixed top-4 right-4 z-50 bg-slate-900 text-white p-2 rounded-lg shadow-lg"
-      >
+      <button onClick={() => setIsOpen(!isOpen)} className="md:hidden fixed top-4 right-4 z-50 bg-slate-900 text-white p-2 rounded-lg shadow-lg">
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Sidebar Principal */}
       <aside className={`
         fixed left-0 top-0 h-full bg-slate-900 text-white w-64 z-40 transition-transform duration-300 ease-in-out flex flex-col
         ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
@@ -91,13 +67,12 @@ export function Sidebar() {
           <h1 className="text-2xl font-bold text-blue-500">ReinoCloud</h1>
           <p className="text-xs text-slate-400">Gestão para Igrejas</p>
           
-          {/* Mostrador de Cargo (Para saber quem está logado) */}
           <div className="mt-4 flex items-center gap-2 text-xs bg-slate-800 p-2 rounded text-yellow-500 border border-slate-700">
             <Shield size={12} />
             <span className="capitalize">
-              Acesso: {userRole === 'admin' ? 'Pastor Titular' : 
-                       userRole === 'treasurer' ? 'Tesouraria' :
-                       userRole === 'leader' ? 'Liderança' : userRole}
+              {userRole === 'admin' ? 'Pastor Titular' : 
+               userRole === 'secretary' ? 'Secretaria' :
+               userRole === 'treasurer' ? 'Tesouraria' : userRole}
             </span>
           </div>
         </div>
@@ -119,17 +94,12 @@ export function Sidebar() {
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 w-full text-slate-300 hover:text-red-400 hover:bg-slate-800 rounded-lg transition"
-          >
+          <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full text-slate-300 hover:text-red-400 hover:bg-slate-800 rounded-lg transition">
             <LogOut size={20} />
             <span>Sair</span>
           </button>
         </div>
       </aside>
-
-      {/* Fundo escuro para mobile */}
       {isOpen && <div onClick={() => setIsOpen(false)} className="fixed inset-0 bg-black/50 z-30 md:hidden" />}
     </>
   );
