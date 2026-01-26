@@ -1,6 +1,6 @@
 import { db } from "../lib/firebase";
 import { 
-  collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc, // <--- deleteDoc e getDoc novos
+  collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc, 
   serverTimestamp, query, orderBy 
 } from "firebase/firestore";
 import { Church } from "../types/church";
@@ -9,12 +9,13 @@ const COLLECTION = "churches";
 
 export const churchService = {
   // 1. Criar nova igreja
-  create: async (data: Omit<Church, 'id' | 'createdAt'>) => {
+  // CORREÇÃO AQUI: Adicionei " | 'active' " para ele não exigir isso na chamada
+  create: async (data: Omit<Church, 'id' | 'createdAt' | 'active'>) => {
     try {
       const docRef = await addDoc(collection(db, COLLECTION), {
         ...data,
         createdAt: serverTimestamp(),
-        active: true,
+        active: true, // Nós definimos isso aqui automaticamente
       });
       return docRef.id;
     } catch (error) {
@@ -49,11 +50,9 @@ export const churchService = {
     }
   },
 
-  // 4. DELETAR IGREJA (NOVO - CUIDADO!)
+  // 4. Deletar Igreja
   delete: async (churchId: string) => {
     try {
-      // Nota: Isso deleta o cadastro da igreja, mas não deleta as sub-coleções (membros, finanças) automaticamente no Firebase Client.
-      // Para um MVP, isso remove da lista visual.
       await deleteDoc(doc(db, COLLECTION, churchId));
     } catch (error) {
       console.error("Erro ao excluir igreja:", error);
@@ -61,7 +60,7 @@ export const churchService = {
     }
   },
 
-  // 5. Buscar Configurações (Para o Matias ver Kz)
+  // 5. Buscar Configurações
   getSettings: async (churchId: string) => {
     try {
       const docRef = doc(db, COLLECTION, churchId);
