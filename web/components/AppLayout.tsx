@@ -5,27 +5,24 @@ import { Sidebar } from "./Sidebar";
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
-  // Verifica se é login ou registro
-  const isAuth = pathname === "/login" || pathname === "/register";
+  // Verificação robusta: Se a URL começar com /login ou /register...
+  // O "|| !pathname" protege contra erro inicial de carregamento
+  const isAuth = !pathname || pathname.startsWith("/login") || pathname.startsWith("/register");
 
   return (
     <div className={`flex min-h-screen ${isAuth ? "bg-slate-900" : "bg-gray-50"}`}>
-      {/* O Sidebar já tem a lógica interna para se esconder, mas aqui garantimos a estrutura */}
+      {/* Sidebar: Ela já tem lógica para não aparecer no login, mas aqui garantimos a estrutura */}
       <Sidebar />
       
-      {/* AQUI ESTÁ A MÁGICA DO ESPAÇO EM BRANCO: */}
+      {/* CORREÇÃO DO ESPAÇO BRANCO:
+          Se for login (isAuth), usamos padding 0 (p-0) e removemos a margem esquerda.
+          Se NÃO for login, aplicamos md:pl-64.
+      */}
       <main className={`
         flex-1 transition-all duration-300 w-full
-        ${isAuth ? "p-0" : "md:pl-64 p-4 md:p-8"} 
+        ${isAuth ? "p-0 flex items-center justify-center" : "md:pl-64 p-4 md:p-8"} 
       `}>
-        {/* Se for login, centraliza tudo. Se não, mostra normal */}
-        {isAuth ? (
-          <div className="flex items-center justify-center min-h-screen w-full">
-            {children}
-          </div>
-        ) : (
-          children
-        )}
+        {children}
       </main>
     </div>
   );
