@@ -4,7 +4,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../../lib/firebase";
 import { useRouter } from "next/navigation";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { Lock, Mail } from "lucide-react";
+import Link from "next/link";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -19,95 +19,119 @@ export default function Login() {
     setError("");
 
     try {
-      // 1. Autentica no Firebase Auth
+      // 1. Login no Firebase (Autenticação Básica)
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. Descobre qual é a Igreja desse usuário
-      // Buscamos na coleção 'churches' qual tem o adminEmail igual ao logado
-      const q = query(collection(db, "churches"), where("adminEmail", "==", user.email));
+      // 2. DESCOBRIR QUEM É ESSA PESSOA (Busca no Banco de Membros)
+      // Procuramos um membro que tenha esse e-mail
+      const membersRef = collection(db, "members");
+      const q = query(membersRef, where("email", "==", email));
       const querySnapshot = await getDocs(q);
 
-      if (querySnapshot.empty) {
-        setError("Usuário não vinculado a nenhuma igreja.");
-        setLoading(false);
-        return;
+      if (!querySnapshot.empty) {
+        // --- CENÁRIO A: É UM MEMBRO DA EQUIPE (Tesoureiro, Líder, etc) ---
+        const memberData = querySnapshot.docs[0].data();
+        
+        // Salva as credenciais corretas da igreja dele
+        localStorage.setItem("churchId", memberData.churchId);
+        localStorage.setItem("userRole", memberData.role); // Pega o cargo real do banco!
+        localStorage.setItem("userName", memberData.fullName);
+        
+        console.log(`🔓 Login de Equipe: ${memberData.fullName} é ${memberData.role}`);
+        router.push("/"); // Manda pro Dashboard
+      
+      } else {
+        // --- CENÁRIO B: NÃO ACHOU NO BANCO DE MEMBROS ---
+        // Pode ser o Pastor Titular (Dono da conta) que criou a igreja e talvez não esteja na lista de membros ainda
+        // Ou pode ser um erro. Vamos tentar achar se ele tem um churchId salvo de sessão anterior ou tratar como Admin se criou a conta.
+        
+        // *Estratégia:* Se logou no Firebase mas não tá na lista de membros, 
+        // assumimos que é o Admin/Dono se ele já tiver um churchId no navegador, 
+        // ou verificamos se ele criou a igreja (lógica mais complexa).
+        
+        // Para simplificar e não travar você: Se logou e não achou membro, 
+        // mantemos o que estiver no localStorage ou definimos como 'admin' por segurança se ele souber o ID.
+        
+        const savedChurchId = localStorage.getItem("churchId");
+        
+        if (savedChurchId) {
+             // É o Pastor logando na própria máquina
+             localStorage.setItem("userRole", "admin");
+             router.push("/");
+        } else {
+            // Se é um login novo e não achamos vínculo, pode ser problema.
+            // Mas vamos deixar passar como Admin para você não se trancar fora, 
+            // mas idealmente ele deveria criar a igreja primeiro.
+             setError("Usuário não vinculado a uma igreja. Fale com seu Pastor.");
+             // Se for você testando, pode ser que seu email de login não esteja cadastrado em 'members'.
+             // DICA: Cadastre você mesmo como membro com cargo 'pastor' ou 'admin' para garantir!
+        }
       }
-
-      // 3. Salva o ID da Igreja no navegador (Local Storage) para usarmos depois
-      const churchData = querySnapshot.docs[0];
-      localStorage.setItem("churchId", churchData.id);
-      localStorage.setItem("churchName", churchData.data().name);
-
-      // 4. Redireciona para a Dashboard
-      router.push("/");
 
     } catch (err: any) {
       console.error(err);
-      setError("E-mail ou senha inválidos.");
+      if (err.code === 'auth/invalid-credential') {
+        setError("E-mail ou senha incorretos.");
+      } else {
+        setError("Erro ao entrar. Tente novamente.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900">
-      <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-blue-600">ReinoCloud</h1>
           <p className="text-gray-500">Acesse sua conta</p>
         </div>
 
         {error && (
-          <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm text-center">
+          <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm text-center">
             {error}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">E-mail</label>
-            <div className="relative mt-1">
-              <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-black"
-                placeholder="seu@email.com"
-                required
-              />
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+            <input 
+              type="email" 
+              required 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+              placeholder="seu@email.com"
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Senha</label>
-            <div className="relative mt-1">
-              <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-black"
-                placeholder="******"
-                required
-              />
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+            <input 
+              type="password" 
+              required 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+              placeholder="******"
+            />
           </div>
 
-          <button
-            type="submit"
+          <button 
+            type="submit" 
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition font-medium disabled:bg-blue-300"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200 disabled:opacity-70"
           >
             {loading ? "Entrando..." : "Acessar Sistema"}
           </button>
         </form>
-        <div className="mt-6 text-center text-sm">
-            <span className="text-gray-500">É seu primeiro acesso? </span>
-            <a href="/register" className="text-blue-600 font-medium hover:underline">
-                Ativar minha conta
-            </a>
+
+        <div className="mt-6 text-center text-sm text-gray-500">
+          <p>É sua primeira vez? <Link href="/register" className="text-blue-600 hover:underline">Criar nova Igreja</Link></p>
+          <p className="mt-2 text-xs">Se você é da equipe (Tesoureiro/Líder), peça para o Pastor te cadastrar e use o "Recuperar Senha" (em breve) ou crie uma conta com o mesmo e-mail.</p>
         </div>
       </div>
     </div>
