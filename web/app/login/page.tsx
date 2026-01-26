@@ -19,42 +19,47 @@ export default function Login() {
     setError("");
 
     try {
-      // 1. Login no Firebase
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      // 1. Autentica no Firebase
+      await signInWithEmailAndPassword(auth, email, password);
 
-      // 2. Busca quem é o usuário no banco de Membros
+      // 2. Busca TODOS os vínculos desse e-mail no banco
       const membersRef = collection(db, "members");
       const q = query(membersRef, where("email", "==", email));
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        // --- É ALGUÉM DA EQUIPE (OU PASTOR CADASTRADO) ---
-        const memberData = querySnapshot.docs[0].data();
+        // --- LÓGICA DE PRIORIDADE (O PULO DO GATO) ---
+        // Transforma os resultados em uma lista
+        const accounts = querySnapshot.docs.map(doc => doc.data());
+
+        // Tenta achar uma conta que seja ADMIN ou PASTOR
+        const adminAccount = accounts.find(acc => acc.role === 'admin' || acc.role === 'pastor');
         
-        localStorage.setItem("churchId", memberData.churchId);
-        localStorage.setItem("userRole", memberData.role);
-        // SALVAMOS O NOME PARA O "OLÁ, FULANO"
-        localStorage.setItem("userName", memberData.fullName); 
+        // Se achou admin, usa ela. Se não, usa a primeira que encontrar.
+        const bestAccount = adminAccount || accounts[0];
+
+        // Salva os dados da MELHOR conta encontrada
+        localStorage.setItem("churchId", bestAccount.churchId);
+        localStorage.setItem("userRole", bestAccount.role);
+        localStorage.setItem("userName", bestAccount.fullName);
         
+        console.log(`🔓 Login priorizado: ${bestAccount.role} | Igreja: ${bestAccount.churchId}`);
         router.push("/");
       
       } else {
-        // --- É O DONO (ADMIN) ---
+        // Caso de fallback (Se for o dono da conta sem membro criado)
         const savedChurchId = localStorage.getItem("churchId");
         if (savedChurchId) {
              localStorage.setItem("userRole", "admin");
-             // Se não tiver nome salvo, usamos "Pastor"
-             if (!localStorage.getItem("userName")) {
-                 localStorage.setItem("userName", "Pastor");
-             }
+             localStorage.setItem("userName", "Super Admin");
              router.push("/");
         } else {
-             setError("Usuário não vinculado. Fale com seu Pastor.");
+             setError("Usuário não vinculado. Contate o suporte.");
         }
       }
 
     } catch (err: any) {
+      console.error(err);
       if (err.code === 'auth/invalid-credential') {
         setError("E-mail ou senha incorretos.");
       } else {
@@ -83,45 +88,29 @@ export default function Login() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
             <input 
-              type="email" 
-              required 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+              type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="seu@email.com"
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
             <input 
-              type="password" 
-              required 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
+              type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="******"
             />
           </div>
-
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition duration-200 disabled:opacity-70"
-          >
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-70">
             {loading ? "Entrando..." : "Acessar Sistema"}
           </button>
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-500">
           <p>É sua primeira vez?</p>
-          {/* MUDANÇA AQUI: Link mais genérico */}
           <Link href="/register" className="text-blue-600 hover:underline font-bold">
             Criar Conta / Primeiro Acesso
           </Link>
-          <p className="mt-2 text-xs text-gray-400">
-            Válido para Pastores (Nova Igreja) e Equipe (Já cadastrados).
-          </p>
         </div>
       </div>
     </div>
