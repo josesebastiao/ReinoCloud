@@ -1,41 +1,62 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { 
-  LayoutDashboard, Users, Music, Settings, DollarSign, LogOut, Menu, X 
+  LayoutDashboard, Users, Music, Settings, DollarSign, LogOut, Menu, X, Shield 
 } from "lucide-react";
 import { auth } from "../lib/firebase";
-// Removemos o import do useChurch pois não vamos mais usar para o label
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Estado para guardar o cargo atual (Padrão: admin)
+  const [userRole, setUserRole] = useState("admin");
 
-  // Se for Login, não renderiza nada
+  useEffect(() => {
+    // Carrega o cargo salvo (ou define admin se não tiver)
+    const savedRole = localStorage.getItem("userRole") || "admin";
+    setUserRole(savedRole);
+  }, []);
+
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) {
     return null;
   }
 
+  // --- REGRAS DE ACESSO ---
+  // Quem pode ver o quê?
+  const accessRules = {
+    dashboard: ['admin', 'pastor', 'treasurer', 'leader'],
+    members:   ['admin', 'pastor'], // Só Pastor mexe no cadastro
+    ministry:  ['admin', 'pastor', 'leader'], // Líder vê a escala
+    financial: ['admin', 'pastor', 'treasurer'], // Tesoureiro vê o dinheiro
+    settings:  ['admin', 'pastor'] // Só Pastor configura o sistema
+  };
+
+  // Função para verificar permissão
+  const canAccess = (module: keyof typeof accessRules) => {
+    return accessRules[module].includes(userRole);
+  };
+
   const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-    { icon: Users, label: "Membros", href: "/members" },
-    // AQUI ESTÁ A MUDANÇA: Texto fixo e claro para todos
-    { icon: Music, label: "Ministérios / Deptos", href: "/ministries" }, 
-    { icon: DollarSign, label: "Financeiro", href: "/financial" },
-    { icon: Settings, label: "Configurações", href: "/settings" },
+    // Só mostra se o cargo atual estiver na lista permitida
+    ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Dashboard", href: "/" }] : []),
+    ...(canAccess('members')   ? [{ icon: Users, label: "Membros", href: "/members" }] : []),
+    ...(canAccess('ministry')  ? [{ icon: Music, label: "Ministérios / Deptos", href: "/ministries" }] : []),
+    ...(canAccess('financial') ? [{ icon: DollarSign, label: "Financeiro", href: "/financial" }] : []),
+    ...(canAccess('settings')  ? [{ icon: Settings, label: "Configurações", href: "/settings" }] : []),
   ];
 
   const handleLogout = () => {
     auth.signOut();
-    localStorage.removeItem("churchId");
+    localStorage.clear(); // Limpa tudo, inclusive o cargo simulado
     router.push("/login");
   };
 
   return (
     <>
-      {/* Botão Mobile */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="md:hidden fixed top-4 right-4 z-50 bg-slate-900 text-white p-2 rounded-lg shadow-lg"
@@ -50,6 +71,12 @@ export function Sidebar() {
         <div className="p-6">
           <h1 className="text-2xl font-bold text-blue-500">ReinoCloud</h1>
           <p className="text-xs text-slate-400">Gestão para Igrejas</p>
+          
+          {/* Mostrador de Cargo (Para você saber como está logado) */}
+          <div className="mt-4 flex items-center gap-2 text-xs bg-slate-800 p-2 rounded text-yellow-500 border border-slate-700">
+            <Shield size={12} />
+            <span className="capitalize">Acesso: {userRole === 'admin' ? 'Pastor Titular' : userRole}</span>
+          </div>
         </div>
 
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
