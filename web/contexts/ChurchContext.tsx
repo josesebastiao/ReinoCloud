@@ -12,19 +12,34 @@ interface ChurchContextType {
   formatMoney: (value: number) => string;
 }
 
-const ChurchContext = createContext<ChurchContextType>({} as ChurchContextType);
+// 1. CRIAMOS UM VALOR PADRÃO SEGURO (Isso evita o erro no build)
+const defaultSettings: ChurchSettings = {
+  currency: 'BRL',
+  ministryLabel: 'Ministérios'
+};
+
+// 2. PASSAMOS ESSE VALOR PARA O CONTEXTO (Em vez de {} vazio)
+const ChurchContext = createContext<ChurchContextType>({
+  settings: defaultSettings,
+  updateSettings: () => {},
+  formatMoney: (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+});
 
 export function ChurchProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<ChurchSettings>({
-    currency: 'BRL',
-    ministryLabel: 'Ministérios'
-  });
+  // Inicializamos o estado com o padrão seguro
+  const [settings, setSettings] = useState<ChurchSettings>(defaultSettings);
 
   useEffect(() => {
-    // Carrega configuração salva no navegador
-    const saved = localStorage.getItem("churchSettings");
-    if (saved) {
-      setSettings(JSON.parse(saved));
+    // Tenta carregar do navegador apenas no cliente
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("churchSettings");
+      if (saved) {
+        try {
+          setSettings(JSON.parse(saved));
+        } catch (e) {
+          console.error("Erro ao ler configurações salvas", e);
+        }
+      }
     }
   }, []);
 
@@ -35,8 +50,6 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
   };
 
   const formatMoney = (value: number) => {
-    // Se for Kz (Angola), geralmente não usa centavos ou usa vírgula diferente
-    // Aqui usamos o padrão pt-AO para Angola e pt-BR para Brasil
     const locale = settings.currency === 'AOA' ? 'pt-AO' : 'pt-BR';
     const currency = settings.currency;
     
