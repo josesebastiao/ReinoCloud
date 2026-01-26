@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "../components/Sidebar";
+import { AppLayout } from "../components/AppLayout";
+import { ChurchProvider } from "../contexts/ChurchContext"; // <--- VERIFIQUE ESTE IMPORT
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,15 +19,12 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${inter.className} bg-gray-50 text-gray-900`}>
-        <div className="flex min-h-screen">
-          {/* Menu Lateral (Fixo) */}
-          <Sidebar />
-          
-          {/* Conteúdo Principal (Com margem para não ficar embaixo do menu) */}
-          <main className="flex-1 md:ml-64 transition-all duration-300">
+        {/* O PROVIDER TEM QUE ESTAR POR FORA DE TUDO */}
+        <ChurchProvider>
+          <AppLayout>
             {children}
-          </main>
-        </div>
+          </AppLayout>
+        </ChurchProvider>
       </body>
     </html>
   );

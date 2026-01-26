@@ -11,21 +11,24 @@ interface ChurchContextType {
   formatMoney: (value: number | string) => string;
 }
 
-const defaultSettings: ChurchSettings = {
-  currency: 'BRL'
-};
+// VALOR PADRÃO DE SEGURANÇA (Caso o Provider falhe)
+// Agora ele formata como R$ por padrão, em vez de mostrar número cru
+const defaultSettings: ChurchSettings = { currency: 'BRL' };
 
 const ChurchContext = createContext<ChurchContextType>({
   settings: defaultSettings,
   updateSettings: () => {},
-  formatMoney: (val) => String(val)
+  formatMoney: (val) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val));
+  }
 });
 
 export function ChurchProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<ChurchSettings>(defaultSettings);
-  
-  // Carrega configuração ao iniciar
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     const saved = localStorage.getItem("churchSettings");
     if (saved) {
       try {
@@ -44,23 +47,22 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // --- FORMATAÇÃO BLINDADA ---
   const formatMoney = (value: number | string) => {
-    // 1. Garante que é número
+    // Se o componente ainda não montou, evita erro de hidratação
+    if (!mounted) return "...";
+
     const num = Number(value);
     if (isNaN(num)) return "0,00";
 
-    // 2. Se for Kwanza (Angola)
+    // --- LÓGICA DO KWANZA (ANGOLA) ---
     if (settings.currency === 'AOA') {
-      // Converte para texto com 2 casas decimais (ex: "5000.00")
-      // Troca ponto por vírgula (ex: "5000,00")
-      // Adiciona ponto de milhar usando Regex
+      // Formata manual: 5000.50 -> "5.000,50"
       const parts = num.toFixed(2).split('.');
       parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
       return `Kz ${parts.join(',')}`;
     }
 
-    // 3. Se for Real (Brasil)
+    // --- LÓGICA DO REAL (BRASIL) ---
     return new Intl.NumberFormat('pt-BR', { 
       style: 'currency', 
       currency: 'BRL' 

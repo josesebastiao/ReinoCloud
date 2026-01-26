@@ -8,7 +8,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isAuth, setIsAuth] = useState(false);
 
   useEffect(() => {
-    // Detecta se é login
+    // Detecta se é login ou registro
     if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) {
       setIsAuth(true);
     } else {
@@ -16,16 +16,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
-  // SE FOR LOGIN: Retorna layout limpo, centralizado, fundo escuro. ZERO margem.
+  // --- MODO LOGIN (TELA CHEIA FORÇADA) ---
   if (isAuth) {
     return (
-      <main className="min-h-screen w-full bg-slate-900 flex items-center justify-center p-4">
-        {children}
+      // 'fixed inset-0 z-50' garante que cubra TUDO, sem margens brancas
+      <main className="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="w-full max-w-md">
+          {children}
+        </div>
       </main>
     );
   }
 
-  // SE FOR SISTEMA: Retorna layout com menu e margem (md:pl-64)
+  // --- MODO SISTEMA ---
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
