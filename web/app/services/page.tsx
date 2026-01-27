@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { memberService } from "../../services/memberService";
 import { churchService } from "../../services/churchService";
 import { Member } from "../../types/member";
-import { FileText, Search, Printer, X, ArrowLeft, Shield } from "lucide-react";
+import { Search, Printer, X, ArrowLeft, Shield } from "lucide-react";
 
 export default function ServicesPage() {
   const router = useRouter();
@@ -36,7 +36,7 @@ export default function ServicesPage() {
   const printDoc = () => window.print();
   const todayDate = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // Funções para pegar o texto (Padrão ou Personalizado)
+  // Funções para pegar o texto
   const getTextRecomendacao = () => {
     if (churchInfo.customTextRecomendacao) {
         return churchInfo.customTextRecomendacao
@@ -83,69 +83,74 @@ export default function ServicesPage() {
       {selectedMember && docType && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm print:relative print:inset-0 print:bg-white print:block print:p-0 print:z-auto">
             
-            {/* BOTÃO FECHAR GIGANTE (FORA DO PAPEL) */}
+            {/* BOTÃO FECHAR */}
             <button onClick={() => setSelectedMember(null)} className="fixed top-6 right-6 z-[110] bg-red-600 text-white p-3 rounded-full hover:bg-red-700 shadow-2xl print:hidden">
                 <X size={24} strokeWidth={3} />
             </button>
 
-            <div className="bg-white w-full max-w-3xl min-h-[90vh] shadow-2xl rounded-sm relative flex flex-col print:shadow-none print:w-full print:rounded-none">
+            {/* A CARTA (CONTAINER) */}
+            {/* max-w-2xl na tela (menor) mas w-full na impressão */}
+            <div className="bg-white w-full max-w-2xl min-h-[85vh] shadow-2xl rounded-sm relative flex flex-col print:shadow-none print:w-full print:max-w-none print:rounded-none">
+                
                 {/* Header Tela */}
                 <div className="flex justify-between items-center p-4 bg-gray-100 border-b print:hidden">
-                    <h3 className="font-bold text-gray-700">Visualização</h3>
+                    <h3 className="font-bold text-gray-700">Visualização (A4)</h3>
                     <button onClick={printDoc} className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 shadow"><Printer size={18}/> IMPRIMIR</button>
                 </div>
 
-                {/* PAPEL A4 */}
-                <div className="flex-1 p-16 font-serif text-gray-900 leading-relaxed print:p-12 flex flex-col justify-between">
+                {/* CONTEÚDO DO PAPEL */}
+                {/* padding-8 na tela (menor), padding-16 na impressão (maior) */}
+                <div className="flex-1 p-10 print:p-16 font-serif text-gray-900 leading-relaxed flex flex-col justify-between">
                     <div>
                         {/* CABEÇALHO COM LOGO */}
-                        <div className="text-center border-b-2 border-gray-800 pb-6 mb-10 flex flex-col items-center">
+                        <div className="text-center border-b-2 border-gray-800 pb-6 mb-8 flex flex-col items-center">
+                            {/* Logo menor na tela (h-20), normal na impressão */}
                             {churchInfo.logoUrl ? (
-                                <img src={churchInfo.logoUrl} alt="Logo" className="h-24 mb-4 object-contain" />
+                                <img src={churchInfo.logoUrl} alt="Logo" className="h-20 print:h-24 mb-4 object-contain" />
                             ) : (
                                 <Shield size={48} className="text-gray-300 mb-2"/>
                             )}
-                            <h1 className="text-3xl font-bold uppercase tracking-wide">{churchInfo.churchName || "Minha Igreja"}</h1>
-                            <p className="text-sm italic mt-1 text-gray-600">"Uma igreja bíblica, acolhedora e missionária"</p>
+                            <h1 className="text-2xl print:text-3xl font-bold uppercase tracking-wide">{churchInfo.churchName || "Minha Igreja"}</h1>
+                            <p className="text-xs print:text-sm italic mt-1 text-gray-600">"Uma igreja bíblica, acolhedora e missionária"</p>
                         </div>
 
                         {/* TÍTULO */}
-                        <h2 className="text-xl font-bold text-center mb-10 uppercase underline decoration-2 underline-offset-4">
+                        <h2 className="text-lg print:text-xl font-bold text-center mb-8 uppercase underline decoration-2 underline-offset-4">
                             {docType === 'recomendacao' ? 'Carta de Recomendação' : 'Carta de Transferência'}
                         </h2>
 
                         {/* SAUDAÇÃO */}
-                        <p className="text-justify mb-6 text-lg">
+                        <p className="text-justify mb-4 text-base print:text-lg">
                             {docType === 'recomendacao' ? 'Aos pastores e irmãos em Cristo, graça e paz.' : 'Ao Pastor da Igreja co-irmã,'}
                         </p>
 
-                        {/* TEXTO DINÂMICO (PRESERVA QUEBRA DE LINHA) */}
-                        <p className="text-justify mb-6 indent-12 text-lg leading-loose whitespace-pre-wrap">
+                        {/* TEXTO CORPO (Texto base na tela, LG na impressão) */}
+                        <p className="text-justify mb-4 indent-10 text-base print:text-lg leading-loose whitespace-pre-wrap">
                             {docType === 'recomendacao' ? getTextRecomendacao() : getTextTransferencia()}
                         </p>
 
                         {/* DATA */}
-                        <div className="mt-16 text-center text-lg">
-                            <p className="mb-12">Sem mais para o momento, subscrevemo-nos em Cristo.</p>
+                        <div className="mt-10 print:mt-16 text-center text-base print:text-lg">
+                            <p className="mb-10 print:mb-12">Sem mais para o momento, subscrevemo-nos em Cristo.</p>
                             <p>{churchInfo.cityAndState || "Local"}, {todayDate}.</p>
                         </div>
                     </div>
 
                     {/* ASSINATURAS */}
                     <div>
-                        <div className="flex justify-center gap-16 mb-8 mt-12">
+                        <div className="flex justify-center gap-10 print:gap-16 mb-4 mt-8 print:mt-12">
                             <div className="text-center">
-                                <div className="w-64 border-t border-black mb-2"></div>
-                                <p className="font-bold">Secretaria</p>
+                                <div className="w-48 print:w-64 border-t border-black mb-2"></div>
+                                <p className="font-bold text-sm print:text-base">Secretaria</p>
                             </div>
                             <div className="text-center">
-                                <div className="w-64 border-t border-black mb-2"></div>
-                                <p className="font-bold">{churchInfo.seniorPastor || "Pastor Responsável"}</p>
-                                <p className="text-xs">Pastor Titular</p>
+                                <div className="w-48 print:w-64 border-t border-black mb-2"></div>
+                                <p className="font-bold text-sm print:text-base">{churchInfo.seniorPastor || "Pastor Responsável"}</p>
+                                <p className="text-xs print:text-sm">Pastor Titular</p>
                             </div>
                         </div>
                         {churchInfo.address && (
-                            <div className="text-center text-xs text-gray-400 border-t pt-4">
+                            <div className="text-center text-[10px] print:text-xs text-gray-400 border-t pt-4">
                                 <p>{churchInfo.address}</p>
                             </div>
                         )}
