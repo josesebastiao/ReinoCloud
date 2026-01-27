@@ -120,7 +120,7 @@ export default function FinancialPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 print:p-0 print:bg-white pb-24">
       
-      {/* HEADER CORRIGIDO (Mobile: Coluna / Desktop: Linha) */}
+      {/* HEADER CORRIGIDO */}
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Financeiro</h1>
@@ -183,7 +183,8 @@ export default function FinancialPage() {
                             ))}
                         </Pie>
                         <Tooltip 
-                            formatter={(value: number) => formatMoney(value)}
+                            // CORREÇÃO AQUI: ACEITA "ANY" PARA EVITAR ERRO NO BUILD
+                            formatter={(value: any) => formatMoney(Number(value))}
                             contentStyle={{backgroundColor: '#fff', borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
                         />
                         <Legend verticalAlign="bottom" height={36} iconType="circle"/>
