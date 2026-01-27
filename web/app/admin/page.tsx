@@ -1,31 +1,35 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // Import para redirecionar intrusos
+import { useRouter } from "next/navigation"; 
 import { churchService } from "../../services/churchService";
 import { Church } from "../../types/church";
 import { Trash2, Lock, Unlock, UserCog, Plus, ShieldAlert } from "lucide-react";
 import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore"; 
 import { db } from "../../lib/firebase";
 
-// SEU E-MAIL DE SUPER ADMIN (O ÚNICO QUE PODE VER ESSA TELA)
-const SUPER_ADMIN_EMAIL = "alfaministro1@hotmail.com"; 
+// --- LISTA DE SUPER ADMINS (ACEITA OS DOIS AGORA) ---
+const SUPER_ADMINS = [
+  "alfaministro1@gmail.com", 
+  "alfaministro1@hotmail.com"
+]; 
 
 export default function SuperAdminPage() {
   const router = useRouter();
   const [churches, setChurches] = useState<Church[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false); // Trava de segurança
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   const [promoteEmail, setPromoteEmail] = useState("");
   const [promoteChurchId, setPromoteChurchId] = useState("");
 
   useEffect(() => {
-    // 1. VERIFICAÇÃO DE SEGURANÇA
-    const currentUserEmail = localStorage.getItem("userEmail"); // Vamos garantir que salvamos isso no login
+    // 1. VERIFICAÇÃO DE SEGURANÇA MAIS FLEXÍVEL
+    const currentUserEmail = localStorage.getItem("userEmail");
     
-    if (currentUserEmail !== SUPER_ADMIN_EMAIL) {
+    // Verifica se o email atual está na lista de permitidos
+    if (!currentUserEmail || !SUPER_ADMINS.includes(currentUserEmail)) {
       alert("⛔ Acesso Negado! Esta área é restrita ao Super Admin.");
-      router.push("/"); // Chuta para o dashboard
+      router.push("/"); 
       return;
     }
 
@@ -80,19 +84,17 @@ export default function SuperAdminPage() {
       const snap = await getDocs(q);
       if (snap.empty) return alert("Membro não encontrado nesta igreja.");
       await updateDoc(doc(db, "members", snap.docs[0].id), { role: "admin" });
-      alert("Promovido com sucesso!");
+      alert("Promovido com sucesso! Faça Logout e Login para ver os menus.");
       setPromoteEmail(""); setPromoteChurchId("");
     } catch (error) { alert("Erro ao promover."); }
   };
 
-  // Se não estiver autorizado ou carregando, mostra tela preta
   if (!isAuthorized || loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Carregando acesso seguro...</div>;
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-8 text-white overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         
-        {/* CABEÇALHO */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-blue-500 flex items-center gap-2">
@@ -108,7 +110,6 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
-        {/* ÁREA DE EMERGÊNCIA */}
         <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-8 shadow-lg">
           <h3 className="font-bold text-yellow-400 flex items-center gap-2 mb-2 text-sm md:text-base">
             <UserCog size={18}/> Área de Emergência
@@ -121,7 +122,6 @@ export default function SuperAdminPage() {
           </div>
         </div>
 
-        {/* LISTA RESPONSIVA */}
         <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl overflow-x-auto">
           <table className="w-full text-left min-w-[800px]">
             <thead className="bg-slate-900 text-gray-400 text-sm">
