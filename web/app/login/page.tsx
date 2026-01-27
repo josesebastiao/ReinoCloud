@@ -19,42 +19,46 @@ export default function Login() {
     setError("");
 
     try {
-      // 1. Autentica no Firebase
+      // 1. Autentica no Firebase Authentication
       await signInWithEmailAndPassword(auth, email, password);
 
-      // 2. Busca TODOS os vínculos desse e-mail no banco
+      // 2. Busca TODOS os vínculos desse e-mail no banco de dados (Firestore)
       const membersRef = collection(db, "members");
       const q = query(membersRef, where("email", "==", email));
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        // --- LÓGICA DE PRIORIDADE (O PULO DO GATO) ---
-        // Transforma os resultados em uma lista
+        // --- LÓGICA DE PRIORIDADE (Resolve o problema de Múltiplas Contas) ---
+        // Transforma os resultados em uma lista de dados
         const accounts = querySnapshot.docs.map(doc => doc.data());
 
-        // Tenta achar uma conta que seja ADMIN ou PASTOR
+        // Tenta achar uma conta que seja ADMIN ou PASTOR para priorizar
         const adminAccount = accounts.find(acc => acc.role === 'admin' || acc.role === 'pastor');
         
-        // Se achou admin, usa ela. Se não, usa a primeira que encontrar.
+        // Se achou admin, usa ela. Se não, usa a primeira que encontrar (Membro/Tesoureiro).
         const bestAccount = adminAccount || accounts[0];
 
-        // Salva os dados da MELHOR conta encontrada
+        // --- SALVANDO DADOS NO NAVEGADOR ---
         localStorage.setItem("churchId", bestAccount.churchId);
         localStorage.setItem("userRole", bestAccount.role);
         localStorage.setItem("userName", bestAccount.fullName);
         
-        console.log(`🔓 Login priorizado: ${bestAccount.role} | Igreja: ${bestAccount.churchId}`);
+        // [PONTO 3] Salva o email para o Menu saber se mostra o botão de Super Admin
+        localStorage.setItem("userEmail", email); 
+        
+        console.log(`🔓 Login realizado: ${bestAccount.role} | ${email}`);
         router.push("/");
       
       } else {
-        // Caso de fallback (Se for o dono da conta sem membro criado)
+        // --- CASO DE FALLBACK (Se for o dono da conta sem membro criado ainda) ---
         const savedChurchId = localStorage.getItem("churchId");
         if (savedChurchId) {
              localStorage.setItem("userRole", "admin");
              localStorage.setItem("userName", "Super Admin");
+             localStorage.setItem("userEmail", email); // Garante o email aqui também
              router.push("/");
         } else {
-             setError("Usuário não vinculado. Contate o suporte.");
+             setError("Usuário não vinculado. Contate o suporte ou crie uma igreja.");
         }
       }
 
@@ -88,20 +92,32 @@ export default function Login() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
             <input 
-              type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              type="email" 
+              required 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition"
               placeholder="seu@email.com"
             />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
             <input 
-              type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              type="password" 
+              required 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition"
               placeholder="******"
             />
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-70">
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-70"
+          >
             {loading ? "Entrando..." : "Acessar Sistema"}
           </button>
         </form>
@@ -111,6 +127,9 @@ export default function Login() {
           <Link href="/register" className="text-blue-600 hover:underline font-bold">
             Criar Conta / Primeiro Acesso
           </Link>
+          <p className="mt-2 text-xs text-gray-400">
+            Válido para Pastores (Nova Igreja) e Equipe (Já cadastrados).
+          </p>
         </div>
       </div>
     </div>
