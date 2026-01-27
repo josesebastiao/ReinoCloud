@@ -128,7 +128,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* CONTEÚDO PRINCIPAL */}
               <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50">
                 
-                {/* HEADER MOBILE (Com Botão Voltar) */}
+                {/* HEADER MOBILE */}
                 <header className="md:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top print:hidden">
                    <div className="flex items-center gap-3">
                      {/* Lógica do botão Voltar */}
@@ -156,7 +156,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                    {children}
                 </div>
 
-                {/* BOTTOM TAB BAR (Navegação Inferior) */}
+                {/* BOTTOM TAB BAR */}
                 <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center z-40 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
                     
                     <Link href="/" className={`flex flex-col items-center gap-1 ${pathname === '/' ? 'text-blue-600' : 'text-gray-400'}`}>
@@ -171,13 +171,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         </Link>
                     )}
 
-                    {/* BOTÃO CENTRAL - TESOURARIA */}
+                    {/* Botão Central - Tesouraria */}
                     {canView(['admin', 'pastor', 'treasurer']) && (
                         <Link href="/financial" className="flex flex-col items-center -mt-8">
                             <div className="bg-blue-600 text-white p-4 rounded-full shadow-lg shadow-blue-600/30 active:scale-95 transition">
                                 <DollarSign size={24} />
                             </div>
-                            {/* AQUI ESTÁ A MUDANÇA: DE OFERTAR PARA TESOURARIA */}
                             <span className="text-[10px] font-medium text-gray-500 mt-1">Tesouraria</span>
                         </Link>
                     )}
@@ -198,16 +197,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </main>
             </div>
           )}
-          // ... resto do código ...
-        <div className="flex-1 overflow-auto p-4 md:p-8 pb-32 md:pb-8">
-           {children}
-        </div>
+          
+          {/* INDICADOR DE OFFLINE - Global para todo o App */}
+          <OfflineIndicator />
 
-        {/* INDICADOR DE OFFLINE AQUI 👇 */}
-        <OfflineIndicator />
-
-        {/* BOTTOM TAB BAR... */}
-// ... resto do código ...
         </ChurchProvider>
       </body>
     </html>
