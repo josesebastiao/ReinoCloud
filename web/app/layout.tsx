@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
   LayoutDashboard, Users, FileText, Settings, LogOut, Menu, X, 
-  Music, DollarSign, BookOpen, PieChart, Shield, Home 
+  Music, DollarSign, BookOpen, PieChart, Shield, Home, ArrowLeft 
 } from "lucide-react";
 import { ChurchProvider } from "../contexts/ChurchContext";
 import InstallPWA from "../components/InstallPWA";
@@ -65,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* SIDEBAR (PREMIUM DARK) */}
               <aside 
                 className={`
-                  fixed md:static inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out
+                  fixed md:static inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out print:hidden
                   ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
                 `}
               >
@@ -110,10 +110,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   ))}
 
                   {userRole === 'admin' && (
-                    <Link 
-                        href="/admin" 
-                        className="mt-6 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-900/30 bg-red-900/10 text-red-500 hover:bg-red-600 hover:text-white transition-all group"
-                    >
+                    <Link href="/admin" className="mt-6 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-900/30 bg-red-900/10 text-red-500 hover:bg-red-600 hover:text-white transition-all group">
                         <Shield size={20} className="group-hover:animate-pulse"/>
                         <span className="font-bold">Painel SaaS</span>
                     </Link>
@@ -130,13 +127,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* CONTEÚDO PRINCIPAL */}
               <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50">
                 
-                {/* Header Mobile (Fundo Branco Clean) */}
-                <header className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top">
-                   <div className="flex items-center gap-2">
-                     <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">R</div>
-                     <span className="font-bold text-gray-800">ReinoCloud</span>
+                {/* HEADER MOBILE (Com Botão Voltar) */}
+                <header className="md:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top print:hidden">
+                   <div className="flex items-center gap-3">
+                     {/* Lógica do botão Voltar */}
+                     {pathname !== '/' ? (
+                        <button onClick={() => router.back()} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full transition">
+                           <ArrowLeft size={24} />
+                        </button>
+                     ) : (
+                        <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+                            <Menu size={24} />
+                        </button>
+                     )}
+                     
+                     <span className="font-bold text-gray-800 text-lg">
+                        {pathname === '/' ? 'ReinoCloud' : 'Voltar'}
+                     </span>
                    </div>
-                   <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-bold text-xs border">
+
+                   <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm border border-blue-200">
                       {userRole.slice(0,2).toUpperCase()}
                    </div>
                 </header>
@@ -145,9 +155,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                    {children}
                 </div>
 
-                {/* --- BOTTOM TAB BAR (SÓ MOBILE) --- */}
-                {/* Navegação Estilo App no rodapé */}
-                <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center z-40 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                {/* BOTTOM TAB BAR (Navegação Inferior) */}
+                <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center z-40 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
                     
                     <Link href="/" className={`flex flex-col items-center gap-1 ${pathname === '/' ? 'text-blue-600' : 'text-gray-400'}`}>
                         <Home size={24} strokeWidth={pathname === '/' ? 2.5 : 2} />
@@ -161,13 +170,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         </Link>
                     )}
 
-                    {/* Botão Central de Ação (Financeiro) */}
+                    {/* BOTÃO CENTRAL - TESOURARIA */}
                     {canView(['admin', 'pastor', 'treasurer']) && (
                         <Link href="/financial" className="flex flex-col items-center -mt-8">
-                            <div className="bg-blue-600 text-white p-4 rounded-full shadow-lg shadow-blue-600/30">
+                            <div className="bg-blue-600 text-white p-4 rounded-full shadow-lg shadow-blue-600/30 active:scale-95 transition">
                                 <DollarSign size={24} />
                             </div>
-                            <span className="text-[10px] font-medium text-gray-500 mt-1">Ofertar</span>
+                            {/* AQUI ESTÁ A MUDANÇA: DE OFERTAR PARA TESOURARIA */}
+                            <span className="text-[10px] font-medium text-gray-500 mt-1">Tesouraria</span>
                         </Link>
                     )}
 
@@ -178,7 +188,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         </Link>
                     )}
 
-                    {/* Botão Menu (Abre a Sidebar) */}
                     <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 text-gray-400">
                         <Menu size={24} />
                         <span className="text-[10px] font-medium">Menu</span>
