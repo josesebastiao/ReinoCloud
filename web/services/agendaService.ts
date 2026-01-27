@@ -1,5 +1,5 @@
 // CORREÇÃO: Adicionamos mais um "../" pois a pasta está dentro de 'app'
-import { db } from "../../lib/firebase"; 
+import { db } from "../lib/firebase"; 
 import { 
   collection, addDoc, getDocs, query, where, deleteDoc, doc 
 } from "firebase/firestore";
