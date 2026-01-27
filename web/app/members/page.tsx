@@ -7,7 +7,7 @@ import { Member } from "../../types/member";
 import { Ministry } from "../../types/ministry";
 import { 
   Users, UserPlus, Search, Edit, Trash2, X, MapPin, Calendar, CreditCard, Phone, 
-  IdCard, Printer, Shield
+  IdCard, Printer, Shield, FileText
 } from "lucide-react";
 
 export default function MembersPage() {
@@ -77,26 +77,16 @@ export default function MembersPage() {
         ministries: formData.selectedMinistries
       };
 
-      if (editingId) {
-        await memberService.update(editingId, memberData);
-      } else {
-        await memberService.create(memberData);
-      }
-      setIsModalOpen(false);
-      resetForm();
-      carregarDados(churchId);
-    } catch (error: any) {
-      alert("Erro ao salvar: " + error.message);
-    } finally {
-      setLoading(false);
-    }
+      if (editingId) { await memberService.update(editingId, memberData); } 
+      else { await memberService.create(memberData); }
+      setIsModalOpen(false); resetForm(); carregarDados(churchId);
+    } catch (error: any) { alert("Erro ao salvar: " + error.message); } finally { setLoading(false); }
   };
 
   const handleEdit = (m: Member) => {
     setEditingId(m.id!);
     setFormData({
-      fullName: m.fullName,
-      email: m.email || "", phone: m.phone || "", document: m.document || "",
+      fullName: m.fullName, email: m.email || "", phone: m.phone || "", document: m.document || "",
       birthDate: m.birthDate || "", baptismDate: m.baptismDate || "", gender: m.gender || "male",
       role: m.role, status: m.status,
       street: m.address?.street || "", number: m.address?.number || "", neighborhood: m.address?.neighborhood || "",
@@ -106,16 +96,10 @@ export default function MembersPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenCard = (m: Member) => {
-    setSelectedMember(m);
-    setIsCardModalOpen(true);
-  };
+  const handleOpenCard = (m: Member) => { setSelectedMember(m); setIsCardModalOpen(true); };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Excluir este membro?")) {
-      await memberService.delete(id);
-      carregarDados(churchId);
-    }
+    if (confirm("Excluir este membro?")) { await memberService.delete(id); carregarDados(churchId); }
   };
 
   const resetForm = () => {
@@ -136,10 +120,13 @@ export default function MembersPage() {
     });
   };
 
-  const printCard = () => { window.print(); };
+  const printList = () => window.print();
+  const printCard = () => window.print();
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 print:p-0 print:bg-white">
+      
+      {/* CABEÇALHO DA PÁGINA */}
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Membros</h1>
@@ -150,27 +137,38 @@ export default function MembersPage() {
             <Search size={18} className="text-gray-400 mr-2"/>
             <input type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="outline-none w-full text-sm"/>
           </div>
+          {/* BOTÃO IMPRIMIR LISTA */}
+          <button onClick={printList} className="bg-white border hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2">
+            <Printer size={20} />
+          </button>
           <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap">
             <UserPlus size={20} /> Novo Membro
           </button>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden print:hidden">
+      {/* CABEÇALHO APENAS PARA IMPRESSÃO */}
+      <div className="hidden print:block text-center mb-8 border-b pb-4">
+          <h1 className="text-2xl font-bold uppercase">{churchName}</h1>
+          <p className="text-sm text-gray-500">Relatório Geral de Membros</p>
+          <p className="text-xs text-gray-400 mt-1">Gerado em {new Date().toLocaleDateString()}</p>
+      </div>
+
+      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden print:shadow-none print:border-0">
         <table className="w-full text-left">
           <thead className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
             <tr>
               <th className="p-4 font-medium">Nome</th>
-              <th className="p-4 font-medium hidden md:table-cell">Status</th>
-              <th className="p-4 font-medium hidden md:table-cell">Ministérios</th>
-              <th className="p-4 font-medium text-right">Ações</th>
+              <th className="p-4 font-medium hidden md:table-cell print:table-cell">Status</th>
+              <th className="p-4 font-medium hidden md:table-cell print:hidden">Ministérios</th>
+              <th className="p-4 font-medium text-right print:hidden">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-sm">
             {filteredMembers.map((m) => (
               <tr key={m.id} className="hover:bg-gray-50/50 transition">
                 <td className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0 flex items-center justify-center text-gray-400">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0 flex items-center justify-center text-gray-400 print:hidden">
                      <Users size={20}/>
                   </div>
                   <div>
@@ -181,12 +179,12 @@ export default function MembersPage() {
                     </p>
                   </div>
                 </td>
-                <td className="p-4 hidden md:table-cell">
-                  <span className={`px-2 py-0.5 rounded-full text-xs border ${m.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                <td className="p-4 hidden md:table-cell print:table-cell">
+                  <span className={`px-2 py-0.5 rounded-full text-xs border ${m.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'} print:border-0 print:p-0`}>
                       {m.status === 'active' ? 'Ativo' : 'Inativo'}
                   </span>
                 </td>
-                <td className="p-4 hidden md:table-cell">
+                <td className="p-4 hidden md:table-cell print:hidden">
                    <div className="flex flex-wrap gap-1">
                      {m.ministries?.map(mid => {
                        const min = ministries.find(x => x.id === mid);
@@ -194,9 +192,9 @@ export default function MembersPage() {
                      })}
                    </div>
                 </td>
-                <td className="p-4 text-right">
+                <td className="p-4 text-right print:hidden">
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => handleOpenCard(m)} className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg" title="Carteirinha"><IdCard size={16}/></button>
+                    <button onClick={() => handleOpenCard(m)} className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"><IdCard size={16}/></button>
                     <button onClick={() => handleEdit(m)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16}/></button>
                     <button onClick={() => handleDelete(m.id!)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
                   </div>
@@ -207,13 +205,14 @@ export default function MembersPage() {
         </table>
       </div>
 
+      {/* MODAL EDITAR (Mantido) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
+             {/* ... (Mesmo código do formulário de antes) ... */}
+             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
             <h2 className="text-xl font-bold text-gray-800 mb-6">{editingId ? 'Editar Ficha' : 'Novo Cadastro'}</h2>
             <form onSubmit={handleSave} className="space-y-6">
-              {/* Campos do formulário sem a foto */}
               <div>
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -225,7 +224,6 @@ export default function MembersPage() {
                     <div><label className="block text-xs font-medium text-gray-500 mb-1">Sexo</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-2 border rounded-lg bg-white"><option value="male">Masculino</option><option value="female">Feminino</option></select></div>
                 </div>
               </div>
-
               <div className="border-t pt-4">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><MapPin size={14}/> Localização</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -236,7 +234,6 @@ export default function MembersPage() {
                     <div><label className="block text-xs font-medium text-gray-500 mb-1">Província</label><input type="text" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full p-2 border rounded-lg" /></div>
                 </div>
               </div>
-
               <div className="border-t pt-4">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2"><Calendar size={14}/> Vida Eclesiástica</h3>
                 <div className="grid grid-cols-2 gap-4 mb-4">
@@ -253,7 +250,6 @@ export default function MembersPage() {
                     ))}
                 </div>
               </div>
-
               <div className="flex gap-3 pt-4 border-t">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border rounded-lg text-gray-600 font-medium hover:bg-gray-50">Cancelar</button>
                   <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">{loading ? 'Salvando...' : 'Salvar Ficha'}</button>
@@ -263,7 +259,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL CARTEIRINHA (Versão sem foto dinâmica) */}
+      {/* MODAL CARTEIRINHA (Mantido) */}
       {isCardModalOpen && selectedMember && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm print:absolute print:inset-0 print:bg-white print:p-0">
           <div className="bg-white rounded-2xl shadow-2xl p-6 relative max-w-lg w-full print:shadow-none print:w-auto print:max-w-none print:p-0">

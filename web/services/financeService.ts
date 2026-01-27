@@ -1,33 +1,34 @@
 import { db } from "../lib/firebase";
 import { 
-  collection, addDoc, getDocs, deleteDoc, doc, 
-  query, where, orderBy 
+  collection, addDoc, getDocs, query, where, deleteDoc, doc 
 } from "firebase/firestore";
 import { Transaction } from "../types/finance";
 
-const COLLECTION = "transactions";
+const COLLECTION = "financial";
 
 export const financeService = {
-  // Criar lançamento
-  create: async (data: Omit<Transaction, 'id'>) => {
-    const docRef = await addDoc(collection(db, COLLECTION), data);
-    return docRef.id;
+  // Listar
+  listByChurch: async (churchId: string) => {
+    try {
+      const q = query(collection(db, COLLECTION), where("churchId", "==", churchId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+    } catch (error) {
+      console.error("Erro ao listar financeiro:", error);
+      return [];
+    }
   },
 
-  // Listar todos da igreja (ordenados por data)
-  listByChurch: async (churchId: string) => {
-    const q = query(
-      collection(db, COLLECTION), 
-      where("churchId", "==", churchId),
-      orderBy("date", "desc") // Mais recentes primeiro
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+  // Criar (Aqui estava o erro: agora ele aceita o objeto Transaction direto)
+  create: async (data: Transaction) => {
+    await addDoc(collection(db, COLLECTION), {
+      ...data,
+      createdAt: new Date()
+    });
   },
 
   // Deletar
   delete: async (id: string) => {
-    const docRef = doc(db, COLLECTION, id);
-    await deleteDoc(docRef);
+    await deleteDoc(doc(db, COLLECTION, id));
   }
 };
