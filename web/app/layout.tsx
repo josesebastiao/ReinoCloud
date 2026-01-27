@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { ChurchProvider } from "../contexts/ChurchContext";
 import InstallPWA from "../components/InstallPWA";
+import OfflineIndicator from "../components/OfflineIndicator";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -197,6 +198,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </main>
             </div>
           )}
+          // ... resto do código ...
+        <div className="flex-1 overflow-auto p-4 md:p-8 pb-32 md:pb-8">
+           {children}
+        </div>
+
+        {/* INDICADOR DE OFFLINE AQUI 👇 */}
+        <OfflineIndicator />
+
+        {/* BOTTOM TAB BAR... */}
+// ... resto do código ...
         </ChurchProvider>
       </body>
     </html>
