@@ -2,11 +2,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { financeService } from "../../services/financeService";
+import { memberService } from "../../services/memberService"; // Importando Membros
 import { useChurch } from "../../contexts/ChurchContext";
 import { Transaction } from "../../types/finance";
+import { Member } from "../../types/member";
 import { 
-  DollarSign, TrendingUp, TrendingDown, Calendar, Search, 
-  Trash2, PlusCircle, Printer, Filter 
+  DollarSign, TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, Filter, Tag, User 
 } from "lucide-react";
 
 export default function FinancialPage() {
@@ -14,15 +15,27 @@ export default function FinancialPage() {
   const { formatMoney } = useChurch();
   const [churchId, setChurchId] = useState("");
   const [churchName, setChurchName] = useState("Igreja");
+  
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [members, setMembers] = useState<Member[]>([]); // Lista de Membros para o Select
   const [loading, setLoading] = useState(false);
   const [filterType, setFilterType] = useState<'all'|'income'|'expense'>('all');
   
-  // Modal Novo Lançamento
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Estado do Formulário Novo
   const [newTrans, setNewTrans] = useState({
-    description: "", amount: "", type: "income", date: ""
+    amount: "", 
+    type: "income", 
+    date: new Date().toISOString().split('T')[0],
+    category: "Dízimo",
+    memberId: "",
+    description: "" // Descrição opcional ou automática
   });
+
+  // Categorias Pré-definidas
+  const INCOME_CATEGORIES = ["Dízimo", "Oferta de Culto", "Oferta Especial", "Voto", "Bazar", "Cantina", "Doação Externa", "Outros"];
+  const EXPENSE_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Manutenção", "Material de Limpeza", "Ajuda Social", "Salário Pastoral", "Equipamentos", "Outros"];
 
   useEffect(() => {
     const idSalvo = localStorage.getItem("churchId");
@@ -35,10 +48,16 @@ export default function FinancialPage() {
 
   const carregarDados = async (id: string) => {
     try {
-      const lista = await financeService.listByChurch(id);
-      // Ordena por data (mais recente primeiro)
-      lista.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setTransactions(lista);
+      const [listaFinancas, listaMembros] = await Promise.all([
+         financeService.listByChurch(id),
+         memberService.listByChurch(id)
+      ]);
+      
+      // Ordena por data
+      listaFinancas.sort((a: any,b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      setTransactions(listaFinancas);
+      setMembers(listaMembros);
     } catch (e) { console.error(e); }
   };
 
@@ -46,15 +65,37 @@ export default function FinancialPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      // Monta a descrição automática se não tiver
+      let finalDesc = newTrans.description;
+      let memberName = "";
+
+      if (newTrans.category === "Dízimo" && newTrans.memberId) {
+          const selectedMember = members.find(m => m.id === newTrans.memberId);
+          if (selectedMember) {
+              memberName = selectedMember.fullName;
+              if (!finalDesc) finalDesc = `Dízimo - ${selectedMember.fullName}`;
+          }
+      } else if (!finalDesc) {
+          finalDesc = newTrans.category; // Ex: "Oferta de Culto"
+      }
+
       await financeService.create({
         churchId,
-        description: newTrans.description,
         amount: Number(newTrans.amount),
         type: newTrans.type as 'income' | 'expense',
-        date: newTrans.date
+        date: newTrans.date,
+        category: newTrans.category,
+        description: finalDesc,
+        memberId: newTrans.memberId || undefined,
+        memberName: memberName || undefined
       });
+
       setIsModalOpen(false);
-      setNewTrans({ description: "", amount: "", type: "income", date: "" });
+      // Resetar form
+      setNewTrans({ 
+          amount: "", type: "income", date: new Date().toISOString().split('T')[0], 
+          category: "Dízimo", memberId: "", description: "" 
+      });
       carregarDados(churchId);
     } catch (error) { alert("Erro ao salvar."); } finally { setLoading(false); }
   };
@@ -83,8 +124,8 @@ export default function FinancialPage() {
       {/* HEADER TELA */}
       <div className="max-w-5xl mx-auto flex justify-between items-center mb-8 print:hidden">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Financeiro</h1>
-          <p className="text-gray-500">Controle de dízimos, ofertas e despesas</p>
+          <h1 className="text-2xl font-bold text-gray-800">Financeiro Detalhado</h1>
+          <p className="text-gray-500">Gestão de Dízimos, Ofertas e Despesas</p>
         </div>
         <div className="flex gap-2">
             <button onClick={printExtract} className="bg-white border text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center gap-2">
@@ -99,18 +140,18 @@ export default function FinancialPage() {
       {/* HEADER IMPRESSÃO */}
       <div className="hidden print:block text-center mb-8 border-b pb-4">
           <h1 className="text-2xl font-bold uppercase">{churchName}</h1>
-          <p className="text-sm text-gray-500">Extrato Financeiro / Balancete</p>
+          <p className="text-sm text-gray-500">Relatório Financeiro</p>
           <p className="text-xs text-gray-400 mt-1">Gerado em {new Date().toLocaleDateString()}</p>
       </div>
 
       {/* CARDS RESUMO */}
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 print:grid-cols-3 print:gap-2">
          <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm print:border print:shadow-none">
-            <p className="text-xs text-gray-500 font-bold uppercase">Entradas</p>
+            <p className="text-xs text-gray-500 font-bold uppercase flex items-center gap-1"><TrendingUp size={14}/> Entradas</p>
             <p className="text-2xl font-bold text-green-600 mt-1">{formatMoney(totalIncome)}</p>
          </div>
          <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm print:border print:shadow-none">
-            <p className="text-xs text-gray-500 font-bold uppercase">Saídas</p>
+            <p className="text-xs text-gray-500 font-bold uppercase flex items-center gap-1"><TrendingDown size={14}/> Saídas</p>
             <p className="text-2xl font-bold text-red-600 mt-1">{formatMoney(totalExpense)}</p>
          </div>
          <div className={`bg-white p-5 rounded-xl border border-gray-100 shadow-sm print:border print:shadow-none ${balance < 0 ? 'border-red-200 bg-red-50' : ''}`}>
@@ -119,7 +160,7 @@ export default function FinancialPage() {
          </div>
       </div>
 
-      {/* FILTROS (Esconde na impressão) */}
+      {/* FILTROS */}
       <div className="max-w-5xl mx-auto mb-4 flex gap-2 print:hidden">
          <button onClick={() => setFilterType('all')} className={`px-4 py-2 rounded-lg text-sm font-medium ${filterType === 'all' ? 'bg-gray-800 text-white' : 'bg-white text-gray-600'}`}>Todos</button>
          <button onClick={() => setFilterType('income')} className={`px-4 py-2 rounded-lg text-sm font-medium ${filterType === 'income' ? 'bg-green-600 text-white' : 'bg-white text-gray-600'}`}>Entradas</button>
@@ -132,8 +173,8 @@ export default function FinancialPage() {
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold border-b">
                   <tr>
                       <th className="p-4">Data</th>
-                      <th className="p-4">Descrição</th>
-                      <th className="p-4">Tipo</th>
+                      <th className="p-4">Descrição / Membro</th>
+                      <th className="p-4">Categoria</th>
                       <th className="p-4 text-right">Valor</th>
                       <th className="p-4 w-10 print:hidden"></th>
                   </tr>
@@ -142,10 +183,20 @@ export default function FinancialPage() {
                   {filteredTransactions.map(t => (
                       <tr key={t.id} className="hover:bg-gray-50">
                           <td className="p-4 text-gray-500 w-32">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
-                          <td className="p-4 font-medium text-gray-800">{t.description}</td>
+                          
+                          {/* Coluna Descrição Inteligente */}
+                          <td className="p-4 font-medium text-gray-800">
+                              <p>{t.description}</p>
+                              {t.category === 'Dízimo' && t.memberName && (
+                                <span className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                    <User size={10}/> {t.memberName}
+                                </span>
+                              )}
+                          </td>
+
                           <td className="p-4">
-                              <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${t.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} print:bg-transparent print:p-0`}>
-                                  {t.type === 'income' ? 'Entrada' : 'Saída'}
+                              <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase border ${t.type === 'income' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'} print:border-0 print:p-0`}>
+                                  {t.category || (t.type === 'income' ? 'Entrada' : 'Saída')}
                               </span>
                           </td>
                           <td className={`p-4 text-right font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
@@ -160,27 +211,77 @@ export default function FinancialPage() {
           </table>
       </div>
 
-      {/* MODAL (Mantido) */}
+      {/* MODAL NOVO LANÇAMENTO (Melhorado) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm print:hidden">
            <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">Novo Lançamento</h2>
               <form onSubmit={handleSave} className="space-y-4">
-                  <div><label className="text-xs font-bold text-gray-500">Descrição</label><input required type="text" value={newTrans.description} onChange={e => setNewTrans({...newTrans, description: e.target.value})} className="w-full p-3 border rounded-lg"/></div>
-                  <div className="grid grid-cols-2 gap-4">
-                      <div><label className="text-xs font-bold text-gray-500">Valor</label><input required type="number" step="0.01" value={newTrans.amount} onChange={e => setNewTrans({...newTrans, amount: e.target.value})} className="w-full p-3 border rounded-lg"/></div>
-                      <div><label className="text-xs font-bold text-gray-500">Data</label><input required type="date" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} className="w-full p-3 border rounded-lg"/></div>
+                  
+                  {/* Tipo (Entrada / Saída) */}
+                  <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-lg">
+                      <button type="button" onClick={() => setNewTrans({...newTrans, type: 'income', category: 'Dízimo'})} className={`py-2 rounded-md text-sm font-bold transition ${newTrans.type === 'income' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                          Entrada
+                      </button>
+                      <button type="button" onClick={() => setNewTrans({...newTrans, type: 'expense', category: 'Outros'})} className={`py-2 rounded-md text-sm font-bold transition ${newTrans.type === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                          Saída
+                      </button>
                   </div>
+
+                  {/* Categoria */}
                   <div>
-                      <label className="text-xs font-bold text-gray-500">Tipo</label>
-                      <div className="grid grid-cols-2 gap-2">
-                          <button type="button" onClick={() => setNewTrans({...newTrans, type: 'income'})} className={`p-3 rounded-lg border font-bold text-sm ${newTrans.type === 'income' ? 'bg-green-50 border-green-500 text-green-700' : 'border-gray-200 text-gray-500'}`}>Entrada</button>
-                          <button type="button" onClick={() => setNewTrans({...newTrans, type: 'expense'})} className={`p-3 rounded-lg border font-bold text-sm ${newTrans.type === 'expense' ? 'bg-red-50 border-red-500 text-red-700' : 'border-gray-200 text-gray-500'}`}>Saída</button>
+                      <label className="text-xs font-bold text-gray-500 uppercase">Fonte / Categoria</label>
+                      <select 
+                        value={newTrans.category} 
+                        onChange={e => setNewTrans({...newTrans, category: e.target.value})} 
+                        className="w-full p-3 border rounded-lg bg-white mt-1"
+                      >
+                          {newTrans.type === 'income' 
+                            ? INCOME_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)
+                            : EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)
+                          }
+                      </select>
+                  </div>
+
+                  {/* SE FOR DÍZIMO: Mostra seleção de membro */}
+                  {newTrans.type === 'income' && newTrans.category === 'Dízimo' && (
+                      <div className="animate-in fade-in slide-in-from-top-2">
+                          <label className="text-xs font-bold text-blue-600 uppercase flex items-center gap-1"><User size={12}/> Selecione o Irmão(ã)</label>
+                          <select 
+                            value={newTrans.memberId} 
+                            onChange={e => setNewTrans({...newTrans, memberId: e.target.value})} 
+                            className="w-full p-3 border border-blue-200 rounded-lg bg-blue-50 mt-1"
+                            required
+                          >
+                              <option value="">-- Selecione na lista --</option>
+                              {members.map(m => (
+                                  <option key={m.id} value={m.id}>{m.fullName}</option>
+                              ))}
+                          </select>
+                      </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase">Valor</label>
+                          <input required type="number" step="0.01" value={newTrans.amount} onChange={e => setNewTrans({...newTrans, amount: e.target.value})} className="w-full p-3 border rounded-lg mt-1 text-lg font-bold" placeholder="0,00"/>
+                      </div>
+                      <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
+                          <input required type="date" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} className="w-full p-3 border rounded-lg mt-1"/>
                       </div>
                   </div>
-                  <div className="flex gap-2 mt-4">
-                      <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold">Cancelar</button>
-                      <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold">{loading ? 'Salvando...' : 'Salvar'}</button>
+
+                  <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase">Observação (Opcional)</label>
+                      <input type="text" value={newTrans.description} onChange={e => setNewTrans({...newTrans, description: e.target.value})} className="w-full p-3 border rounded-lg mt-1" placeholder="Detalhes adicionais..."/>
+                  </div>
+
+                  <div className="flex gap-2 mt-4 pt-2">
+                      <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold hover:bg-gray-200">Cancelar</button>
+                      <button type="submit" disabled={loading} className={`flex-1 py-3 text-white rounded-lg font-bold shadow-lg ${newTrans.type === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>
+                          {loading ? 'Salvando...' : 'Confirmar Lançamento'}
+                      </button>
                   </div>
               </form>
            </div>
