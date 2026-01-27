@@ -10,6 +10,20 @@ import {
 import { ChurchProvider } from "../contexts/ChurchContext";
 import InstallPWA from "../components/InstallPWA";
 import OfflineIndicator from "../components/OfflineIndicator";
+import type { Metadata } from "next";
+
+// ... seus imports ...
+
+export const metadata: Metadata = {
+  title: "ReinoCloud - Gestão para Igrejas",
+  description: "Sistema de gestão financeira e membros para igrejas.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.svg",       // Favicon da aba
+    apple: "/icon.svg",      // Ícone da Apple
+    shortcut: "/icon.svg",   // Atalho
+  },
+};
 
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

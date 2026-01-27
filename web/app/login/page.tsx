@@ -7,6 +7,24 @@ import { collection, query, where, getDocs, doc, getDoc } from "firebase/firesto
 import Link from "next/link";
 import { Heart } from "lucide-react"; // Importe o coração para dar um charme
 
+// ... imports
+import { Cloud, Plus } from "lucide-react"; // Importe os ícones
+
+// ... dentro do return ...
+<div className="text-center mb-8 flex flex-col items-center">
+  {/* LOGO VISUAL */}
+  <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-600/30">
+      <div className="relative">
+          <Cloud size={40} className="text-white fill-white"/>
+          <Plus size={20} className="text-blue-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold" strokeWidth={4}/>
+      </div>
+  </div>
+  
+  <h1 className="text-3xl font-bold text-gray-800">ReinoCloud</h1>
+  <p className="text-gray-500">Acesse sua conta</p>
+</div>
+
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
