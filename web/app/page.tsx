@@ -6,7 +6,7 @@ import { agendaService } from "../services/agendaService";
 import { useChurch } from "../contexts/ChurchContext";
 import { 
   Users, UserCheck, DollarSign, TrendingUp, TrendingDown, ArrowRight, 
-  Calendar, Clock, Eye, EyeOff, ChevronDown, ChevronUp, FileText 
+  Calendar, Clock, Eye, EyeOff, ChevronDown, ChevronUp 
 } from "lucide-react";
 import Link from "next/link";
 
@@ -17,7 +17,7 @@ export default function Dashboard() {
   const [userRole, setUserRole] = useState("admin");
   const [loading, setLoading] = useState(true);
   
-  // Controle de Visibilidade (Olhinho) e Expansão
+  // Controle de Visibilidade e Expansão
   const [showValues, setShowValues] = useState(true);
   const [expandFinance, setExpandFinance] = useState(false);
   
@@ -52,20 +52,23 @@ export default function Dashboard() {
         financeService.listByChurch(churchId).catch(() => [])
       ]);
 
-      // --- CORREÇÃO DA DATA DA AGENDA (DATA LOCAL) ---
-      const today = new Date();
-      // Ajusta para YYYY-MM-DD local (evita erro de fuso horário)
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
+      // --- CORREÇÃO DA DATA DA AGENDA (INFALÍVEL) ---
+      // Pegamos a data LOCAL do usuário (Ano-Mes-Dia)
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`; // Ex: "2026-01-27"
+
+      console.log("Data de Hoje (Sistema):", todayStr); // Para debug no F12
 
       const allEvents = await agendaService.listByChurch(churchId);
       
+      // Filtra eventos que a data é MAIOR ou IGUAL a hoje (Comparação de Texto)
       const upcoming = allEvents
-        .filter((e:any) => e.date >= todayStr) // Pega hoje e futuro
+        .filter((e:any) => e.date >= todayStr)
         .sort((a:any, b:any) => a.date.localeCompare(b.date))
-        .slice(0, 3); // Aumentei para 3 eventos
+        .slice(0, 3);
         
       setNextEvents(upcoming);
 
@@ -73,9 +76,9 @@ export default function Dashboard() {
       const income = transactions.filter(t => t.type === 'income').reduce((acc, c) => acc + Number(c.amount), 0);
       const expense = transactions.filter(t => t.type === 'expense').reduce((acc, c) => acc + Number(c.amount), 0);
       
-      // Pega os últimos 3 lançamentos para o "Mini Extrato"
+      // Últimos 4 lançamentos
       const recent = transactions
-        .sort((a:any, b:any) => b.date.localeCompare(a.date)) // Mais recentes primeiro
+        .sort((a:any, b:any) => b.date.localeCompare(a.date))
         .slice(0, 4);
       setRecentTransactions(recent);
 
@@ -117,12 +120,11 @@ export default function Dashboard() {
             </div>
         </div>
 
-        {/* 2. CARD FINANCEIRO INTELIGENTE */}
+        {/* 2. CARD FINANCEIRO (CORRIGIDO) */}
         {canSeeFinance && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative group transition-all">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative transition-all">
             <div className="flex justify-between items-start mb-2">
               <p className="text-sm font-medium text-gray-500">Saldo em Caixa</p>
-              {/* BOTÃO OLHO (VISIBILIDADE) */}
               <button onClick={() => setShowValues(!showValues)} className="text-gray-400 hover:text-blue-600 transition">
                  {showValues ? <Eye size={20}/> : <EyeOff size={20}/>}
               </button>
@@ -132,19 +134,18 @@ export default function Dashboard() {
               {showValues ? formatMoney(stats.balance) : "----"}
             </h3>
 
-            {/* BARRA DE ENTRADAS/SAÍDAS */}
-            <div className="flex items-center gap-2 text-xs mb-4">
-                <div className="flex-1 bg-green-50 text-green-700 px-2 py-1 rounded flex justify-between items-center">
-                    <span className="flex items-center gap-1"><TrendingUp size={12}/> Entradas</span>
-                    <span className="font-bold">{showValues ? formatMoney(stats.income) : "..."}</span>
+            {/* LAYOUT VERTICAL (UM EMBAIXO DO OUTRO) PARA NÃO QUEBRAR */}
+            <div className="flex flex-col gap-2 text-xs mb-4">
+                <div className="w-full bg-green-50 text-green-700 px-3 py-2 rounded flex justify-between items-center">
+                    <span className="flex items-center gap-2"><TrendingUp size={14}/> Entradas</span>
+                    <span className="font-bold text-sm">{showValues ? formatMoney(stats.income) : "..."}</span>
                 </div>
-                <div className="flex-1 bg-red-50 text-red-700 px-2 py-1 rounded flex justify-between items-center">
-                    <span className="flex items-center gap-1"><TrendingDown size={12}/> Saídas</span>
-                    <span className="font-bold">{showValues ? formatMoney(stats.expense) : "..."}</span>
+                <div className="w-full bg-red-50 text-red-700 px-3 py-2 rounded flex justify-between items-center">
+                    <span className="flex items-center gap-2"><TrendingDown size={14}/> Saídas</span>
+                    <span className="font-bold text-sm">{showValues ? formatMoney(stats.expense) : "..."}</span>
                 </div>
             </div>
 
-            {/* BOTÃO EXPANDIR MINI EXTRATO */}
             <button 
                 onClick={() => setExpandFinance(!expandFinance)}
                 className="w-full text-xs flex items-center justify-center gap-1 text-gray-400 hover:text-gray-600 border-t pt-2 mt-2"
@@ -153,7 +154,6 @@ export default function Dashboard() {
                 {expandFinance ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
             </button>
 
-            {/* MINI EXTRATO (EXPANDÍVEL) */}
             {expandFinance && (
                 <div className="mt-3 space-y-2 border-t border-gray-50 pt-2 animate-in slide-in-from-top-2">
                     {recentTransactions.length === 0 ? (
@@ -176,7 +176,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* 3. CARD AGENDA (CORRIGIDO) */}
+        {/* 3. CARD AGENDA */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4">
                 <p className="text-sm font-medium text-gray-500">Próximos Compromissos</p>
@@ -192,18 +192,24 @@ export default function Dashboard() {
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {nextEvents.map((evt) => (
-                        <div key={evt.id} className="flex gap-3 items-center pb-2 border-b border-gray-50 last:border-0 last:pb-0">
-                            <div className="bg-orange-50 text-orange-600 text-xs font-bold px-2 py-1 rounded text-center min-w-[40px]">
-                                {new Date(evt.date).getDate()}<br/>
-                                {new Date(evt.date).toLocaleDateString('pt-BR', {month:'short'}).slice(0,3)}
-                            </div>
-                            <div className="overflow-hidden">
-                                <p className="text-sm font-bold text-gray-800 truncate">{evt.title}</p>
-                                <p className="text-xs text-gray-400 flex items-center gap-1"><Clock size={10}/> {evt.time}</p>
-                            </div>
-                        </div>
-                    ))}
+                    {nextEvents.map((evt) => {
+                        // Formatar data visualmente
+                        const dataEvt = new Date(evt.date + 'T12:00:00'); // Força meio-dia para evitar erro de fuso visual
+                        const dia = dataEvt.getDate();
+                        const mes = dataEvt.toLocaleDateString('pt-BR', {month:'short'}).slice(0,3).toUpperCase();
+                        
+                        return (
+                          <div key={evt.id} className="flex gap-3 items-center pb-2 border-b border-gray-50 last:border-0 last:pb-0">
+                              <div className="bg-orange-50 text-orange-600 text-xs font-bold px-2 py-1 rounded text-center min-w-[45px]">
+                                  {dia}<br/>{mes}
+                              </div>
+                              <div className="overflow-hidden">
+                                  <p className="text-sm font-bold text-gray-800 truncate">{evt.title}</p>
+                                  <p className="text-xs text-gray-400 flex items-center gap-1"><Clock size={10}/> {evt.time} • {evt.local || 'Na Igreja'}</p>
+                              </div>
+                          </div>
+                        )
+                    })}
                     <Link href="/agenda" className="block text-right text-xs text-gray-400 hover:text-blue-600 mt-2">
                         Ver agenda completa →
                     </Link>
