@@ -6,8 +6,8 @@ import { ministryService } from "../../services/ministryService";
 import { Member } from "../../types/member";
 import { Ministry } from "../../types/ministry";
 import { 
-  Users, UserPlus, Search, Edit, Trash2, X, MapPin, Calendar, CreditCard, Phone, 
-  IdCard, Printer, Shield, FileText
+  Users, UserPlus, Search, Edit, Trash2, X, MapPin, Calendar, 
+  IdCard, Printer, Shield, Phone 
 } from "lucide-react";
 
 export default function MembersPage() {
@@ -124,79 +124,115 @@ export default function MembersPage() {
   const printCard = () => window.print();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8 print:p-0 print:bg-white">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 print:p-0 print:bg-white pb-24">
       
-      {/* CABEÇALHO DA PÁGINA */}
-      <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4 print:hidden">
+      {/* HEADER MOBILE-FIRST (Arrumado para não cortar botões) */}
+      <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Membros</h1>
-          <p className="text-gray-500">Gerencie o cadastro das ovelhas</p>
+          <p className="text-sm text-gray-500">Gerencie o cadastro das ovelhas</p>
         </div>
-        <div className="flex gap-3 w-full md:w-auto">
-          <div className="flex items-center bg-white border rounded-lg px-3 py-2 w-full md:w-64">
-            <Search size={18} className="text-gray-400 mr-2"/>
-            <input type="text" placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="outline-none w-full text-sm"/>
-          </div>
-          {/* BOTÃO IMPRIMIR LISTA */}
-          <button onClick={printList} className="bg-white border hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2">
-            <Printer size={20} />
-          </button>
-          <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap">
-            <UserPlus size={20} /> Novo Membro
-          </button>
+        
+        <div className="w-full md:w-auto flex flex-col gap-3">
+            {/* Barra de Busca (Full Width no Mobile) */}
+            <div className="relative w-full md:w-64">
+                <Search size={18} className="absolute left-3 top-3 text-gray-400"/>
+                <input 
+                    type="text" 
+                    placeholder="Buscar membro..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="w-full pl-10 pr-4 py-2 bg-white border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
+                />
+            </div>
+
+            {/* Botões de Ação (Empilhados e Grandes) */}
+            <div className="flex gap-2">
+                <button onClick={printList} className="flex-1 md:flex-none justify-center bg-white border text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 flex items-center gap-2 text-sm font-bold shadow-sm">
+                    <Printer size={18} /> <span className="hidden md:inline">Lista</span> <span className="md:hidden">Imprimir</span>
+                </button>
+                <button onClick={() => { resetForm(); setIsModalOpen(true); }} className="flex-1 md:flex-none justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg">
+                    <UserPlus size={18} /> Novo <span className="hidden md:inline">Membro</span>
+                </button>
+            </div>
         </div>
       </div>
 
-      {/* CABEÇALHO APENAS PARA IMPRESSÃO */}
+      {/* CABEÇALHO DE IMPRESSÃO */}
       <div className="hidden print:block text-center mb-8 border-b pb-4">
           <h1 className="text-2xl font-bold uppercase">{churchName}</h1>
           <p className="text-sm text-gray-500">Relatório Geral de Membros</p>
           <p className="text-xs text-gray-400 mt-1">Gerado em {new Date().toLocaleDateString()}</p>
       </div>
 
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden print:shadow-none print:border-0">
+      {/* LISTA DE MEMBROS (Mobile: Cards / Desktop: Tabela) */}
+      <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden print:shadow-none print:border-0">
         <table className="w-full text-left">
-          <thead className="bg-gray-50 text-gray-500 text-sm border-b border-gray-100">
+          <thead className="bg-gray-50 text-gray-500 text-xs font-bold border-b uppercase hidden md:table-header-group">
             <tr>
-              <th className="p-4 font-medium">Nome</th>
-              <th className="p-4 font-medium hidden md:table-cell print:table-cell">Status</th>
-              <th className="p-4 font-medium hidden md:table-cell print:hidden">Ministérios</th>
-              <th className="p-4 font-medium text-right print:hidden">Ações</th>
+              <th className="p-4">Nome</th>
+              <th className="p-4 print:table-cell">Status</th>
+              <th className="p-4 print:hidden">Ministérios</th>
+              <th className="p-4 text-right print:hidden">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 text-sm">
             {filteredMembers.map((m) => (
-              <tr key={m.id} className="hover:bg-gray-50/50 transition">
-                <td className="p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden border border-gray-200 flex-shrink-0 flex items-center justify-center text-gray-400 print:hidden">
-                     <Users size={20}/>
+              <tr key={m.id} className="hover:bg-gray-50 transition flex flex-col md:table-row p-4 md:p-0 relative">
+                
+                {/* Mobile: Layout Cartão */}
+                <td className="md:p-4 flex items-center gap-3 mb-2 md:mb-0">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 print:hidden font-bold text-xs">
+                     {m.fullName.substring(0,2).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">{m.fullName}</p>
+                    <p className="font-bold text-gray-900 text-base md:text-sm">{m.fullName}</p>
                     <p className="text-xs text-gray-400 flex items-center gap-1">
                         {m.role === 'admin' || m.role === 'pastor' ? <Shield size={10} className="text-yellow-500"/> : null}
-                        {m.phone}
+                        <span className="capitalize">{m.role === 'admin' ? 'Pastor/Admin' : m.role}</span>
+                        {m.phone && <span className="hidden md:inline">• {m.phone}</span>}
                     </p>
+                    {m.phone && (
+                        <p className="text-xs text-gray-500 md:hidden flex items-center gap-1 mt-0.5">
+                            <Phone size={10}/> {m.phone}
+                        </p>
+                    )}
+                  </div>
+                  
+                  {/* Status Badge no Mobile (Canto superior) */}
+                  <div className="absolute top-4 right-4 md:hidden">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${m.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                        {m.status === 'active' ? 'Ativo' : 'Inativo'}
+                    </span>
                   </div>
                 </td>
-                <td className="p-4 hidden md:table-cell print:table-cell">
-                  <span className={`px-2 py-0.5 rounded-full text-xs border ${m.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'} print:border-0 print:p-0`}>
+
+                <td className="md:p-4 hidden md:table-cell print:table-cell">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold uppercase border ${m.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'} print:border-0 print:p-0`}>
                       {m.status === 'active' ? 'Ativo' : 'Inativo'}
                   </span>
                 </td>
-                <td className="p-4 hidden md:table-cell print:hidden">
+
+                <td className="md:p-4 hidden md:table-cell print:hidden">
                    <div className="flex flex-wrap gap-1">
                      {m.ministries?.map(mid => {
                        const min = ministries.find(x => x.id === mid);
-                       return min ? <span key={mid} className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{min.name}</span> : null
+                       return min ? <span key={mid} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">{min.name}</span> : null
                      })}
                    </div>
                 </td>
-                <td className="p-4 text-right print:hidden">
+
+                <td className="md:p-4 text-right print:hidden mt-2 md:mt-0 border-t pt-3 md:border-0 md:pt-0">
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => handleOpenCard(m)} className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"><IdCard size={16}/></button>
-                    <button onClick={() => handleEdit(m)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16}/></button>
-                    <button onClick={() => handleDelete(m.id!)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
+                    <button onClick={() => handleOpenCard(m)} className="p-2 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg flex items-center gap-1 text-xs font-bold">
+                        <IdCard size={16}/> <span className="md:hidden">Cartão</span>
+                    </button>
+                    <button onClick={() => handleEdit(m)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg flex items-center gap-1 text-xs font-bold">
+                        <Edit size={16}/> <span className="md:hidden">Editar</span>
+                    </button>
+                    <button onClick={() => handleDelete(m.id!)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg">
+                        <Trash2 size={16}/>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -205,12 +241,11 @@ export default function MembersPage() {
         </table>
       </div>
 
-      {/* MODAL EDITAR (Mantido) */}
+      {/* MODAL DE CADASTRO/EDIÇÃO (Mantido igual) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm print:hidden">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-             {/* ... (Mesmo código do formulário de antes) ... */}
-             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={24} /></button>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm print:hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 p-1 rounded-full"><X size={20} /></button>
             <h2 className="text-xl font-bold text-gray-800 mb-6">{editingId ? 'Editar Ficha' : 'Novo Cadastro'}</h2>
             <form onSubmit={handleSave} className="space-y-6">
               <div>
@@ -251,22 +286,22 @@ export default function MembersPage() {
                 </div>
               </div>
               <div className="flex gap-3 pt-4 border-t">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border rounded-lg text-gray-600 font-medium hover:bg-gray-50">Cancelar</button>
-                  <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50">{loading ? 'Salvando...' : 'Salvar Ficha'}</button>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border rounded-xl text-gray-600 font-medium hover:bg-gray-50">Cancelar</button>
+                  <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50">{loading ? 'Salvando...' : 'Salvar Ficha'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL CARTEIRINHA (Mantido) */}
+      {/* MODAL CARTEIRINHA (Mantido igual, apenas arredondado) */}
       {isCardModalOpen && selectedMember && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm print:absolute print:inset-0 print:bg-white print:p-0">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 backdrop-blur-sm print:absolute print:inset-0 print:bg-white print:p-0">
           <div className="bg-white rounded-2xl shadow-2xl p-6 relative max-w-lg w-full print:shadow-none print:w-auto print:max-w-none print:p-0">
              <button onClick={() => setIsCardModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 p-1 rounded-full print:hidden"><X size={20} /></button>
              <div className="mb-6 flex justify-between items-center print:hidden">
                 <h2 className="text-xl font-bold text-gray-800">Carteirinha Digital</h2>
-                <button onClick={printCard} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-lg"><Printer size={18}/> Imprimir</button>
+                <button onClick={printCard} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg"><Printer size={18}/> Imprimir</button>
              </div>
              <div className="print:flex print:items-center print:justify-center print:h-screen">
                 <div className="w-[85.6mm] h-[53.98mm] bg-gradient-to-br from-blue-700 to-blue-900 rounded-xl shadow-lg relative overflow-hidden text-white mx-auto print:shadow-none print:rounded-none border border-gray-200">
@@ -278,8 +313,8 @@ export default function MembersPage() {
                             <div className="w-6 h-6 bg-white/20 rounded flex items-center justify-center"><Shield size={12} className="text-white"/></div>
                         </div>
                         <div className="flex gap-3 items-center mt-1">
-                             <div className="w-14 h-14 bg-white/20 rounded-lg border-2 border-white/30 overflow-hidden flex items-center justify-center shrink-0">
-                                <Users size={24} className="text-white"/>
+                             <div className="w-14 h-14 bg-white/20 rounded-lg border-2 border-white/30 overflow-hidden flex items-center justify-center shrink-0 font-bold text-2xl">
+                                {selectedMember.fullName.substring(0,2).toUpperCase()}
                              </div>
                              <div>
                                 <h2 className="font-bold text-base truncate w-40">{selectedMember.fullName}</h2>
