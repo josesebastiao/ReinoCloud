@@ -1,32 +1,37 @@
 import { db } from "../lib/firebase";
 import { 
-  collection, addDoc, updateDoc, deleteDoc, doc, 
-  query, where, getDocs, orderBy 
+  collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc 
 } from "firebase/firestore";
 import { Event } from "../types/event";
 
 const COLLECTION = "events";
 
 export const eventService = {
-  create: async (data: Event) => {
-    await addDoc(collection(db, COLLECTION), {
-      ...data,
-      createdAt: new Date()
-    });
-  },
-
+  // Listar
   listByChurch: async (churchId: string) => {
-    // Busca eventos ordenados por data
-    const q = query(
-      collection(db, COLLECTION), 
-      where("churchId", "==", churchId),
-      orderBy("date", "asc") // Do mais antigo para o futuro (vamos filtrar no front)
-    );
-    
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+    try {
+      const q = query(collection(db, COLLECTION), where("churchId", "==", churchId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+    } catch (error) {
+      console.error("Erro ao listar eventos:", error);
+      throw error;
+    }
   },
 
+  // Criar
+  create: async (data: any) => {
+    await addDoc(collection(db, COLLECTION), data);
+  },
+
+  // --- NOVO: ATUALIZAR (EDITAR) ---
+  update: async (id: string, data: any) => {
+    const docRef = doc(db, COLLECTION, id);
+    await updateDoc(docRef, data);
+  },
+  // -------------------------------
+
+  // Deletar
   delete: async (id: string) => {
     await deleteDoc(doc(db, COLLECTION, id));
   }
