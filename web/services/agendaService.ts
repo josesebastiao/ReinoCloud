@@ -4,7 +4,7 @@ import {
   collection, addDoc, getDocs, query, where, deleteDoc, doc 
 } from "firebase/firestore";
 
-const COLLECTION = "agenda";
+const COLLECTION = "events";
 
 export const agendaService = {
   // Listar eventos da igreja
