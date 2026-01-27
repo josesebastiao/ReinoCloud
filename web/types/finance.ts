@@ -6,10 +6,10 @@ export interface Transaction {
   type: 'income' | 'expense';
   date: string;
   
-  // NOVOS CAMPOS DETALHADOS
-  category: string;        // Ex: "Dízimo", "Oferta", "Bazar", "Aluguel"
-  memberId?: string;       // ID do membro (Opcional, só para Dízimos)
-  memberName?: string;     // Nome do membro (Para facilitar a leitura)
+  // CORREÇÃO: Adicionei "| null" para permitir valores vazios
+  category: string;
+  memberId?: string | null;       
+  memberName?: string | null;     
   
   createdAt?: any;
 }
