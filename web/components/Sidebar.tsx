@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { 
-  LayoutDashboard, Users, Music, Settings, DollarSign, LogOut, Menu, X, Shield, Calendar, ShieldAlert 
+  LayoutDashboard, Users, Music, Settings, DollarSign, LogOut, Menu, X, Shield, Calendar, ShieldAlert, 
+  PieChart
 } from "lucide-react";
 import { auth } from "../lib/firebase";
 
@@ -47,6 +48,8 @@ export function Sidebar() {
   const menuItems = [
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Dashboard", href: "/" }] : []),
     ...(canAccess('agenda')    ? [{ icon: Calendar, label: "Agenda Pastoral", href: "/agenda" }] : []),
+    ...(canAccess('dashboard') ? [{ icon: PieChart, label: "Estatísticas", href: "/reports" }] : []),
+
     ...(canAccess('members')   ? [{ icon: Users, label: "Membros", href: "/members" }] : []),
     ...(canAccess('ministry')  ? [{ icon: Music, label: "Ministérios / Deptos", href: "/ministries" }] : []),
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Financeiro", href: "/financial" }] : []),

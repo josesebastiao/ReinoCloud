@@ -3,20 +3,19 @@ export interface Member {
   fullName: string;
   email: string;
   churchId: string;
-  
-  // ADICIONADO: 'secretary'
   role: 'admin' | 'pastor' | 'leader' | 'member' | 'treasurer' | 'secretary';
-  
   status: 'active' | 'inactive';
+  
+  // --- NOVO CAMPO ---
+  gender?: 'male' | 'female';
+  // ------------------
+
   searchKeywords?: string[];
   createdAt?: any;
-
-  // Seus campos personalizados
   phone: string;
   document: string;
   birthDate: string;
   baptismDate: string;
-  
   address: {
     street: string;
     number: string;
@@ -25,7 +24,6 @@ export interface Member {
     state: string;
     zipCode: string;
   };
-  
   ministries: string[];
   leadershipId?: string; 
 }
