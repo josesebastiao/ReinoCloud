@@ -242,7 +242,7 @@ export default function MembersPage() {
       {/* MODAL DE CADASTRO COMPLETO */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-8 p-6 relative">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
                 <X size={24} />
             </button>

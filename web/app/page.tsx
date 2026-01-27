@@ -13,8 +13,8 @@ export default function Dashboard() {
   const router = useRouter();
   const { formatMoney } = useChurch();
   const [churchName, setChurchName] = useState("");
-  const [userName, setUserName] = useState("Pastor");
-  const [userRole, setUserRole] = useState("admin"); // <--- Guardamos o cargo
+  const [userName, setUserName] = useState("Carregando...");
+  const [userRole, setUserRole] = useState("admin");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -28,31 +28,54 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
+    // Carrega dados iniciais do localStorage (para não ficar em branco)
     const idSalvo = localStorage.getItem("churchId");
-    const nomeUsuario = localStorage.getItem("userName");
-    const role = localStorage.getItem("userRole") || "admin";
+    const nomeSalvo = localStorage.getItem("userName");
+    const roleSalvo = localStorage.getItem("userRole") || "admin";
     
-    setUserRole(role); // Define o cargo
-
-    if (nomeUsuario) setUserName(nomeUsuario.split(' ')[0]);
-    if (!idSalvo) return; 
-
+    if (nomeSalvo) setUserName(nomeSalvo.split(' ')[0]);
+    setUserRole(roleSalvo);
     setChurchName(localStorage.getItem("churchName") || "Minha Igreja");
+
+    if (!idSalvo) return; 
+    
+    // Inicia o carregamento real
     carregarDados(idSalvo);
   }, []);
 
   const carregarDados = async (churchId: string) => {
     try {
       setLoading(true);
-      // Carrega membros e finanças... (Mantido igual)
-      // Obs: Se o usuário não tiver permissão no Firebase Rules no futuro, aqui daria erro,
-      // mas por enquanto no front escondemos os dados.
-      let members: Member[] = [];
-      try { members = await memberService.listByChurch(churchId); } catch (e) {}
+      
+      // Busca o e-mail do usuário atual para atualizar a identidade dele
+      const myEmail = localStorage.getItem("userEmail");
 
+      // Carrega Membros
+      let members: Member[] = [];
+      try { 
+        members = await memberService.listByChurch(churchId); 
+        
+        // --- AUTO-ATUALIZAÇÃO DE IDENTIDADE ---
+        // Se encontrarmos o usuário atual na lista, atualizamos o nome e cargo dele
+        if (myEmail) {
+            const myself = members.find(m => m.email === myEmail);
+            if (myself) {
+                // Atualiza o estado da tela
+                setUserName(myself.fullName.split(' ')[0]);
+                setUserRole(myself.role);
+                
+                // Atualiza o navegador para os próximos acessos
+                localStorage.setItem("userName", myself.fullName);
+                localStorage.setItem("userRole", myself.role);
+            }
+        }
+      } catch (e) { console.error(e); }
+
+      // Carrega Finanças
       let transactions: Transaction[] = [];
       try { transactions = await financeService.listByChurch(churchId); } catch (e) {}
 
+      // Calcula Estatísticas
       const active = members.filter(m => m.status === 'active').length;
       const inactive = members.filter(m => m.status !== 'active').length;
       const income = transactions.filter(t => t.type === 'income').reduce((acc, c) => acc + Number(c.amount), 0);
@@ -66,6 +89,7 @@ export default function Dashboard() {
         income,
         expense
       });
+
     } catch (err) {
       console.error(err);
       setError("Erro ao carregar dados.");
@@ -74,11 +98,10 @@ export default function Dashboard() {
     }
   };
 
-  // Funções auxiliares de permissão
   const canSeeMembers = ['admin', 'pastor', 'secretary'].includes(userRole);
   const canSeeFinance = ['admin', 'pastor', 'treasurer'].includes(userRole);
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Carregando painel...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-500">Atualizando sistema...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -88,8 +111,6 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        
-        {/* SÓ MOSTRA SE TIVER PERMISSÃO DE MEMBROS */}
         {canSeeMembers && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
             <div className="flex justify-between items-start">
@@ -106,7 +127,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* SÓ MOSTRA SE TIVER PERMISSÃO DE FINANCEIRO */}
         {canSeeFinance && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex justify-between items-start">
@@ -121,7 +141,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* FLUXO (Só Financeiro vê) */}
         {canSeeFinance && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="space-y-3">
@@ -141,7 +160,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* ATALHOS INTELIGENTES */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {canSeeFinance && (
           <Link href="/financial" className="block p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-between">
