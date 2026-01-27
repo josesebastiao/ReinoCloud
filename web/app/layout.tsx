@@ -5,11 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
   LayoutDashboard, Users, FileText, Settings, LogOut, Menu, X, 
-  Music, DollarSign, BookOpen, PieChart, Shield, Home, ArrowLeft 
+  Music, DollarSign, BookOpen, PieChart, Shield, Home, ArrowLeft,Gift
 } from "lucide-react";
 import { ChurchProvider } from "../contexts/ChurchContext";
 import InstallPWA from "../components/InstallPWA";
 import OfflineIndicator from "../components/OfflineIndicator";
+
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -32,6 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/", roles: ["admin", "pastor", "treasurer", "secretary", "member"] },
     { name: "Secretaria", icon: FileText, path: "/secretary", roles: ["admin", "pastor", "secretary"] },
+    { name: "Aniversariantes", icon: Gift, path: "/birthdays", roles: ["admin", "pastor", "secretary"] },
+    
     { name: "Membros", icon: Users, path: "/members", roles: ["admin", "pastor", "secretary"] },
     { name: "Ministérios / Deptos", icon: Music, path: "/ministries", roles: ["admin", "pastor", "leader"] },
     { name: "Financeiro", icon: DollarSign, path: "/financial", roles: ["admin", "pastor", "treasurer"] },
