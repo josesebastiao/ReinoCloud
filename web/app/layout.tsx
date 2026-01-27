@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
   LayoutDashboard, Users, FileText, Settings, LogOut, Menu, X, 
-  Music, DollarSign, BookOpen, PieChart, Shield 
+  Music, DollarSign, BookOpen, PieChart, Shield, Home 
 } from "lucide-react";
 import { ChurchProvider } from "../contexts/ChurchContext";
 import InstallPWA from "../components/InstallPWA";
@@ -44,9 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        {/* COR DA BARRA DE STATUS: Agora é Branca para combinar */}
-        <meta name="theme-color" content="#ffffff" />
-        {/* VIEWPORT: Garante que não dê zoom e use a tela toda */}
+        <meta name="theme-color" content="#0f172a" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
       </head>
       <body className="bg-gray-50 text-gray-900 font-sans antialiased">
@@ -56,42 +54,40 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ) : (
             <div className="flex min-h-screen">
               
-              {/* OVERLAY ESCURO (Mobile) */}
+              {/* OVERLAY MOBILE */}
               {isSidebarOpen && (
                 <div 
-                  className="fixed inset-0 bg-black/40 z-40 md:hidden backdrop-blur-sm transition-opacity"
+                  className="fixed inset-0 bg-black/60 z-50 md:hidden backdrop-blur-sm transition-opacity"
                   onClick={() => setIsSidebarOpen(false)}
                 />
               )}
 
-              {/* SIDEBAR (AGORA BRANCA E CLEAN) */}
+              {/* SIDEBAR (PREMIUM DARK) */}
               <aside 
                 className={`
-                  fixed md:static inset-y-0 left-0 z-50 w-72 bg-white flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out border-r border-gray-100
+                  fixed md:static inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out
                   ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
                 `}
               >
-                {/* Cabeçalho da Sidebar */}
-                <div className="p-6 flex justify-between items-center border-b border-gray-100">
+                <div className="p-6 flex justify-between items-center border-b border-gray-800">
                   <div>
-                    <h1 className="text-2xl font-bold text-blue-600 tracking-tight">ReinoCloud</h1>
-                    <p className="text-xs text-gray-400 font-medium">Gestão para Igrejas</p>
+                    <h1 className="text-2xl font-bold text-blue-500 tracking-tight">ReinoCloud</h1>
+                    <p className="text-xs text-gray-400">Gestão para Igrejas</p>
                   </div>
-                  <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-gray-600 bg-gray-50 p-1 rounded-full">
-                    <X size={20} />
+                  <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white">
+                    <X size={24} />
                   </button>
                 </div>
 
-                <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-                  
+                <nav className="flex-1 overflow-y-auto p-4 space-y-2">
                   <div className="md:hidden mb-4">
                     <InstallPWA />
                   </div>
 
                   {userRole === 'admin' && (
-                     <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
-                        <Shield size={14} className="text-yellow-600"/>
-                        <span className="text-[10px] text-yellow-700 font-bold uppercase tracking-wider">Super Admin</span>
+                     <div className="mb-4 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center gap-2">
+                        <Shield size={14} className="text-yellow-500"/>
+                        <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider">Super Admin</span>
                      </div>
                   )}
 
@@ -101,59 +97,94 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                         key={item.path} 
                         href={item.path}
                         onClick={() => setIsSidebarOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                           pathname === item.path 
-                            ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-100" // Estilo Ativo (Clean)
-                            : "text-gray-500 hover:bg-gray-50 hover:text-gray-900" // Estilo Inativo
+                            ? "bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50" 
+                            : "text-gray-400 hover:bg-gray-800 hover:text-white"
                         }`}
                       >
-                        <item.icon size={20} className={pathname === item.path ? "text-blue-600" : "text-gray-400"} />
+                        <item.icon size={20} />
                         <span>{item.name}</span>
                       </Link>
                     )
                   ))}
 
-                  {/* Botão Admin Especial */}
                   {userRole === 'admin' && (
                     <Link 
                         href="/admin" 
-                        className="mt-6 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-100 bg-red-50 text-red-600 hover:bg-red-100 transition-all group"
+                        className="mt-6 flex items-center gap-3 px-4 py-3 rounded-xl border border-red-900/30 bg-red-900/10 text-red-500 hover:bg-red-600 hover:text-white transition-all group"
                     >
                         <Shield size={20} className="group-hover:animate-pulse"/>
                         <span className="font-bold">Painel SaaS</span>
                     </Link>
                   )}
-
                 </nav>
 
-                {/* Footer Sidebar */}
-                <div className="p-4 border-t border-gray-100">
-                  <button 
-                    onClick={handleLogout}
-                    className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-xl transition font-medium"
-                  >
-                    <LogOut size={20} />
-                    <span>Sair</span>
+                <div className="p-4 border-t border-gray-800">
+                  <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full text-left text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl transition">
+                    <LogOut size={20} /> <span>Sair</span>
                   </button>
                 </div>
               </aside>
 
-              {/* MAIN CONTENT */}
+              {/* CONTEÚDO PRINCIPAL */}
               <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50">
-                {/* Header Mobile Branco e Minimalista */}
-                <header className="md:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top">
-                   <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-                      <Menu size={24} />
-                   </button>
-                   <span className="font-bold text-gray-800 text-lg">ReinoCloud</span>
-                   <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm border border-blue-200">
+                
+                {/* Header Mobile (Fundo Branco Clean) */}
+                <header className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top">
+                   <div className="flex items-center gap-2">
+                     <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">R</div>
+                     <span className="font-bold text-gray-800">ReinoCloud</span>
+                   </div>
+                   <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-bold text-xs border">
                       {userRole.slice(0,2).toUpperCase()}
                    </div>
                 </header>
 
-                <div className="flex-1 overflow-auto p-4 md:p-8 pb-24 md:pb-8">
+                <div className="flex-1 overflow-auto p-4 md:p-8 pb-32 md:pb-8">
                    {children}
                 </div>
+
+                {/* --- BOTTOM TAB BAR (SÓ MOBILE) --- */}
+                {/* Navegação Estilo App no rodapé */}
+                <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center z-40 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    
+                    <Link href="/" className={`flex flex-col items-center gap-1 ${pathname === '/' ? 'text-blue-600' : 'text-gray-400'}`}>
+                        <Home size={24} strokeWidth={pathname === '/' ? 2.5 : 2} />
+                        <span className="text-[10px] font-medium">Início</span>
+                    </Link>
+
+                    {canView(['admin', 'pastor', 'secretary']) && (
+                        <Link href="/members" className={`flex flex-col items-center gap-1 ${pathname === '/members' ? 'text-blue-600' : 'text-gray-400'}`}>
+                            <Users size={24} strokeWidth={pathname === '/members' ? 2.5 : 2} />
+                            <span className="text-[10px] font-medium">Membros</span>
+                        </Link>
+                    )}
+
+                    {/* Botão Central de Ação (Financeiro) */}
+                    {canView(['admin', 'pastor', 'treasurer']) && (
+                        <Link href="/financial" className="flex flex-col items-center -mt-8">
+                            <div className="bg-blue-600 text-white p-4 rounded-full shadow-lg shadow-blue-600/30">
+                                <DollarSign size={24} />
+                            </div>
+                            <span className="text-[10px] font-medium text-gray-500 mt-1">Ofertar</span>
+                        </Link>
+                    )}
+
+                    {canView(['admin', 'pastor', 'secretary']) && (
+                        <Link href="/agenda" className={`flex flex-col items-center gap-1 ${pathname === '/agenda' ? 'text-blue-600' : 'text-gray-400'}`}>
+                            <BookOpen size={24} strokeWidth={pathname === '/agenda' ? 2.5 : 2} />
+                            <span className="text-[10px] font-medium">Agenda</span>
+                        </Link>
+                    )}
+
+                    {/* Botão Menu (Abre a Sidebar) */}
+                    <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 text-gray-400">
+                        <Menu size={24} />
+                        <span className="text-[10px] font-medium">Menu</span>
+                    </button>
+                </div>
+
               </main>
             </div>
           )}
