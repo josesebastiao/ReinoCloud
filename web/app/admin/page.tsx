@@ -8,7 +8,7 @@ import { collection, query, where, getDocs, updateDoc, doc } from "firebase/fire
 import { db } from "../../lib/firebase";
 
 // SEU E-MAIL DE SUPER ADMIN (O ÚNICO QUE PODE VER ESSA TELA)
-const SUPER_ADMIN_EMAIL = "alfaministro1@gmail.com"; 
+const SUPER_ADMIN_EMAIL = "alfaministro1@hotmail.com"; 
 
 export default function SuperAdminPage() {
   const router = useRouter();
