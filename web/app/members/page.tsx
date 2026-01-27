@@ -58,6 +58,7 @@ export default function MembersPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
     try {
       const memberData: Member = {
         churchId,
@@ -77,10 +78,40 @@ export default function MembersPage() {
         ministries: formData.selectedMinistries
       };
 
-      if (editingId) { await memberService.update(editingId, memberData); } 
-      else { await memberService.create(memberData); }
-      setIsModalOpen(false); resetForm(); carregarDados(churchId);
-    } catch (error: any) { alert("Erro ao salvar: " + error.message); } finally { setLoading(false); }
+      // --- MODO OFFLINE (PULO DO GATO) ---
+      if (!navigator.onLine) {
+          if (editingId) { 
+              memberService.update(editingId, memberData); 
+          } else { 
+              memberService.create(memberData); 
+          }
+          
+          alert("Salvo no dispositivo (Offline)!");
+          setIsModalOpen(false);
+          resetForm();
+          setLoading(false);
+          
+          // Atualiza a tela localmente
+          setTimeout(() => carregarDados(churchId), 500);
+          return;
+      }
+
+      // --- MODO ONLINE (NORMAL) ---
+      if (editingId) { 
+          await memberService.update(editingId, memberData); 
+      } else { 
+          await memberService.create(memberData); 
+      }
+      
+      setIsModalOpen(false); 
+      resetForm(); 
+      carregarDados(churchId);
+
+    } catch (error: any) { 
+        alert("Erro ao salvar: " + error.message); 
+    } finally { 
+        if(navigator.onLine) setLoading(false); 
+    }
   };
 
   const handleEdit = (m: Member) => {
@@ -99,7 +130,17 @@ export default function MembersPage() {
   const handleOpenCard = (m: Member) => { setSelectedMember(m); setIsCardModalOpen(true); };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Excluir este membro?")) { await memberService.delete(id); carregarDados(churchId); }
+    if (confirm("Excluir este membro?")) { 
+        // Lógica Offline para Deletar
+        if (!navigator.onLine) {
+            memberService.delete(id);
+            alert("Exclusão agendada (Offline).");
+            setTimeout(() => carregarDados(churchId), 500);
+        } else {
+            await memberService.delete(id); 
+            carregarDados(churchId); 
+        }
+    }
   };
 
   const resetForm = () => {
@@ -126,7 +167,7 @@ export default function MembersPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 print:p-0 print:bg-white pb-24">
       
-      {/* HEADER MOBILE-FIRST (Arrumado para não cortar botões) */}
+      {/* HEADER MOBILE-FIRST */}
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Membros</h1>
@@ -134,7 +175,6 @@ export default function MembersPage() {
         </div>
         
         <div className="w-full md:w-auto flex flex-col gap-3">
-            {/* Barra de Busca (Full Width no Mobile) */}
             <div className="relative w-full md:w-64">
                 <Search size={18} className="absolute left-3 top-3 text-gray-400"/>
                 <input 
@@ -145,8 +185,6 @@ export default function MembersPage() {
                     className="w-full pl-10 pr-4 py-2 bg-white border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm"
                 />
             </div>
-
-            {/* Botões de Ação (Empilhados e Grandes) */}
             <div className="flex gap-2">
                 <button onClick={printList} className="flex-1 md:flex-none justify-center bg-white border text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 flex items-center gap-2 text-sm font-bold shadow-sm">
                     <Printer size={18} /> <span className="hidden md:inline">Lista</span> <span className="md:hidden">Imprimir</span>
@@ -158,14 +196,14 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* CABEÇALHO DE IMPRESSÃO */}
+      {/* CABEÇALHO IMPRESSÃO */}
       <div className="hidden print:block text-center mb-8 border-b pb-4">
           <h1 className="text-2xl font-bold uppercase">{churchName}</h1>
           <p className="text-sm text-gray-500">Relatório Geral de Membros</p>
           <p className="text-xs text-gray-400 mt-1">Gerado em {new Date().toLocaleDateString()}</p>
       </div>
 
-      {/* LISTA DE MEMBROS (Mobile: Cards / Desktop: Tabela) */}
+      {/* LISTA DE MEMBROS */}
       <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden print:shadow-none print:border-0">
         <table className="w-full text-left">
           <thead className="bg-gray-50 text-gray-500 text-xs font-bold border-b uppercase hidden md:table-header-group">
@@ -180,7 +218,6 @@ export default function MembersPage() {
             {filteredMembers.map((m) => (
               <tr key={m.id} className="hover:bg-gray-50 transition flex flex-col md:table-row p-4 md:p-0 relative">
                 
-                {/* Mobile: Layout Cartão */}
                 <td className="md:p-4 flex items-center gap-3 mb-2 md:mb-0">
                   <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex-shrink-0 flex items-center justify-center text-blue-600 print:hidden font-bold text-xs">
                      {m.fullName.substring(0,2).toUpperCase()}
@@ -199,7 +236,6 @@ export default function MembersPage() {
                     )}
                   </div>
                   
-                  {/* Status Badge no Mobile (Canto superior) */}
                   <div className="absolute top-4 right-4 md:hidden">
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${m.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
                         {m.status === 'active' ? 'Ativo' : 'Inativo'}
@@ -241,7 +277,6 @@ export default function MembersPage() {
         </table>
       </div>
 
-      {/* MODAL DE CADASTRO/EDIÇÃO (Mantido igual) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm print:hidden">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 relative max-h-[90vh] overflow-y-auto">
@@ -294,7 +329,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL CARTEIRINHA (Mantido igual, apenas arredondado) */}
       {isCardModalOpen && selectedMember && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 backdrop-blur-sm print:absolute print:inset-0 print:bg-white print:p-0">
           <div className="bg-white rounded-2xl shadow-2xl p-6 relative max-w-lg w-full print:shadow-none print:w-auto print:max-w-none print:p-0">
