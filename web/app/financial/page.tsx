@@ -9,8 +9,6 @@ import { Member } from "../../types/member";
 import { 
   TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, PieChart as PieIcon 
 } from "lucide-react";
-
-// Importando a biblioteca de Gráficos
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 export default function FinancialPage() {
@@ -26,7 +24,6 @@ export default function FinancialPage() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Estado do Formulário
   const [newTrans, setNewTrans] = useState({
     amount: "", 
     type: "income", 
@@ -63,6 +60,7 @@ export default function FinancialPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
     try {
       let finalDesc = newTrans.description;
       let memberName = "";
@@ -77,7 +75,7 @@ export default function FinancialPage() {
           finalDesc = newTrans.category; 
       }
 
-      await financeService.create({
+      const payload: any = {
         churchId,
         amount: Number(newTrans.amount),
         type: newTrans.type as 'income' | 'expense',
@@ -86,7 +84,31 @@ export default function FinancialPage() {
         description: finalDesc,
         memberId: newTrans.memberId || null,
         memberName: memberName || null
-      });
+      };
+
+      // --- O PULO DO GATO PARA OFFLINE ---
+      if (!navigator.onLine) {
+         // Se estiver OFFLINE: Manda salvar mas NÃO espera (sem await)
+         financeService.create(payload);
+         
+         // Fecha o modal imediatamente
+         alert("Salvo no dispositivo! Será enviado quando a internet voltar.");
+         setIsModalOpen(false);
+         setLoading(false);
+         
+         // Reseta form
+         setNewTrans({ 
+            amount: "", type: "income", date: new Date().toISOString().split('T')[0], 
+            category: "Dízimo", memberId: "", description: "" 
+         });
+         
+         // Atualiza a lista localmente após um segundinho
+         setTimeout(() => carregarDados(churchId), 500);
+         return; 
+      }
+
+      // Se estiver ONLINE: Vida normal (espera o servidor confirmar)
+      await financeService.create(payload);
 
       setIsModalOpen(false);
       setNewTrans({ 
@@ -94,13 +116,26 @@ export default function FinancialPage() {
           category: "Dízimo", memberId: "", description: "" 
       });
       carregarDados(churchId);
-    } catch (error) { console.error(error); alert("Erro ao salvar."); } finally { setLoading(false); }
+
+    } catch (error) { 
+        console.error(error); 
+        alert("Erro ao salvar."); 
+    } finally { 
+        if(navigator.onLine) setLoading(false); 
+    }
   };
 
   const handleDelete = async (id: string) => {
     if(confirm("Excluir este lançamento?")) {
-      await financeService.delete(id);
-      carregarDados(churchId);
+      // Mesma lógica para deletar offline
+      if (!navigator.onLine) {
+          financeService.delete(id);
+          alert("Exclusão agendada (Offline).");
+          setTimeout(() => carregarDados(churchId), 500);
+      } else {
+          await financeService.delete(id);
+          carregarDados(churchId);
+      }
     }
   };
 
@@ -110,17 +145,16 @@ export default function FinancialPage() {
   const balance = totalIncome - totalExpense;
   const printExtract = () => window.print();
 
-  // DADOS DO GRÁFICO
   const chartData = [
     { name: 'Entradas', value: totalIncome },
     { name: 'Saídas', value: totalExpense },
   ];
-  const COLORS = ['#16a34a', '#dc2626']; // Verde e Vermelho
+  const COLORS = ['#16a34a', '#dc2626']; 
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 print:p-0 print:bg-white pb-24">
       
-      {/* HEADER CORRIGIDO */}
+      {/* HEADER */}
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Financeiro</h1>
@@ -142,7 +176,7 @@ export default function FinancialPage() {
           <p className="text-xs text-gray-400 mt-1">Gerado em {new Date().toLocaleDateString()}</p>
       </div>
 
-      {/* CARDS DE RESUMO */}
+      {/* CARDS */}
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 print:grid-cols-3 print:gap-2">
          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
             <p className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1"><TrendingUp size={12}/> Entradas</p>
@@ -158,7 +192,7 @@ export default function FinancialPage() {
          </div>
       </div>
 
-      {/* ÁREA DO GRÁFICO (Só aparece se tiver dados) */}
+      {/* GRÁFICO */}
       {(totalIncome > 0 || totalExpense > 0) && (
         <div className="max-w-5xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden">
             <div className="text-center md:text-left mb-4 md:mb-0">
@@ -171,22 +205,10 @@ export default function FinancialPage() {
             <div className="w-full h-48 md:h-40 md:w-64">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                        <Pie
-                            data={chartData}
-                            innerRadius={40}
-                            outerRadius={60}
-                            paddingAngle={5}
-                            dataKey="value"
-                        >
-                            {chartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
+                        <Pie data={chartData} innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
+                            {chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
                         </Pie>
-                        <Tooltip 
-                            // CORREÇÃO AQUI: ACEITA "ANY" PARA EVITAR ERRO NO BUILD
-                            formatter={(value: any) => formatMoney(Number(value))}
-                            contentStyle={{backgroundColor: '#fff', borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                        />
+                        <Tooltip formatter={(value: any) => formatMoney(Number(value))} contentStyle={{backgroundColor: '#fff', borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                         <Legend verticalAlign="bottom" height={36} iconType="circle"/>
                     </PieChart>
                 </ResponsiveContainer>
@@ -194,14 +216,13 @@ export default function FinancialPage() {
         </div>
       )}
 
-      {/* FILTROS */}
+      {/* FILTROS E TABELA */}
       <div className="max-w-5xl mx-auto mb-4 flex gap-2 print:hidden overflow-x-auto pb-2">
          <button onClick={() => setFilterType('all')} className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition ${filterType === 'all' ? 'bg-gray-800 text-white shadow-lg' : 'bg-white text-gray-500 border border-gray-200'}`}>Todos</button>
          <button onClick={() => setFilterType('income')} className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition ${filterType === 'income' ? 'bg-green-600 text-white shadow-lg shadow-green-200' : 'bg-white text-gray-500 border border-gray-200'}`}>Entradas</button>
          <button onClick={() => setFilterType('expense')} className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition ${filterType === 'expense' ? 'bg-red-600 text-white shadow-lg shadow-red-200' : 'bg-white text-gray-500 border border-gray-200'}`}>Saídas</button>
       </div>
 
-      {/* TABELA */}
       <div className="max-w-5xl mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden print:shadow-none print:border-0">
           <table className="w-full text-left">
               <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-bold border-b tracking-wider">
@@ -235,7 +256,6 @@ export default function FinancialPage() {
           </table>
       </div>
 
-      {/* MODAL (Mantido igual) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm print:hidden">
            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
