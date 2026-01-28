@@ -9,9 +9,9 @@ export const metadata: Metadata = {
   description: "Sistema de gestão financeira e membros para igrejas.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
-    shortcut: "/icon.svg",
+    icon: "/icon.svg",       // Navegadores modernos (PC/Android)
+    apple: "/icon.png",      // <--- AQUI: O iPhone vai ler esse arquivo PNG!
+    shortcut: "/icon.png",   // Atalho garantido
   },
 };
 
