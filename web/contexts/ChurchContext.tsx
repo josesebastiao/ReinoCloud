@@ -1,76 +1,56 @@
 "use client";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-type ChurchSettings = {
-  currency: 'BRL' | 'AOA';
-};
-
-interface ChurchContextType {
-  settings: ChurchSettings;
-  updateSettings: (newSettings: Partial<ChurchSettings>) => void;
-  formatMoney: (value: number | string) => string;
+// Definindo o que o contexto vai ter
+interface ChurchContextData {
+  churchId: string;
+  setChurchId: (id: string) => void;
+  churchName: string;
+  userName: string;
+  userRole: string;
+  formatMoney: (value: number) => string;
 }
 
-// VALOR PADRÃO DE SEGURANÇA (Caso o Provider falhe)
-// Agora ele formata como R$ por padrão, em vez de mostrar número cru
-const defaultSettings: ChurchSettings = { currency: 'BRL' };
-
-const ChurchContext = createContext<ChurchContextType>({
-  settings: defaultSettings,
-  updateSettings: () => {},
-  formatMoney: (val) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(val));
-  }
-});
+const ChurchContext = createContext<ChurchContextData>({} as ChurchContextData);
 
 export function ChurchProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<ChurchSettings>(defaultSettings);
-  const [mounted, setMounted] = useState(false);
+  const [churchId, setChurchId] = useState("");
+  const [churchName, setChurchName] = useState("Minha Igreja");
+  const [userName, setUserName] = useState("Visitante"); // Valor padrão
+  const [userRole, setUserRole] = useState("member");
 
   useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem("churchSettings");
-    if (saved) {
-      try {
-        setSettings(JSON.parse(saved));
-      } catch (e) {
-        console.error("Erro config", e);
-      }
+    // Carrega dados salvos ao abrir o site
+    if (typeof window !== "undefined") {
+      const id = localStorage.getItem("churchId");
+      const name = localStorage.getItem("churchName");
+      const role = localStorage.getItem("userRole");
+      const user = localStorage.getItem("userName"); // Vamos garantir que o Login salve isso
+
+      if (id) setChurchId(id);
+      if (name) setChurchName(name);
+      if (role) setUserRole(role);
+      if (user) setUserName(user);
     }
   }, []);
 
-  const updateSettings = (newSettings: Partial<ChurchSettings>) => {
-    setSettings((prev) => {
-      const updated = { ...prev, ...newSettings };
-      localStorage.setItem("churchSettings", JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const formatMoney = (value: number | string) => {
-    // Se o componente ainda não montou, evita erro de hidratação
-    if (!mounted) return "...";
-
-    const num = Number(value);
-    if (isNaN(num)) return "0,00";
-
-    // --- LÓGICA DO KWANZA (ANGOLA) ---
-    if (settings.currency === 'AOA') {
-      // Formata manual: 5000.50 -> "5.000,50"
-      const parts = num.toFixed(2).split('.');
-      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-      return `Kz ${parts.join(',')}`;
-    }
-
-    // --- LÓGICA DO REAL (BRASIL) ---
-    return new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }).format(num);
+  // Função auxiliar para formatar dinheiro (R$)
+  const formatMoney = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
   };
 
   return (
-    <ChurchContext.Provider value={{ settings, updateSettings, formatMoney }}>
+    <ChurchContext.Provider value={{ 
+        churchId, 
+        setChurchId, 
+        churchName, 
+        userName, 
+        userRole, 
+        formatMoney 
+    }}>
       {children}
     </ChurchContext.Provider>
   );

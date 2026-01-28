@@ -1,256 +1,179 @@
 "use client";
+import { useChurch } from "../contexts/ChurchContext";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
-import { agendaService } from "../services/agendaService"; // Lembre-se: Verifique se aqui está usando 'events' ou 'agenda'
-import { churchService } from "../services/churchService"; 
-import { useChurch } from "../contexts/ChurchContext";
-import { 
-  Users, UserCheck, DollarSign, TrendingUp, TrendingDown, ArrowRight, 
-  Calendar, Clock, Eye, EyeOff, ChevronDown, ChevronUp, Lock 
-} from "lucide-react";
+import { Users, TrendingUp, TrendingDown, ChevronRight, Eye, EyeOff, Menu } from "lucide-react";
 import Link from "next/link";
 
 export default function Dashboard() {
-  const { formatMoney } = useChurch();
-  const [churchName, setChurchName] = useState("Carregando...");
-  const [userName, setUserName] = useState("Olá!");
-  const [userRole, setUserRole] = useState("admin"); // Começa como admin por segurança visual, mas o useEffect corrige
+  const { churchName, userName, userRole, formatMoney } = useChurch();
+  const router = useRouter();
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [income, setIncome] = useState(0);
+  const [expense, setExpense] = useState(0);
   const [loading, setLoading] = useState(true);
-  
-  const [showValues, setShowValues] = useState(true);
-  const [expandFinance, setExpandFinance] = useState(false);
-  
-  const [nextEvents, setNextEvents] = useState<any[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
-
-  const [stats, setStats] = useState({
-    totalMembers: 0, activeMembers: 0, inactiveMembers: 0,
-    balance: 0, income: 0, expense: 0
-  });
+  const [showBalance, setShowBalance] = useState(false); // Começa oculto por padrão (segurança)
 
   useEffect(() => {
-    // 1. Pega os dados do usuário primeiro
-    const roleSalvo = localStorage.getItem("userRole") || "member";
-    const nomeUsuarioSalvo = localStorage.getItem("userName");
-    const idSalvo = localStorage.getItem("churchId");
-    
-    setUserRole(roleSalvo); // <--- IMPORTANTE: Define o cargo aqui
-    if (nomeUsuarioSalvo) setUserName(nomeUsuarioSalvo.split(' ')[0]);
+    const carregarTudo = async () => {
+      const id = localStorage.getItem("churchId");
+      if (!id) return;
+      try {
+        // Busca Membros
+        const membersList = await memberService.listByChurch(id);
+        setTotalMembers(membersList.length);
 
-    if (idSalvo) {
-      carregarDados(idSalvo, roleSalvo);
-    }
-  }, []);
-
-  const carregarDados = async (churchId: string, role: string) => {
-    try {
-      setLoading(true);
-      
-      // Definição de permissões locais para saber o que buscar
-      const seeFinance = ['admin', 'pastor', 'treasurer'].includes(role);
-      const seeSecretaria = ['admin', 'pastor', 'secretary'].includes(role);
-      const seeAgenda = ['admin', 'pastor', 'secretary'].includes(role);
-
-      // Busca Nome da Igreja
-      const settings = await churchService.getSettings(churchId);
-      if (settings?.docs?.churchName) {
-         setChurchName(settings.docs.churchName);
-         localStorage.setItem("churchName", settings.docs.churchName);
-      } else {
-         setChurchName(localStorage.getItem("churchName") || "Minha Igreja");
+        // Busca Finanças (apenas se tiver permissão)
+        if (["admin", "pastor", "treasurer"].includes(userRole)) {
+            const trans = await financeService.listByChurch(id);
+            const totalInc = trans.filter(t => t.type === 'income').reduce((acc, c) => acc + Number(c.amount), 0);
+            const totalExp = trans.filter(t => t.type === 'expense').reduce((acc, c) => acc + Number(c.amount), 0);
+            setIncome(totalInc);
+            setExpense(totalExp);
+            setBalance(totalInc - totalExp);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
       }
+    };
+    carregarTudo();
+  }, [userRole]);
 
-      // Arrays de Promises (Busca paralela apenas do que é permitido)
-      const promises = [];
-      
-      if (seeSecretaria) promises.push(memberService.listByChurch(churchId));
-      else promises.push(Promise.resolve([])); // Retorna vazio se não puder ver
-
-      if (seeFinance) promises.push(financeService.listByChurch(churchId));
-      else promises.push(Promise.resolve([]));
-
-      if (seeAgenda) promises.push(agendaService.listByChurch(churchId));
-      else promises.push(Promise.resolve([]));
-
-      const [members, transactions, allEvents] = await Promise.all(promises);
-
-      // --- PROCESSAMENTO DOS DADOS ---
-      
-      // 1. Agenda
-      const now = new Date();
-      now.setHours(0,0,0,0);
-      const upcoming = allEvents
-        .filter((e:any) => {
-             const eventDate = new Date(e.date + "T12:00:00");
-             eventDate.setHours(0,0,0,0);
-             return eventDate >= now;
-        })
-        .sort((a:any, b:any) => a.date.localeCompare(b.date))
-        .slice(0, 3);
-      setNextEvents(upcoming);
-
-      // 2. Finanças
-      const income = transactions.filter((t:any) => t.type === 'income').reduce((acc:number, c:any) => acc + Number(c.amount), 0);
-      const expense = transactions.filter((t:any) => t.type === 'expense').reduce((acc:number, c:any) => acc + Number(c.amount), 0);
-      const recent = transactions.sort((a:any, b:any) => b.date.localeCompare(a.date)).slice(0, 4);
-      setRecentTransactions(recent);
-
-      // 3. Stats Gerais
-      setStats({
-        totalMembers: members.length,
-        activeMembers: members.filter((m:any) => m.status === 'active').length,
-        inactiveMembers: members.filter((m:any) => m.status !== 'active').length,
-        balance: income - expense,
-        income, expense
-      });
-
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+  // Função para "abrir o menu" (simula o clique no botão do layout)
+  const openSidebar = () => {
+    const menuBtn = document.querySelector('header button svg.lucide-menu')?.parentElement;
+    if (menuBtn) menuBtn.click();
   };
 
-  // --- REGRAS DE VISUALIZAÇÃO (QUEM VÊ O QUE) ---
-  const canSeeFinance = ['admin', 'pastor', 'treasurer'].includes(userRole);
-  const canSeeSecretaria = ['admin', 'pastor', 'secretary'].includes(userRole); // Membros
-  const canSeeAgenda = ['admin', 'pastor', 'secretary'].includes(userRole);     // Agenda Pastoral
-
-  if (loading) return <div className="p-8 text-gray-500">Carregando painel...</div>;
-
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Olá, {userName}! 👋</h1>
-        <p className="text-gray-500 text-lg">{churchName}</p>
-        <p className="text-xs text-gray-400 mt-1 uppercase tracking-wider font-bold">Perfil: {userRole === 'admin' ? 'Pastor Titular' : userRole}</p>
-      </div>
+    // Tirei o padding padrão (p-4 md:p-8) daqui para controlar manualmente
+    <div className="min-h-screen bg-gray-50 pb-24 md:pb-8">
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        
-        {/* 1. CARD MEMBROS (Só Pastor e Secretaria) */}
-        {canSeeSecretaria ? (
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-sm font-medium text-gray-500">Total de Membros</p>
-                    <h3 className="text-3xl font-bold text-gray-900 mt-2">{stats.totalMembers}</h3>
-                    <div className="flex gap-3 mt-2 text-xs">
-                    <span className="text-green-600 flex items-center gap-1"><UserCheck size={12}/> {stats.activeMembers} Ativos</span>
-                    </div>
-                </div>
-                <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Users size={24} /></div>
-                </div>
-            </div>
-        ) : (
-            // Card Bloqueado para quem não tem acesso (Visual Opcional)
-            <div className="bg-gray-100 p-6 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-gray-400 flex-col gap-2">
-                <Lock size={24}/>
-                <span className="text-xs">Acesso restrito a membros</span>
-            </div>
-        )}
-
-        {/* 2. CARD FINANCEIRO (Só Pastor e Tesoureiro) */}
-        {canSeeFinance ? (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 relative transition-all">
-            <div className="flex justify-between items-start mb-2">
-              <p className="text-sm font-medium text-gray-500">Saldo em Caixa</p>
-              <button onClick={() => setShowValues(!showValues)} className="text-gray-400 hover:text-blue-600 transition">
-                 {showValues ? <Eye size={20}/> : <EyeOff size={20}/>}
+      {/* --- CABEÇALHO AZUL "ESTILO ADP" --- */}
+      {/* Cria um fundo azul grande no topo */}
+      <div className="bg-blue-600 -mt-4 -mx-4 md:-mt-8 md:-mx-8 pt-8 pb-24 px-6 md:px-10 shadow-sm relative print:hidden">
+          
+          {/* Barra Superior Mobile (Menu e Perfil) - Agora em BRANCO */}
+          <div className="md:hidden flex justify-between items-center mb-6">
+              <button onClick={openSidebar} className="text-blue-100 hover:bg-blue-500 p-2 rounded-lg transition">
+                 <Menu size={24}/>
               </button>
-            </div>
+              <div className="w-9 h-9 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm border-2 border-blue-400">
+                  {userName.substring(0,2).toUpperCase()}
+              </div>
+          </div>
+
+          {/* Saudação e Nome da Igreja (Texto Branco) */}
+          <div className="animate-in slide-in-from-bottom-3 fade-in duration-500">
+            <h1 className="text-3xl md:text-4xl font-bold text-white flex items-center gap-2">
+                Olá, {userName.split(' ')[0]}! <span className="animate-wave">👋</span>
+            </h1>
+            <p className="text-blue-100 text-lg mt-1 opacity-90">{churchName}</p>
             
-            <h3 className={`text-3xl font-bold mb-4 ${stats.balance >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-              {showValues ? formatMoney(stats.balance) : "----"}
-            </h3>
-
-            <div className="flex flex-col gap-2 text-xs mb-4">
-                <div className="w-full bg-green-50 text-green-700 px-3 py-2 rounded flex justify-between items-center">
-                    <span className="flex items-center gap-2"><TrendingUp size={14}/> Entradas</span>
-                    <span className="font-bold text-sm">{showValues ? formatMoney(stats.income) : "..."}</span>
-                </div>
-                <div className="w-full bg-red-50 text-red-700 px-3 py-2 rounded flex justify-between items-center">
-                    <span className="flex items-center gap-2"><TrendingDown size={14}/> Saídas</span>
-                    <span className="font-bold text-sm">{showValues ? formatMoney(stats.expense) : "..."}</span>
-                </div>
-            </div>
-
-            <button onClick={() => setExpandFinance(!expandFinance)} className="w-full text-xs flex items-center justify-center gap-1 text-gray-400 hover:text-gray-600 border-t pt-2 mt-2">
-                {expandFinance ? "Ocultar detalhes" : "Ver últimas movimentações"} {expandFinance ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-            </button>
-
-            {expandFinance && (
-                <div className="mt-3 space-y-2 border-t border-gray-50 pt-2 animate-in slide-in-from-top-2">
-                    {recentTransactions.length === 0 ? <p className="text-xs text-center text-gray-400 py-2">Sem movimentações.</p> : recentTransactions.map((t) => (
-                        <div key={t.id} className="flex justify-between items-center text-xs">
-                            <span className="text-gray-600 truncate max-w-[120px]">{t.description}</span>
-                            <span className={`font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
-                                {t.type === 'income' ? '+' : '-'} {showValues ? formatMoney(t.amount) : "..."}
-                            </span>
-                        </div>
-                    ))}
-                     <Link href="/financial" className="block text-center text-xs font-bold text-blue-600 mt-2 hover:underline">Ir para Financeiro Completo →</Link>
+            {/* Cargo (Badge Transparente) */}
+            {userRole !== 'member' && (
+                <div className="inline-block mt-3 px-3 py-1 rounded-full bg-blue-700/50 text-blue-100 text-xs font-bold uppercase tracking-wider shadow-sm border border-blue-500/30">
+                    {userRole === 'admin' ? 'Pastor Titular' : userRole}
                 </div>
             )}
           </div>
-        ) : (
-            <div className="bg-gray-100 p-6 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-gray-400 flex-col gap-2">
-                <Lock size={24}/>
-                <span className="text-xs">Acesso restrito ao financeiro</span>
-            </div>
-        )}
 
-        {/* 3. CARD AGENDA (Só Pastor e Secretaria) */}
-        {canSeeAgenda ? (
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-4">
-                    <p className="text-sm font-medium text-gray-500">Próximos Compromissos</p>
-                    <Calendar size={18} className="text-orange-500"/>
-                </div>
-                
-                {nextEvents.length === 0 ? (
-                    <div className="text-center py-4">
-                        <p className="text-sm text-gray-400 italic mb-2">Agenda livre hoje.</p>
-                        <Link href="/agenda" className="text-xs text-blue-600 font-bold hover:underline">+ Agendar Evento</Link>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {nextEvents.map((evt) => {
-                            const dataEvt = new Date(evt.date + 'T12:00:00');
-                            const dia = dataEvt.getDate();
-                            const mes = dataEvt.toLocaleDateString('pt-BR', {month:'short'}).slice(0,3).toUpperCase();
-                            return (
-                            <div key={evt.id} className="flex gap-3 items-center pb-2 border-b border-gray-50 last:border-0 last:pb-0">
-                                <div className="bg-orange-50 text-orange-600 text-xs font-bold px-2 py-1 rounded text-center min-w-[45px]">
-                                    {dia}<br/>{mes}
-                                </div>
-                                <div className="overflow-hidden">
-                                    <p className="text-sm font-bold text-gray-800 truncate">{evt.title}</p>
-                                    <p className="text-xs text-gray-400 flex items-center gap-1"><Clock size={10}/> {evt.time}</p>
-                                </div>
-                            </div>
-                            )
-                        })}
-                        <Link href="/agenda" className="block text-right text-xs text-gray-400 hover:text-blue-600 mt-2">Ver agenda completa →</Link>
-                    </div>
-                )}
-            </div>
-        ) : (
-            <div className="bg-gray-100 p-6 rounded-xl border border-dashed border-gray-300 flex items-center justify-center text-gray-400 flex-col gap-2">
-                <Lock size={24}/>
-                <span className="text-xs">Agenda Pastoral Privada</span>
-            </div>
-        )}
+          {/* Efeito de Fundo (opcional, para dar textura) */}
+          <div className="absolute right-0 top-0 w-64 h-64 bg-white opacity-[0.03] rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none"></div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {canSeeFinance && (
-          <Link href="/financial" className="block p-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition flex items-center justify-between shadow-lg shadow-blue-900/20">
-              <div className="flex items-center gap-3"><div className="bg-white/20 p-2 rounded-lg"><DollarSign size={20}/></div><div><h3 className="font-bold">Ir para Tesouraria</h3><p className="text-blue-100 text-sm">Lançar dízimos e ofertas</p></div></div><ArrowRight />
-          </Link>
+      {/* --- CONTEÚDO DOS CARDS (COM OVERLAP) --- */}
+      {/* Margem negativa (-mt-16) puxa os cards para cima do azul */}
+      <div className="px-4 md:px-8 -mt-16 space-y-6 relative z-10">
+
+        {/* CARD MEMBROS (Mais robusto e largo) */}
+        <Link href="/members" className="block group">
+            <div className="bg-white p-6 rounded-3xl shadow-lg md:shadow-sm border border-transparent md:border-gray-100 flex items-center justify-between relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Total de Membros</p>
+                    <div className="flex items-baseline gap-2">
+                        {loading ? (
+                            <div className="h-10 w-16 bg-gray-200 rounded animate-pulse"/>
+                        ) : (
+                            <h2 className="text-4xl font-extrabold text-gray-800">{totalMembers}</h2>
+                        )}
+                        <span className="text-sm font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                             Ativos
+                        </span>
+                    </div>
+                </div>
+                <div className="bg-blue-50 text-blue-600 p-4 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <Users size={28} />
+                </div>
+                {/* Decoração de fundo */}
+                <div className="absolute -right-6 -bottom-6 text-gray-50 opacity-50 group-hover:text-blue-50 transition-colors">
+                    <Users size={100} strokeWidth={1.5}/>
+                </div>
+            </div>
+        </Link>
+
+        {/* CARD FINANCEIRO (Estilo "Batida" da ADP - Grande e Inponente) */}
+        {["admin", "pastor", "treasurer"].includes(userRole) && (
+             <div className="bg-white rounded-3xl shadow-lg md:shadow-sm border border-transparent md:border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-xl relative">
+                
+                {/* Cabeçalho do Card */}
+                <div className="p-6 pb-4 flex justify-between items-start">
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                            Saldo em Caixa
+                            <button onClick={() => setShowBalance(!showBalance)} className="text-gray-300 hover:text-blue-600 transition">
+                                {showBalance ? <EyeOff size={16}/> : <Eye size={16}/>}
+                            </button>
+                        </p>
+                        {loading ? (
+                            <div className="h-12 w-48 bg-gray-200 rounded animate-pulse mt-2"/>
+                        ) : (
+                            <h2 className="text-4xl font-extrabold text-gray-900 mt-1 tracking-tight">
+                                {showBalance ? formatMoney(balance) : 'R$ ••••••'}
+                            </h2>
+                        )}
+                    </div>
+                    <Link href="/financial" className="bg-blue-50 text-blue-600 p-4 rounded-2xl hover:bg-blue-600 hover:text-white transition-colors">
+                        <TrendingUp size={28} />
+                    </Link>
+                </div>
+
+                {/* Resumo de Entradas e Saídas (Bloco Colorido) */}
+                {showBalance && !loading && (
+                    <div className="bg-gray-50 p-4 grid grid-cols-2 gap-4 border-t border-gray-100">
+                        <div className="bg-green-50 p-3 rounded-xl border border-green-100 animate-in fade-in">
+                             <p className="text-xs text-green-700 font-bold uppercase flex items-center gap-1 mb-1"><TrendingUp size={10}/> Entradas</p>
+                             <p className="font-bold text-green-700 text-lg truncate">{formatMoney(income)}</p>
+                        </div>
+                        <div className="bg-red-50 p-3 rounded-xl border border-red-100 animate-in fade-in">
+                             <p className="text-xs text-red-700 font-bold uppercase flex items-center gap-1 mb-1"><TrendingDown size={10}/> Saídas</p>
+                             <p className="font-bold text-red-700 text-lg truncate">{formatMoney(expense)}</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Botão de Ação no Rodapé */}
+                <Link href="/financial" className="block bg-gray-50 hover:bg-blue-50 p-4 text-center text-sm font-bold text-blue-600 transition border-t border-gray-100 flex items-center justify-center gap-1 group">
+                     Ver Tesouraria Completa <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform"/>
+                </Link>
+             </div>
         )}
-        {canSeeSecretaria && (
-            <Link href="/members" className="block p-4 bg-white border border-gray-200 text-gray-800 rounded-xl hover:bg-gray-50 transition flex items-center justify-between">
-                <div className="flex items-center gap-3"><div className="bg-gray-100 p-2 rounded-lg"><Users size={20}/></div><div><h3 className="font-bold">Gerenciar Membros</h3><p className="text-gray-500 text-sm">Cadastrar ou editar fichas</p></div></div><ArrowRight className="text-gray-400" />
-            </Link>
-        )}
+
+        {/* Atalhos Rápidos (Opcional, para preencher o espaço estilo ADP) */}
+        <div className="grid grid-cols-2 gap-4 pt-4">
+             <Link href="/members" className="bg-blue-600 text-white p-4 rounded-2xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition active:scale-95">
+                 <Users size={20}/> Novo Membro
+             </Link>
+             <Link href="/financial" className="bg-white text-blue-600 border-2 border-blue-600 p-4 rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-blue-50 transition active:scale-95">
+                 <TrendingUp size={20}/> Lançar Oferta
+             </Link>
+        </div>
+
       </div>
     </div>
   );
