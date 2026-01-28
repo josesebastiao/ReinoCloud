@@ -57,9 +57,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {/* SIDEBAR */}
         <aside 
         className={`
-            fixed md:static inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out print:hidden
-            ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        `}
+    fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out print:hidden
+    ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+  `}
         >
         <div className="p-6 flex justify-between items-center border-b border-gray-800">
             <div>
