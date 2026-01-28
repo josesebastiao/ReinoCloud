@@ -3,10 +3,9 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
-  LayoutDashboard, Users, FileText, Settings, LogOut, Menu, X, 
+  Users, FileText, Settings, LogOut, Menu, X, 
   Music, DollarSign, PieChart, Shield, Home, ArrowLeft 
-} from "lucide-react"; // Removi BookOpen duplicado se tiver
-import { BookOpen } from "lucide-react"; 
+} from "lucide-react";
 import InstallPWA from "./InstallPWA";
 import OfflineIndicator from "./OfflineIndicator";
 
@@ -29,13 +28,24 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   };
 
   const menuItems = [
-    // MUDANÇA 1: De "Dashboard" para "Início"
+    // 1. INÍCIO
     { name: "Início", icon: Home, path: "/", roles: ["admin", "pastor", "treasurer", "secretary", "member"] },
+    
+    // 2. SECRETARIA (Agora engloba a ideia de membros visualmente)
     { name: "Secretaria", icon: FileText, path: "/secretary", roles: ["admin", "pastor", "secretary"] },
-    { name: "Membros", icon: Users, path: "/members", roles: ["admin", "pastor", "secretary"] },
-    { name: "Ministérios / Deptos", icon: Music, path: "/ministries", roles: ["admin", "pastor", "leader"] },
-    { name: "Financeiro", icon: DollarSign, path: "/financial", roles: ["admin", "pastor", "treasurer"] },
-    { name: "Relatórios", icon: PieChart, path: "/reports", roles: ["admin", "pastor"] },
+    
+    // REMOVI "Membros" DAQUI (Mas o link /members continua funcionando via Dashboard)
+    
+    // 3. DEPARTAMENTOS (Era Ministérios)
+    { name: "Departamentos", icon: Music, path: "/ministries", roles: ["admin", "pastor", "leader"] },
+    
+    // 4. TESOURARIA (Era Financeiro)
+    { name: "Tesouraria", icon: DollarSign, path: "/financial", roles: ["admin", "pastor", "treasurer"] },
+    
+    // 5. ESTATÍSTICAS (Era Relatórios)
+    { name: "Estatísticas", icon: PieChart, path: "/reports", roles: ["admin", "pastor"] },
+    
+    // 6. CONFIGURAÇÕES
     { name: "Configurações", icon: Settings, path: "/settings", roles: ["admin", "pastor"] },
   ];
 
@@ -56,7 +66,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         />
         )}
 
-        {/* SIDEBAR (PC) */}
+        {/* SIDEBAR PC */}
         <aside 
         className={`
             fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out print:hidden
@@ -65,7 +75,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         >
         <div className="p-6 flex justify-between items-center border-b border-gray-800">
             <div className="flex items-center gap-3">
-                 {/* Logo na Sidebar do PC também */}
                 <img src="/icon.svg" className="w-8 h-8"/>
                 <div>
                     <h1 className="text-xl font-bold text-white tracking-tight">ReinoCloud</h1>
@@ -118,7 +127,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {/* CONTEÚDO PRINCIPAL */}
         <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50">
         
-        {/* HEADER MOBILE (MUDANÇA: FUNDO AZUL ESCURO IGUAL ADP) */}
+        {/* HEADER MOBILE (AZUL ESCURO) */}
         <header className="md:hidden bg-blue-900 border-b border-blue-800 px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top print:hidden text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
@@ -131,7 +140,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 </button>
                 )}
                 
-                {/* LOGO NO MOBILE */}
                 <div className="flex items-center gap-2">
                     {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 rounded-lg bg-blue-800/50 p-1"/>}
                     <span className="font-bold text-white text-lg tracking-tight">
@@ -155,7 +163,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <Home size={24} strokeWidth={pathname === '/' ? 2.5 : 2} />
                 <span className="text-[10px] font-medium">Início</span>
             </Link>
-            {/* ... restante dos icones ... */}
              <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 text-gray-400">
                 <Menu size={24} />
                 <span className="text-[10px] font-medium">Menu</span>
