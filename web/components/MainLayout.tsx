@@ -120,24 +120,33 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50">
         
         {/* HEADER MOBILE */}
-        <header className="md:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top print:hidden">
+        {/* MUDANÇA: Fundo azul escuro (bg-blue-900) e texto branco para contraste */}
+        <header className="md:hidden bg-blue-900 border-b border-blue-800 px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top print:hidden text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
-                <button onClick={() => router.back()} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full transition">
+                <button onClick={() => router.back()} className="p-2 -ml-2 text-blue-100 hover:bg-blue-800 rounded-full transition">
                     <ArrowLeft size={24} />
                 </button>
                 ) : (
-                <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+                <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-blue-100 hover:bg-blue-800 rounded-lg">
                     <Menu size={24} />
                 </button>
                 )}
-                
-                <span className="font-bold text-gray-800 text-lg">
-                {pathname === '/' ? 'ReinoCloud' : 'Voltar'}
-                </span>
+
+                {/* MUDANÇA: Adicionei o Ícone e agrupei com o texto */}
+                <div className="flex items-center gap-2">
+                    {/* Mostra o ícone apenas na tela inicial */}
+                    {pathname === '/' && (
+                        <img src="/icon.svg" alt="ReinoCloud Logo" className="w-8 h-8" />
+                    )}
+                    <span className="font-bold text-white text-lg tracking-tight">
+                        {pathname === '/' ? 'ReinoCloud' : 'Voltar'}
+                    </span>
+                </div>
             </div>
 
-            <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm border border-blue-200">
+            {/* Perfil do Usuário (Mantido, apenas ajustado as cores para o fundo azul) */}
+            <div className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-blue-100 font-bold text-sm border border-blue-600">
                 {userRole.slice(0,2).toUpperCase()}
             </div>
         </header>
