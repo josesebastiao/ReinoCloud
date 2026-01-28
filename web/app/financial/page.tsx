@@ -7,20 +7,30 @@ import { useChurch } from "../../contexts/ChurchContext";
 import { Transaction } from "../../types/finance";
 import { Member } from "../../types/member";
 import { 
-  TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, PieChart as PieIcon 
+  TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, 
+  PieChart as PieIcon, Calendar, Filter, X 
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 export default function FinancialPage() {
   const router = useRouter();
-  const { formatMoney } = useChurch();
+  const { formatMoney, churchName, userRole } = useChurch();
   const [churchId, setChurchId] = useState("");
-  const [churchName, setChurchName] = useState("Igreja");
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [members, setMembers] = useState<Member[]>([]); 
   const [loading, setLoading] = useState(false);
+  
+  // FILTROS
   const [filterType, setFilterType] = useState<'all'|'income'|'expense'>('all');
+  
+  // Datas Iniciais (Padrão: Começo do mês até hoje)
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const [startDate, setStartDate] = useState(firstDay);
+  const [endDate, setEndDate] = useState(lastDay);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -38,10 +48,8 @@ export default function FinancialPage() {
 
   useEffect(() => {
     const idSalvo = localStorage.getItem("churchId");
-    const nomeIgreja = localStorage.getItem("churchName");
     if (!idSalvo) { router.push("/login"); return; }
     setChurchId(idSalvo);
-    if(nomeIgreja) setChurchName(nomeIgreja);
     carregarDados(idSalvo);
   }, [router]);
 
@@ -51,10 +59,48 @@ export default function FinancialPage() {
          financeService.listByChurch(id),
          memberService.listByChurch(id)
       ]);
+      // Ordena por data (mais recente primeiro)
       listaFinancas.sort((a: any,b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setTransactions(listaFinancas);
       setMembers(listaMembros);
     } catch (e) { console.error(e); }
+  };
+
+  // --- LÓGICA DE FILTRAGEM PODEROSA ---
+  const filteredTransactions = transactions.filter(t => {
+      // 1. Filtro de Tipo (Entrada/Saída)
+      const matchesType = filterType === 'all' ? true : t.type === filterType;
+      
+      // 2. Filtro de Data (O segredo do Pastor)
+      const tDate = t.date; // YYYY-MM-DD
+      const matchesDate = (!startDate || tDate >= startDate) && (!endDate || tDate <= endDate);
+
+      return matchesType && matchesDate;
+  });
+
+  // Totais baseados no FILTRO (Não no total geral)
+  const totalIncome = filteredTransactions.filter(t => t.type === 'income').reduce((acc, c) => acc + Number(c.amount), 0);
+  const totalExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, c) => acc + Number(c.amount), 0);
+  const balance = totalIncome - totalExpense;
+
+  // Funções de Atalho de Data
+  const setFilterPeriod = (period: 'thisMonth' | 'lastMonth' | 'last7' | 'all') => {
+      const now = new Date();
+      if (period === 'thisMonth') {
+          setStartDate(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
+          setEndDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]);
+      } else if (period === 'lastMonth') {
+          setStartDate(new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0]);
+          setEndDate(new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0]);
+      } else if (period === 'last7') {
+          const past = new Date();
+          past.setDate(now.getDate() - 7);
+          setStartDate(past.toISOString().split('T')[0]);
+          setEndDate(now.toISOString().split('T')[0]);
+      } else {
+          setStartDate("");
+          setEndDate("");
+      }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -86,30 +132,20 @@ export default function FinancialPage() {
         memberName: memberName || null
       };
 
-      // --- O PULO DO GATO PARA OFFLINE ---
       if (!navigator.onLine) {
-         // Se estiver OFFLINE: Manda salvar mas NÃO espera (sem await)
          financeService.create(payload);
-         
-         // Fecha o modal imediatamente
          alert("Salvo no dispositivo! Será enviado quando a internet voltar.");
          setIsModalOpen(false);
          setLoading(false);
-         
-         // Reseta form
          setNewTrans({ 
             amount: "", type: "income", date: new Date().toISOString().split('T')[0], 
             category: "Dízimo", memberId: "", description: "" 
          });
-         
-         // Atualiza a lista localmente após um segundinho
          setTimeout(() => carregarDados(churchId), 500);
          return; 
       }
 
-      // Se estiver ONLINE: Vida normal (espera o servidor confirmar)
       await financeService.create(payload);
-
       setIsModalOpen(false);
       setNewTrans({ 
           amount: "", type: "income", date: new Date().toISOString().split('T')[0], 
@@ -127,7 +163,6 @@ export default function FinancialPage() {
 
   const handleDelete = async (id: string) => {
     if(confirm("Excluir este lançamento?")) {
-      // Mesma lógica para deletar offline
       if (!navigator.onLine) {
           financeService.delete(id);
           alert("Exclusão agendada (Offline).");
@@ -139,17 +174,11 @@ export default function FinancialPage() {
     }
   };
 
-  const filteredTransactions = transactions.filter(t => filterType === 'all' ? true : t.type === filterType);
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, c) => acc + Number(c.amount), 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, c) => acc + Number(c.amount), 0);
-  const balance = totalIncome - totalExpense;
-  const printExtract = () => window.print();
-
   const chartData = [
     { name: 'Entradas', value: totalIncome },
     { name: 'Saídas', value: totalExpense },
   ];
-  const COLORS = ['#16a34a', '#dc2626']; 
+  const COLORS = ['#10b981', '#ef4444']; 
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 print:p-0 print:bg-white pb-24">
@@ -158,46 +187,72 @@ export default function FinancialPage() {
       <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Financeiro</h1>
-          <p className="text-sm text-gray-500">Gestão de Dízimos e Despesas</p>
+          <p className="text-sm text-gray-500">Fluxo de Caixa e Relatórios</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
-            <button onClick={printExtract} className="flex-1 md:flex-none justify-center bg-white border text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 flex items-center gap-2 text-sm font-bold shadow-sm">
+            <button onClick={() => window.print()} className="flex-1 md:flex-none justify-center bg-white border text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 flex items-center gap-2 text-sm font-bold shadow-sm">
                 <Printer size={18}/> <span className="hidden md:inline">Imprimir</span>
             </button>
             <button onClick={() => setIsModalOpen(true)} className="flex-1 md:flex-none justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg text-sm font-bold">
-                <PlusCircle size={18} /> Novo <span className="hidden md:inline">Lançamento</span>
+                <PlusCircle size={18} /> Novo
             </button>
         </div>
       </div>
 
       <div className="hidden print:block text-center mb-8 border-b pb-4">
           <h1 className="text-2xl font-bold uppercase">{churchName}</h1>
-          <p className="text-sm text-gray-500">Relatório Financeiro</p>
-          <p className="text-xs text-gray-400 mt-1">Gerado em {new Date().toLocaleDateString()}</p>
+          <p className="text-sm text-gray-500">Relatório Financeiro ({startDate ? new Date(startDate).toLocaleDateString() : 'Início'} até {endDate ? new Date(endDate).toLocaleDateString() : 'Hoje'})</p>
       </div>
 
-      {/* CARDS */}
+      {/* --- BARRA DE FILTROS DE DATA (TIME MACHINE) --- */}
+      <div className="max-w-5xl mx-auto bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 print:hidden">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              
+              {/* Botões Rápidos */}
+              <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-1">
+                  <button onClick={() => setFilterPeriod('thisMonth')} className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold border transition ${startDate === firstDay ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>Este Mês</button>
+                  <button onClick={() => setFilterPeriod('lastMonth')} className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 transition">Mês Passado</button>
+                  <button onClick={() => setFilterPeriod('last7')} className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 transition">7 Dias</button>
+                  <button onClick={() => setFilterPeriod('all')} className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 transition">Tudo</button>
+              </div>
+
+              {/* Seleção Manual */}
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                  <div className="relative flex-1">
+                      <div className="absolute left-2 top-2 text-gray-400"><Calendar size={14}/></div>
+                      <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="pl-7 pr-2 py-1.5 text-xs font-bold border rounded-lg w-full bg-gray-50"/>
+                  </div>
+                  <span className="text-gray-400 text-xs">até</span>
+                  <div className="relative flex-1">
+                      <div className="absolute left-2 top-2 text-gray-400"><Calendar size={14}/></div>
+                      <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="pl-7 pr-2 py-1.5 text-xs font-bold border rounded-lg w-full bg-gray-50"/>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      {/* CARDS (AGORA REAGEM AO FILTRO) */}
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-3 mb-6 print:grid-cols-3 print:gap-2">
          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1"><TrendingUp size={12}/> Entradas</p>
+            <p className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1"><TrendingUp size={12}/> Entradas ({filteredTransactions.filter(t => t.type === 'income').length})</p>
             <p className="text-xl font-bold text-green-600 mt-1">{formatMoney(totalIncome)}</p>
          </div>
          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-            <p className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1"><TrendingDown size={12}/> Saídas</p>
+            <p className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1"><TrendingDown size={12}/> Saídas ({filteredTransactions.filter(t => t.type === 'expense').length})</p>
             <p className="text-xl font-bold text-red-600 mt-1">{formatMoney(totalExpense)}</p>
          </div>
          <div className={`bg-white p-4 rounded-2xl border border-gray-100 shadow-sm ${balance < 0 ? 'border-red-200 bg-red-50' : ''}`}>
-            <p className="text-[10px] text-gray-500 font-bold uppercase">Saldo Atual</p>
+            <p className="text-[10px] text-gray-500 font-bold uppercase">Saldo do Período</p>
             <p className={`text-xl font-bold mt-1 ${balance >= 0 ? 'text-gray-800' : 'text-red-600'}`}>{formatMoney(balance)}</p>
          </div>
       </div>
 
-      {/* GRÁFICO */}
+      {/* GRÁFICO (SÓ SE TIVER DADOS NO PERÍODO) */}
       {(totalIncome > 0 || totalExpense > 0) && (
-        <div className="max-w-5xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden">
+        <div className="max-w-5xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden animate-in fade-in">
             <div className="text-center md:text-left mb-4 md:mb-0">
                 <h3 className="text-lg font-bold text-gray-700 flex items-center justify-center md:justify-start gap-2">
-                    <PieIcon size={20} className="text-blue-500"/> Visão Geral
+                    <PieIcon size={20} className="text-blue-500"/> Visão do Período
                 </h3>
                 <p className="text-xs text-gray-400">Proporção de Entradas vs Saídas</p>
             </div>
@@ -216,31 +271,31 @@ export default function FinancialPage() {
         </div>
       )}
 
-      {/* FILTROS E TABELA */}
-      <div className="max-w-5xl mx-auto mb-4 flex gap-2 print:hidden overflow-x-auto pb-2">
-         <button onClick={() => setFilterType('all')} className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition ${filterType === 'all' ? 'bg-gray-800 text-white shadow-lg' : 'bg-white text-gray-500 border border-gray-200'}`}>Todos</button>
-         <button onClick={() => setFilterType('income')} className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition ${filterType === 'income' ? 'bg-green-600 text-white shadow-lg shadow-green-200' : 'bg-white text-gray-500 border border-gray-200'}`}>Entradas</button>
-         <button onClick={() => setFilterType('expense')} className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition ${filterType === 'expense' ? 'bg-red-600 text-white shadow-lg shadow-red-200' : 'bg-white text-gray-500 border border-gray-200'}`}>Saídas</button>
-      </div>
-
-      {/* NOVA LISTA ESTILO TIMELINE (ADP STYLE) */}
+      {/* EXTRATO ESTILO TIMELINE */}
       <div className="max-w-5xl mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-6 print:shadow-none print:border-0">
-          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Extrato Recente</h3>
+          <div className="flex justify-between items-center mb-6">
+             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                 <Filter size={14}/> Extrato Detalhado
+             </h3>
+             {/* Filtro Tipo Rápido */}
+             <div className="flex bg-gray-100 rounded-lg p-1 print:hidden">
+                 <button onClick={() => setFilterType('all')} className={`px-2 py-1 rounded text-[10px] font-bold ${filterType === 'all' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`}>Tudo</button>
+                 <button onClick={() => setFilterType('income')} className={`px-2 py-1 rounded text-[10px] font-bold ${filterType === 'income' ? 'bg-white shadow text-green-600' : 'text-gray-500'}`}>Ent</button>
+                 <button onClick={() => setFilterType('expense')} className={`px-2 py-1 rounded text-[10px] font-bold ${filterType === 'expense' ? 'bg-white shadow text-red-600' : 'text-gray-500'}`}>Sai</button>
+             </div>
+          </div>
           
           <div className="relative border-l-2 border-gray-100 ml-3 space-y-8 pb-4">
-              {filteredTransactions.map((t, index) => (
-                  <div key={t.id} className="relative pl-8 animate-in slide-in-from-bottom-2 fade-in duration-300" style={{animationDelay: `${index * 50}ms`}}>
+              {filteredTransactions.length > 0 ? filteredTransactions.map((t, index) => (
+                  <div key={t.id} className="relative pl-8 animate-in slide-in-from-bottom-2 fade-in duration-300" style={{animationDelay: `${Math.min(index * 50, 500)}ms`}}>
                       
-                      {/* BOLINHA DA LINHA DO TEMPO */}
+                      {/* BOLINHA TIMELINE */}
                       <div className={`
                           absolute -left-[9px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm
                           ${t.type === 'income' ? 'bg-green-500' : 'bg-red-500'}
                       `}></div>
 
-                      {/* CONTEÚDO DO CARD */}
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-4 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-100">
-                          
-                          {/* Data e Info */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-4 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-100 group">
                           <div>
                               <span className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1">
                                   {new Date(t.date).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
@@ -253,22 +308,22 @@ export default function FinancialPage() {
                               )}
                           </div>
 
-                          {/* Valor e Ações */}
                           <div className="flex items-center justify-between md:justify-end gap-4 mt-2 md:mt-0">
                               <span className={`text-lg font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                   {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
                               </span>
                               
-                              <button onClick={() => handleDelete(t.id!)} className="p-2 text-gray-300 hover:text-red-500 transition hover:bg-red-50 rounded-full print:hidden">
+                              <button onClick={() => handleDelete(t.id!)} className="p-2 text-gray-300 hover:text-red-500 transition hover:bg-red-50 rounded-full print:hidden opacity-0 group-hover:opacity-100">
                                   <Trash2 size={16}/>
                               </button>
                           </div>
                       </div>
                   </div>
-              ))}
-
-              {filteredTransactions.length === 0 && (
-                  <div className="pl-8 text-gray-400 italic text-sm">Nenhum lançamento neste período.</div>
+              )) : (
+                <div className="pl-8 py-8 text-center text-gray-400">
+                    <p className="italic">Nenhum lançamento encontrado neste período.</p>
+                    <button onClick={() => setFilterPeriod('all')} className="mt-2 text-blue-600 font-bold text-sm hover:underline">Limpar filtros</button>
+                </div>
               )}
           </div>
       </div>
@@ -283,7 +338,7 @@ export default function FinancialPage() {
                       <button type="button" onClick={() => setNewTrans({...newTrans, type: 'expense', category: 'Outros'})} className={`py-2 rounded-lg text-sm font-bold transition ${newTrans.type === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Saída</button>
                   </div>
                   <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase">Fonte / Categoria</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase">Categoria</label>
                       <select value={newTrans.category} onChange={e => setNewTrans({...newTrans, category: e.target.value})} className="w-full p-3 border rounded-xl bg-white mt-1">
                           {newTrans.type === 'income' ? INCOME_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>) : EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
