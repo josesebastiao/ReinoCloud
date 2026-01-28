@@ -1,143 +1,129 @@
 "use client";
 import { useState } from "react";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { auth, db } from "../../lib/firebase";
 import { useRouter } from "next/navigation";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Heart } from "lucide-react"; // Importe o coração para dar um charme
+import { Lock, Mail, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 
-// ... imports
-import { Cloud, Plus } from "lucide-react"; // Importe os ícones
+// Importando o Firebase direto (sem service)
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../../lib/firebase"; // <--- Certifique-se que o caminho tá certo
 
-// ... dentro do return ...
-<div className="text-center mb-8 flex flex-col items-center">
-  {/* LOGO VISUAL */}
-  <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-600/30">
-      <div className="relative">
-          <Cloud size={40} className="text-white fill-white"/>
-          <Plus size={20} className="text-blue-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold" strokeWidth={4}/>
-      </div>
-  </div>
-  
-  <h1 className="text-3xl font-bold text-gray-800">ReinoCloud</h1>
-  <p className="text-gray-500">Acesse sua conta</p>
-</div>
-
-
-export default function Login() {
+export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setSuccessMsg("");
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      const membersRef = collection(db, "members");
-      const q = query(membersRef, where("email", "==", email));
-      const querySnapshot = await getDocs(q);
+      // 1. LÓGICA DO FIREBASE DIRETO AQUI (Como era antes)
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-      if (!querySnapshot.empty) {
-        const accounts = querySnapshot.docs.map(doc => doc.data());
-        const bestAccount = accounts.find(acc => acc.role === 'admin' || acc.role === 'pastor') || accounts[0];
+      // 2. Busca dados extras no banco
+      const userDocRef = doc(db, "members", user.uid);
+      const userDocSnap = await getDoc(userDocRef);
 
-        let nomeIgreja = "Minha Igreja";
-        try {
-            const churchDocRef = doc(db, "churches", bestAccount.churchId);
-            const churchSnap = await getDoc(churchDocRef);
-            if (churchSnap.exists()) {
-                const churchData = churchSnap.data();
-                if (churchData.settings && churchData.settings.docs && churchData.settings.docs.churchName) {
-                    nomeIgreja = churchData.settings.docs.churchName;
-                } else {
-                    nomeIgreja = churchData.name;
-                }
-            }
-        } catch (err) { console.log("Erro ao buscar nome", err); }
-
-        localStorage.setItem("churchId", bestAccount.churchId);
-        localStorage.setItem("userRole", bestAccount.role);
-        localStorage.setItem("userName", bestAccount.fullName);
-        localStorage.setItem("userEmail", email);
-        localStorage.setItem("churchName", nomeIgreja);
-        
-        router.push("/");
-      } else {
-        const savedChurchId = localStorage.getItem("churchId");
-        if (savedChurchId) {
-             localStorage.setItem("userRole", "admin");
-             localStorage.setItem("userName", "Super Admin");
-             localStorage.setItem("userEmail", email);
-             router.push("/");
-        } else {
-             setError("Usuário não vinculado a nenhuma igreja.");
-        }
+      if (!userDocSnap.exists()) {
+        throw new Error("Usuário não encontrado no sistema.");
       }
+
+      const userData = userDocSnap.data();
+      
+      // 3. Busca nome da igreja
+      const churchDocRef = doc(db, "churches", userData.churchId);
+      const churchDocSnap = await getDoc(churchDocRef);
+      const churchName = churchDocSnap.exists() ? churchDocSnap.data().name : "Igreja";
+
+      // 4. Salva no navegador
+      localStorage.setItem("token", await user.getIdToken());
+      localStorage.setItem("churchId", userData.churchId);
+      localStorage.setItem("userRole", userData.role || "member");
+      localStorage.setItem("userName", userData.fullName || "Usuário");
+      localStorage.setItem("churchName", churchName);
+
+      router.push("/");
     } catch (err: any) {
       console.error(err);
-      if (err.code === 'auth/invalid-credential') { setError("E-mail ou senha incorretos."); } 
-      else { setError("Erro ao entrar. Tente novamente."); }
-    } finally { setLoading(false); }
-  };
-
-  const handleResetPassword = async () => {
-    if (!email) { setError("Digite seu e-mail acima."); return; }
-    try {
-      await sendPasswordResetEmail(auth, email);
-      setSuccessMsg(`Link enviado para: ${email}`);
-      setError("");
-    } catch (err: any) { setError("Erro ao enviar e-mail."); }
+      setError("E-mail ou senha incorretos.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 p-4 relative">
-      <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md z-10">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-blue-600">ReinoCloud</h1>
-          <p className="text-gray-500">Acesse sua conta</p>
-        </div>
+    <div className="min-h-screen flex flex-col justify-between bg-slate-50 text-gray-600 font-sans selection:bg-blue-100">
+      
+      {/* CABEÇALHO */}
+      <header className="w-full p-6 md:p-8 flex items-center gap-3">
+         <img src="/icon.svg" alt="Logo" className="w-10 h-10 md:w-12 md:h-12" />
+         <div>
+            <h1 className="text-xl md:text-2xl font-bold text-blue-900 tracking-tight leading-none">ReinoCloud</h1>
+            <p className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Gestão Eclesiástica</p>
+         </div>
+      </header>
 
-        {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm text-center border border-red-100">{error}</div>}
-        {successMsg && <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-4 text-sm text-center border border-green-100">{successMsg}</div>}
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="seu@email.com"/>
+      {/* CARD LOGIN */}
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6">
+        <div className="w-full max-w-[420px] bg-white rounded-3xl shadow-xl shadow-gray-200/50 p-8 md:p-10 border border-gray-100 animate-in fade-in zoom-in-95 duration-500">
+          
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo!</h2>
+            <p className="text-gray-500 text-sm">Insira suas credenciais para acessar.</p>
           </div>
-          <div>
-            <div className="flex justify-between items-center mb-1">
-                <label className="block text-sm font-medium text-gray-700">Senha</label>
-                <button type="button" onClick={handleResetPassword} className="text-xs text-blue-600 hover:underline font-bold">Esqueci minha senha</button>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            {error && (
+              <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg flex items-center gap-2 border border-red-100">
+                 <ShieldCheck size={16}/> {error}
+              </div>
+            )}
+
+            <div className="space-y-1">
+               <label className="text-xs font-bold text-gray-700 uppercase tracking-wide ml-1">E-mail</label>
+               <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail size={18} className="text-gray-400 group-focus-within:text-blue-600 transition" />
+                  </div>
+                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium" placeholder="exemplo@igreja.com" />
+               </div>
             </div>
-            <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition" placeholder="******"/>
+
+            <div className="space-y-1">
+               <div className="flex justify-between items-center ml-1">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">Senha</label>
+               </div>
+               <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock size={18} className="text-gray-400 group-focus-within:text-blue-600 transition" />
+                  </div>
+                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium" placeholder="••••••••" />
+               </div>
+            </div>
+
+            <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] disabled:opacity-70">
+              {loading ? <Loader2 className="animate-spin" size={20} /> : <>Entrar <ArrowRight size={18}/></>}
+            </button>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+             <p className="text-xs text-gray-500 mb-3">Primeiro acesso?</p>
+             <Link href="/register" className="inline-block px-6 py-2 rounded-full border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-50 transition">Criar Nova Igreja</Link>
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-70">
-            {loading ? "Entrando..." : "Acessar Sistema"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>É sua primeira vez?</p>
-          <Link href="/register" className="text-blue-600 hover:underline font-bold">Criar Conta / Primeiro Acesso</Link>
         </div>
-      </div>
+      </main>
 
-      {/* RODAPÉ DA SEBASTEC */}
-      <div className="mt-8 text-slate-500 text-xs flex flex-col items-center opacity-60 hover:opacity-100 transition">
-        <p className="flex items-center gap-1">
-            Desenvolvido com <Heart size={10} className="text-red-500 fill-red-500"/> por <span className="font-bold text-slate-400">Sebastec</span>
-        </p>
-        <p className="text-[10px] mt-1">© {new Date().getFullYear()} Todos os direitos reservados.</p>
-      </div>
+      {/* RODAPÉ */}
+      <footer className="w-full p-6 md:px-10 md:py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] md:text-xs text-gray-400 border-t border-gray-200 bg-white">
+          <div className="flex gap-6 font-medium"><a href="#">Privacidade</a><a href="#">Termos</a></div>
+          <div className="font-medium text-center md:text-right">COPYRIGHT © 2024 SEBASTEC SYSTEMS.</div>
+      </footer>
     </div>
   );
 }

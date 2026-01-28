@@ -1,154 +1,114 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; 
-import { churchService } from "../../services/churchService";
-import { Church } from "../../types/church";
-import { Trash2, Lock, Unlock, UserCog, Plus, ShieldAlert } from "lucide-react";
-import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore"; 
-import { db } from "../../lib/firebase";
+import { useRouter } from "next/navigation";
+import { useChurch } from "../../contexts/ChurchContext"; // Contexto da Igreja
+import { Building2, Users, DollarSign, PlusCircle, CheckCircle, ShieldCheck } from "lucide-react";
 
-// --- LISTA DE SUPER ADMINS (ACEITA OS DOIS AGORA) ---
-const SUPER_ADMINS = [
-  "alfaministro1@gmail.com", 
-  "alfaministro1@hotmail.com"
-]; 
+// FIREBASE DIRETO (Sem Service)
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db } from "../../lib/firebase";
 
-export default function SuperAdminPage() {
+export default function AdminPage() {
   const router = useRouter();
-  const [churches, setChurches] = useState<Church[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isAuthorized, setIsAuthorized] = useState(false);
-
-  const [promoteEmail, setPromoteEmail] = useState("");
-  const [promoteChurchId, setPromoteChurchId] = useState("");
+  const { userRole } = useChurch(); // Pega do contexto, ou pode pegar do localStorage
+  const [loading, setLoading] = useState(false);
+  
+  const [newChurch, setNewChurch] = useState({
+    churchName: "", name: "", email: "", password: ""
+  });
 
   useEffect(() => {
-    // 1. VERIFICAÇÃO DE SEGURANÇA MAIS FLEXÍVEL
-    const currentUserEmail = localStorage.getItem("userEmail");
-    
-    // Verifica se o email atual está na lista de permitidos
-    if (!currentUserEmail || !SUPER_ADMINS.includes(currentUserEmail)) {
-      alert("⛔ Acesso Negado! Esta área é restrita ao Super Admin.");
-      router.push("/"); 
-      return;
+    // Segurança básica
+    if (typeof window !== 'undefined') {
+        const role = localStorage.getItem("userRole");
+        if (role !== 'admin') router.push("/");
     }
-
-    setIsAuthorized(true);
-    loadChurches();
   }, [router]);
 
-  const loadChurches = async () => {
+  const handleCreateChurch = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    const data = await churchService.listAll();
-    setChurches(data);
-    setLoading(false);
-  };
-
-  const handleCreateChurch = async () => {
-    const churchName = prompt("Nome da Nova Igreja:");
-    if (!churchName) return;
-    const pastorEmail = prompt(`E-mail do Pastor da ${churchName}:`);
-    if (!pastorEmail) return;
-    const pastorName = prompt("Nome do Pastor:");
-    if (!pastorName) return;
-
     try {
-      await churchService.create(
-        { name: churchName, plan: "basic" }, 
-        { name: pastorName, email: pastorEmail }
-      );
-      alert(`✅ Sucesso! Igreja e Pastor criados.`);
-      loadChurches();
-    } catch (error) {
-      alert("Erro ao criar igreja.");
+        // 1. Cria usuário no Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, newChurch.email, newChurch.password);
+        const user = userCredential.user;
+
+        // 2. Atualiza nome
+        await updateProfile(user, { displayName: newChurch.name });
+
+        // 3. Cria Igreja no Banco
+        const churchId = `church_${user.uid}`;
+        await setDoc(doc(db, "churches", churchId), {
+            name: newChurch.churchName,
+            createdAt: new Date().toISOString(),
+            plan: "pro",
+            ownerId: user.uid
+        });
+
+        // 4. Cria Membro (Pastor Admin)
+        await setDoc(doc(db, "members", user.uid), {
+            fullName: newChurch.name,
+            email: newChurch.email,
+            churchId: churchId,
+            role: "admin",
+            status: "active",
+            createdAt: new Date().toISOString()
+        });
+        
+        alert("✅ Igreja cadastrada com sucesso!");
+        setNewChurch({ churchName: "", name: "", email: "", password: "" }); 
+
+    } catch (error: any) {
+        console.error(error);
+        alert("Erro: " + error.message);
+    } finally {
+        setLoading(false);
     }
   };
 
-  const handleToggleStatus = async (id: string, current: boolean) => {
-    await churchService.toggleStatus(id, current);
-    loadChurches();
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    const confirmText = prompt(`Para deletar a igreja "${name}", digite DELETAR abaixo:`);
-    if (confirmText === "DELETAR") {
-      await churchService.delete(id);
-      loadChurches();
-    }
-  };
-
-  const handlePromoteToAdmin = async () => {
-    if (!promoteEmail || !promoteChurchId) return alert("Preencha e-mail e ID");
-    try {
-      const q = query(collection(db, "members"), where("email", "==", promoteEmail), where("churchId", "==", promoteChurchId));
-      const snap = await getDocs(q);
-      if (snap.empty) return alert("Membro não encontrado nesta igreja.");
-      await updateDoc(doc(db, "members", snap.docs[0].id), { role: "admin" });
-      alert("Promovido com sucesso! Faça Logout e Login para ver os menus.");
-      setPromoteEmail(""); setPromoteChurchId("");
-    } catch (error) { alert("Erro ao promover."); }
-  };
-
-  if (!isAuthorized || loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Carregando acesso seguro...</div>;
+  const stats = [
+      { label: "Total de Igrejas", value: "12", icon: Building2, color: "text-blue-600", bg: "bg-blue-50" },
+      { label: "Vidas Alcançadas", value: "1.450", icon: Users, color: "text-green-600", bg: "bg-green-50" },
+      { label: "Receita Mensal", value: "R$ 600,00", icon: DollarSign, color: "text-purple-600", bg: "bg-purple-50" },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 md:p-8 text-white overflow-x-hidden">
-      <div className="max-w-7xl mx-auto">
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-blue-500 flex items-center gap-2">
-               <ShieldAlert /> ReinoCloud | Super Admin
-            </h1>
-            <p className="text-gray-400 text-sm">Gestão dos Tenants (Clientes)</p>
-          </div>
-          <div className="flex gap-2 w-full md:w-auto">
-            <button onClick={loadChurches} className="flex-1 md:flex-none bg-slate-800 px-4 py-2 rounded border border-slate-700 text-sm">Atualizar</button>
-            <button onClick={handleCreateChurch} className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 font-bold shadow-lg text-sm">
-                <Plus size={18} /> Nova Igreja
-            </button>
-          </div>
-        </div>
+    <div className="p-4 md:p-8 min-h-screen pb-24 bg-gray-50">
+      <div className="max-w-5xl mx-auto mb-8">
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><ShieldCheck className="text-red-500"/> Painel Super Admin</h1>
+        <p className="text-gray-500 text-sm">Gerencie os clientes do ReinoCloud</p>
+      </div>
 
-        <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-8 shadow-lg">
-          <h3 className="font-bold text-yellow-400 flex items-center gap-2 mb-2 text-sm md:text-base">
-            <UserCog size={18}/> Área de Emergência
-          </h3>
-          <p className="text-xs text-gray-400 mb-4">Promover Pastor manualmente.</p>
-          <div className="flex flex-col md:flex-row gap-2">
-            <input type="text" placeholder="ID da Igreja" value={promoteChurchId} onChange={e => setPromoteChurchId(e.target.value)} className="bg-slate-900 border border-slate-600 p-3 rounded text-sm text-white" />
-            <input type="email" placeholder="E-mail do usuário" value={promoteEmail} onChange={e => setPromoteEmail(e.target.value)} className="bg-slate-900 border border-slate-600 p-3 rounded text-sm text-white" />
-            <button onClick={handlePromoteToAdmin} className="bg-yellow-600 hover:bg-yellow-700 px-4 py-3 md:py-2 rounded font-bold text-sm text-slate-900">Promover</button>
-          </div>
-        </div>
+      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {stats.map((stat, idx) => (
+              <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}><stat.icon size={24} /></div>
+                  <div><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{stat.label}</p><h3 className="text-2xl font-extrabold text-gray-800">{stat.value}</h3></div>
+              </div>
+          ))}
+      </div>
 
-        <div className="bg-slate-800 rounded-xl overflow-hidden border border-slate-700 shadow-xl overflow-x-auto">
-          <table className="w-full text-left min-w-[800px]">
-            <thead className="bg-slate-900 text-gray-400 text-sm">
-              <tr>
-                <th className="p-4">ID</th>
-                <th className="p-4">Igreja</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {churches.map((church) => (
-                <tr key={church.id} className="hover:bg-slate-700/50">
-                  <td className="p-4 text-xs font-mono text-gray-500 select-all max-w-[100px] truncate">{church.id}</td>
-                  <td className="p-4"><p className="font-bold text-white text-base">{church.name}</p></td>
-                  <td className="p-4">
-                    {church.active ? <span className="text-xs bg-green-900/50 text-green-300 px-2 py-1 rounded border border-green-700">Ativa</span> : <span className="text-xs bg-red-900/50 text-red-300 px-2 py-1 rounded border border-red-700">Bloqueada</span>}
-                  </td>
-                  <td className="p-4 text-right flex justify-end gap-2">
-                    <button onClick={() => handleToggleStatus(church.id!, church.active)} className="p-2 bg-slate-900 rounded border border-slate-700 text-gray-300">{church.active ? <Lock size={16}/> : <Unlock size={16}/>}</button>
-                    <button onClick={() => handleDelete(church.id!, church.name)} className="p-2 bg-red-900/20 rounded border border-red-900/50 text-red-500"><Trash2 size={16}/></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="bg-gray-50 px-8 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="font-bold text-gray-700 flex items-center gap-2"><PlusCircle size={18} className="text-blue-600"/> Cadastrar Nova Igreja</h2>
+              <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded uppercase">Plano Pro</span>
+          </div>
+
+          <form onSubmit={handleCreateChurch} className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="col-span-1 md:col-span-2"><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Nome da Igreja</label><input type="text" required value={newChurch.churchName} onChange={e => setNewChurch({...newChurch, churchName: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+                  <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Nome do Pastor</label><input type="text" required value={newChurch.name} onChange={e => setNewChurch({...newChurch, name: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+                  <div><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">E-mail</label><input type="email" required value={newChurch.email} onChange={e => setNewChurch({...newChurch, email: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+                  <div className="col-span-1 md:col-span-2"><label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Senha Inicial</label><input type="password" required value={newChurch.password} onChange={e => setNewChurch({...newChurch, password: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" /></div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                  <button type="submit" disabled={loading} className="px-8 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center gap-2">
+                      {loading ? 'Criando...' : <><CheckCircle size={18}/> Criar Igreja</>}
+                  </button>
+              </div>
+          </form>
       </div>
     </div>
   );

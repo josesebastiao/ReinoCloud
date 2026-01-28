@@ -98,23 +98,40 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 </div>
             )}
 
+          {/* ... parte do menuItems.map ... */}
             {menuItems.map((item) => (
-            canView(item.roles) && (
-                <Link 
-                key={item.path} 
-                href={item.path}
-                onClick={() => setIsSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                    pathname === item.path 
-                    ? "bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50" 
-                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                }`}
-                >
-                <item.icon size={20} />
-                <span>{item.name}</span>
-                </Link>
-            )
+                canView(item.roles) && (
+                    <Link 
+                    key={item.path} 
+                    href={item.path}
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                        pathname === item.path 
+                        ? "bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50" 
+                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                    }`}
+                    >
+                    <item.icon size={20} />
+                    <span>{item.name}</span>
+                    </Link>
+                )
             ))}
+
+            {/* --- AQUI ESTÁ O RESGATE DO SUPER ADMIN --- */}
+            {/* Só aparece se o cargo for 'admin' */}
+            {userRole === 'admin' && (
+                <div className="mt-6 pt-6 border-t border-gray-800">
+                    <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Administração</p>
+                    <Link 
+                        href="/admin" 
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all group"
+                    >
+                        <Shield size={20} className="group-hover:animate-pulse"/>
+                        <span className="font-bold">Painel SaaS</span>
+                    </Link>
+                </div>
+            )}
         </nav>
 
         <div className="p-4 border-t border-gray-800">
