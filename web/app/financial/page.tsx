@@ -223,37 +223,54 @@ export default function FinancialPage() {
          <button onClick={() => setFilterType('expense')} className={`whitespace-nowrap px-4 py-2 rounded-xl text-xs font-bold transition ${filterType === 'expense' ? 'bg-red-600 text-white shadow-lg shadow-red-200' : 'bg-white text-gray-500 border border-gray-200'}`}>Saídas</button>
       </div>
 
-      <div className="max-w-5xl mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden print:shadow-none print:border-0">
-          <table className="w-full text-left">
-              <thead className="bg-gray-50 text-gray-400 text-[10px] uppercase font-bold border-b tracking-wider">
-                  <tr>
-                      <th className="p-4">Dia</th>
-                      <th className="p-4">Descrição</th>
-                      <th className="p-4 text-right">Valor</th>
-                      <th className="p-4 w-8 print:hidden"></th>
-                  </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 text-sm">
-                  {filteredTransactions.map(t => (
-                      <tr key={t.id} className="hover:bg-gray-50 transition">
-                          <td className="p-4 text-gray-500 w-16 text-xs">
-                              <div className="font-bold text-gray-700">{t.date.split('-')[2]}</div>
-                              <div className="text-[10px] uppercase">{new Date(t.date).toLocaleDateString('pt-BR', {month:'short'}).slice(0,3)}</div>
-                          </td>
-                          <td className="p-4 font-medium text-gray-800">
-                              <p className="line-clamp-1">{t.description}</p>
-                              {t.category && <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 uppercase font-bold tracking-wide">{t.category}</span>}
-                          </td>
-                          <td className={`p-4 text-right font-bold whitespace-nowrap ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                              {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
-                          </td>
-                          <td className="p-4 text-right print:hidden">
-                              <button onClick={() => handleDelete(t.id!)} className="text-gray-300 hover:text-red-500 p-2"><Trash2 size={16}/></button>
-                          </td>
-                      </tr>
-                  ))}
-              </tbody>
-          </table>
+      {/* NOVA LISTA ESTILO TIMELINE (ADP STYLE) */}
+      <div className="max-w-5xl mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-6 print:shadow-none print:border-0">
+          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Extrato Recente</h3>
+          
+          <div className="relative border-l-2 border-gray-100 ml-3 space-y-8 pb-4">
+              {filteredTransactions.map((t, index) => (
+                  <div key={t.id} className="relative pl-8 animate-in slide-in-from-bottom-2 fade-in duration-300" style={{animationDelay: `${index * 50}ms`}}>
+                      
+                      {/* BOLINHA DA LINHA DO TEMPO */}
+                      <div className={`
+                          absolute -left-[9px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm
+                          ${t.type === 'income' ? 'bg-green-500' : 'bg-red-500'}
+                      `}></div>
+
+                      {/* CONTEÚDO DO CARD */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-4 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-100">
+                          
+                          {/* Data e Info */}
+                          <div>
+                              <span className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1">
+                                  {new Date(t.date).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                              </span>
+                              <p className="font-bold text-gray-800 text-base mt-0.5">{t.description}</p>
+                              {t.category && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 mt-1">
+                                      {t.category} {t.memberName ? `• ${t.memberName}` : ''}
+                                  </span>
+                              )}
+                          </div>
+
+                          {/* Valor e Ações */}
+                          <div className="flex items-center justify-between md:justify-end gap-4 mt-2 md:mt-0">
+                              <span className={`text-lg font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                  {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
+                              </span>
+                              
+                              <button onClick={() => handleDelete(t.id!)} className="p-2 text-gray-300 hover:text-red-500 transition hover:bg-red-50 rounded-full print:hidden">
+                                  <Trash2 size={16}/>
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              ))}
+
+              {filteredTransactions.length === 0 && (
+                  <div className="pl-8 text-gray-400 italic text-sm">Nenhum lançamento neste período.</div>
+              )}
+          </div>
       </div>
 
       {isModalOpen && (
