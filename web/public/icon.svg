@@ -1,15 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="kingdomGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#34d399;stop-opacity:1" /> <stop offset="100%" style="stop-color:#059669;stop-opacity:1" /> </linearGradient>
+    <linearGradient id="royalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" /> <stop offset="100%" style="stop-color:#1e3a8a;stop-opacity:1" /> </linearGradient>
   </defs>
   
-  <rect width="512" height="512" rx="128" fill="url(#kingdomGrad)"/>
+  <rect width="512" height="512" rx="128" fill="url(#royalGrad)"/>
   
-  <path fill="white" opacity="0.9" d="M376,368H136c-48.6,0-88-39.4-88-88c0-46.1,35.5-83.9,80.6-87.7c6.1-64.6,60.8-114.7,126.2-114.7c53.7,0,99.6,34.2,119.4,82.6c3.4-0.3,6.8-0.5,10.4-0.5c48.6,0,88,39.4,88,88C464,328.6,424.6,368,376,368z"/>
+  <path fill="white" opacity="0.95" d="M376,368H136c-48.6,0-88-39.4-88-88c0-46.1,35.5-83.9,80.6-87.7c6.1-64.6,60.8-114.7,126.2-114.7c53.7,0,99.6,34.2,119.4,82.6c3.4-0.3,6.8-0.5,10.4-0.5c48.6,0,88,39.4,88,88C464,328.6,424.6,368,376,368z"/>
   
-  <path fill="#059669" d="M256,168l36.6,74.2l81.9,11.9l-59.3,57.8l14,81.6L256,355l-73.2,38.5l14-81.6l-59.3-57.8l81.9-11.9L256,168z M256,218.7l-21.9,44.3l-48.9,7.1l35.4,34.5l-8.4,48.7l43.8-23l43.8,23l-8.4-48.7l35.4-34.5l-48.9-7.1L256,218.7z"/>
-  <circle fill="#059669" cx="256" cy="160" r="12"/>
-  <circle fill="#059669" cx="154" cy="230" r="10"/>
-  <circle fill="#059669" cx="358" cy="230" r="10"/>
+  <path fill="#1e3a8a" d="M256,168l36.6,74.2l81.9,11.9l-59.3,57.8l14,81.6L256,355l-73.2,38.5l14-81.6l-59.3-57.8l81.9-11.9L256,168z M256,218.7l-21.9,44.3l-48.9,7.1l35.4,34.5l-8.4,48.7l43.8-23l43.8,23l-8.4-48.7l35.4-34.5l-48.9-7.1L256,218.7z"/>
+  
+  <circle fill="#1e3a8a" cx="256" cy="160" r="12"/>
+  <circle fill="#1e3a8a" cx="154" cy="230" r="10"/>
+  <circle fill="#1e3a8a" cx="358" cy="230" r="10"/>
 </svg>
