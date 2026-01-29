@@ -1,187 +1,226 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
-import { memberService } from "../../services/memberService";
-import { db } from "../../lib/firebase"; // <--- Importando db
-import { doc, getDoc } from "firebase/firestore"; // <--- Importando funções do Firestore
+import { memberService, Member } from "../../services/memberService";
 import { 
-  FileText, ArrowRight, Search, Printer, 
-  ArrowLeft, User, MapPin, Loader2 
+  FileText, Printer, Search, FileBadge, ArrowRightLeft, 
+  MapPin, Calendar, Loader2, ShieldCheck, User 
 } from "lucide-react";
 
-type DocType = 'recomendacao' | 'transferencia' | null;
-
 export default function ServicesPage() {
-  const { churchName, churchId, logoUrl, userName } = useChurch();
+  const { churchId, churchName, logoUrl, userName } = useChurch(); // Pegamos a logo aqui
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
   
-  const [step, setStep] = useState<'menu' | 'search' | 'preview'>('menu');
-  const [docType, setDocType] = useState<DocType>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [members, setMembers] = useState<any[]>([]);
-  const [selectedMember, setSelectedMember] = useState<any>(null);
-  const [loadingMembers, setLoadingMembers] = useState(false);
-  
-  // --- NOVO ESTADO: Dados da Igreja para o documento ---
-  const [docChurchData, setDocChurchData] = useState<any>(null);
+  // Controle dos Modais
+  const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | null>(null);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [search, setSearch] = useState("");
+  const [obs, setObs] = useState(""); // Observação extra para a carta
 
-  // --- EFEITO: Busca dados da igreja (cidade, textos) ao entrar no preview ---
   useEffect(() => {
-    if (step === 'preview' && churchId) {
-        const loadChurchDetails = async () => {
-            try {
-                const docRef = doc(db, "churches", churchId);
-                const snap = await getDoc(docRef);
-                if (snap.exists()) {
-                    setDocChurchData(snap.data());
-                }
-            } catch (e) { console.error("Erro ao carregar dados da igreja para o doc:", e); }
-        };
-        loadChurchDetails();
-    }
-  }, [step, churchId]);
+    if (churchId) loadMembers();
+  }, [churchId]);
 
-  // --- CONFIGURAÇÃO DOS DOCUMENTOS ---
-  const getDocTitle = () => docType === 'recomendacao' ? "Carta de Recomendação" : "Carta de Transferência";
-  
-  const getDocContent = () => {
-    // Tenta pegar o texto personalizado do banco, se não tiver, usa o padrão
-    let text = "";
-    if (docType === 'recomendacao') {
-       text = docChurchData?.textRecommendation || "Certificamos, para os devidos fins eclesiásticos, que o(a) irmão(ã) {NOME}, membro desta igreja, está em plena comunhão com a fé e a ordem desta comunidade. Recomendamo-lo(a) a qualquer igreja coirmã, rogando que o(a) recebam no Senhor.";
-    } else {
-       text = docChurchData?.textTransfer || "Solicitamos a transferência do(a) irmão(ã) {NOME}, que manifestou desejo de unir-se a esta comunidade. Agradecemos o envio de sua carta demissória ou certificado de transferência.";
-    }
-
-    // Substituição de Variáveis
-    if (selectedMember) {
-        text = text.replace(/{NOME}/g, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
-    }
-    return text;
+  const loadMembers = async () => {
+    try {
+      const list = await memberService.listByChurch(churchId);
+      setMembers(list);
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const handleSearch = async (term: string) => {
-    setSearchTerm(term);
-    if (term.length > 2) {
-      setLoadingMembers(true);
-      try {
-        const results = await memberService.search(churchId, term);
-        setMembers(results);
-      } catch (e) { console.error(e); }
-      finally { setLoadingMembers(false); }
-    } else {
-      setMembers([]);
-    }
-  };
+  const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
-  const selectMember = (member: any) => {
-      setSelectedMember(member);
-      setStep('preview');
-  };
-
+  // --- FUNÇÃO DE IMPRESSÃO (AQUI ESTÁ A CORREÇÃO DA LOGO) ---
   const handlePrint = () => {
-    window.print();
+    if (!selectedMember) return;
+
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) return;
+
+    const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // HTML da Carta
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Documento - ${churchName}</title>
+          <style>
+            body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; }
+            .header { margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+            .logo { width: 100px; height: 100px; object-fit: contain; margin-bottom: 10px; }
+            .title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin: 10px 0; }
+            .content { font-size: 18px; line-height: 1.8; text-align: justify; margin: 40px 0; }
+            .footer { margin-top: 80px; display: flex; justify-content: space-around; }
+            .signature { border-top: 1px solid #000; padding-top: 10px; width: 40%; font-weight: bold; }
+            .meta { font-size: 12px; color: #999; margin-top: 50px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            ${logoUrl ? `<img src="${logoUrl}" class="logo" />` : ''}
+            <div class="title">${churchName}</div>
+            <div style="font-size: 14px; color: #666;">Departamento de Secretaria</div>
+          </div>
+
+          <h2>${selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : 'CARTA DE TRANSFERÊNCIA'}</h2>
+
+          <div class="content">
+            <p>
+              Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) 
+              <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão, 
+              não constando nada, até a presente data, que desabone sua conduta cristã.
+            </p>
+            
+            ${selectedDoc === 'transfer' ? `
+              <p>Solicitamos que o(a) mesmo(a) seja recebido(a) como membro dessa amada igreja, cessando assim suas responsabilidades conosco.</p>
+            ` : ''}
+
+            ${obs ? `<p><strong>Observação:</strong> ${obs}</p>` : ''}
+
+            <p>Sem mais para o momento, subscrevemo-nos em Cristo.</p>
+          </div>
+
+          <p style="text-align: right; margin-top: 40px;">${today}</p>
+
+          <div class="footer">
+            <div class="signature">Pastor Responsável</div>
+            <div class="signature">Secretaria</div>
+          </div>
+
+          <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
+          
+          <script>
+            window.print();
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
-  // --- RENDERIZAÇÃO ---
+  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // 1. MENU
-  if (step === 'menu') {
-      return (
-        <div className="p-8 max-w-5xl mx-auto min-h-screen bg-gray-50">
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Serviços de Secretaria</h1>
-            <p className="text-gray-500 mb-8">Selecione o tipo de documento que deseja emitir.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <button onClick={() => { setDocType('recomendacao'); setStep('search'); }} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition text-left group">
-                    <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-4 group-hover:scale-110 transition"><FileText size={28}/></div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">Carta de Recomendação</h3>
-                    <p className="text-sm text-gray-400">Para membros que vão visitar outras igrejas.</p>
-                </button>
-                <button onClick={() => { setDocType('transferencia'); setStep('search'); }} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition text-left group">
-                    <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600 mb-4 group-hover:scale-110 transition"><ArrowRight size={28}/></div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">Carta de Transferência</h3>
-                    <p className="text-sm text-gray-400">Para oficializar a mudança de membro.</p>
-                </button>
-            </div>
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+      
+      {/* CABEÇALHO AZUL */}
+      <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
+        <div className="max-w-6xl mx-auto">
+            <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+              <FileText className="text-blue-300"/> Serviços & Documentos
+            </h1>
+            <p className="text-blue-100 text-lg opacity-90">Emissão de cartas e certificados oficiais.</p>
         </div>
-      );
-  }
+      </div>
 
-  // 2. BUSCA
-  if (step === 'search') {
-      return (
-        <div className="p-8 max-w-3xl mx-auto min-h-screen bg-gray-50">
-            <button onClick={() => setStep('menu')} className="flex items-center gap-2 text-gray-400 hover:text-gray-600 mb-6 text-sm font-bold"><ArrowLeft size={16}/> Voltar</button>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Quem é o membro?</h1>
-            <p className="text-gray-500 mb-6">Busque pelo nome para gerar o documento.</p>
-            <div className="relative mb-6">
-                <Search className="absolute left-4 top-4 text-gray-400" size={20}/>
-                <input autoFocus type="text" placeholder="Digite o nome..." className="w-full pl-12 p-4 rounded-xl border border-gray-200 shadow-sm outline-none" value={searchTerm} onChange={e => handleSearch(e.target.value)}/>
-            </div>
-            <div className="space-y-3">
-                {loadingMembers && <div className="text-center py-4"><Loader2 className="animate-spin mx-auto text-blue-500"/></div>}
-                {!loadingMembers && members.map(member => (
-                    <button key={member.id} onClick={() => selectMember(member)} className="w-full bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between hover:border-blue-300 hover:bg-blue-50 transition group">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold group-hover:bg-blue-200 group-hover:text-blue-700"><User size={20}/></div>
-                            <div className="text-left"><p className="font-bold text-gray-800">{member.fullName}</p><p className="text-xs text-gray-400">{member.role || 'Membro'}</p></div>
-                        </div>
-                        <ArrowRight size={18} className="text-gray-300 group-hover:text-blue-500"/>
-                    </button>
-                ))}
-            </div>
-        </div>
-      );
-  }
+      <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16">
+          
+          {/* SELEÇÃO DE TIPO DE DOCUMENTO */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div 
+                onClick={() => { setSelectedDoc('recommendation'); setSelectedMember(null); }}
+                className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'recommendation' ? 'border-blue-500 ring-4 ring-blue-50' : 'border-transparent hover:border-blue-200'}`}
+              >
+                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4">
+                      <FileBadge size={28}/>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800">Carta de Recomendação</h3>
+                  <p className="text-sm text-gray-500 mt-2">Para membros que vão visitar outras igrejas ou participar de eventos.</p>
+              </div>
 
-  // 3. PREVIEW & IMPRESSÃO (A4)
-  if (step === 'preview' && selectedMember) {
-      return (
-        <div className="min-h-screen bg-gray-200 p-4 md:p-8 flex flex-col items-center print:bg-white print:p-0">
-            <div className="w-full max-w-[210mm] flex justify-between items-center mb-6 print:hidden">
-                <button onClick={() => setStep('search')} className="flex items-center gap-2 text-gray-600 font-bold hover:text-gray-900 bg-white px-4 py-2 rounded-lg shadow-sm"><ArrowLeft size={16}/> Voltar</button>
-                <button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-md transition"><Printer size={18}/> Imprimir</button>
-            </div>
+              <div 
+                onClick={() => { setSelectedDoc('transfer'); setSelectedMember(null); }}
+                className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'transfer' ? 'border-orange-500 ring-4 ring-orange-50' : 'border-transparent hover:border-orange-200'}`}
+              >
+                  <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-4">
+                      <ArrowRightLeft size={28}/>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800">Carta de Transferência</h3>
+                  <p className="text-sm text-gray-500 mt-2">Documento oficial para mudança definitiva de membro para outra congregação.</p>
+              </div>
+          </div>
 
-            <div className="bg-white w-full max-w-[210mm] min-h-[297mm] p-[20mm] shadow-2xl print:shadow-none print:w-full print:max-w-none">
-                
-                {/* CABEÇALHO */}
-                <header className="flex flex-col items-center border-b-2 border-gray-100 pb-8 mb-8">
-                    {logoUrl && <img src={logoUrl} alt="Logo" className="h-24 w-auto mb-4 object-contain" />}
-                    <h1 className="text-2xl font-bold text-gray-800 uppercase tracking-wide text-center">{churchName}</h1>
-                    
-                    {/* --- CORREÇÃO: Mostra a Cidade ou "Sede Administrativa" --- */}
-                    <div className="flex items-center gap-2 text-sm text-gray-500 mt-2">
-                        <MapPin size={14}/> 
-                        <span>{docChurchData?.city || "Sede Administrativa"}</span>
-                    </div>
-                    {/* ------------------------------------------------------- */}
-                </header>
+          {/* ÁREA DE EMISSÃO (SÓ APARECE SE TIVER SELECIONADO UM TIPO) */}
+          {selectedDoc && (
+              <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-100">
+                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                          {selectedDoc === 'recommendation' ? <FileBadge className="text-blue-500"/> : <ArrowRightLeft className="text-orange-500"/>}
+                          Emitir {selectedDoc === 'recommendation' ? 'Recomendação' : 'Transferência'}
+                      </h2>
+                      <button onClick={() => setSelectedDoc(null)} className="text-gray-400 hover:text-red-500 font-bold text-sm">CANCELAR</button>
+                  </div>
 
-                <div className="text-center mb-12">
-                    <h2 className="text-xl font-bold text-gray-900 uppercase border-2 border-gray-800 inline-block px-6 py-2 tracking-widest">{getDocTitle()}</h2>
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* LADO ESQUERDO: BUSCA */}
+                      <div>
+                          <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Selecione o Membro</label>
+                          <div className="relative mb-4">
+                              <Search className="absolute left-3 top-3 text-gray-400" size={20}/>
+                              <input 
+                                type="text" 
+                                placeholder="Buscar membro..." 
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white transition outline-none focus:ring-2 ring-blue-100"
+                              />
+                          </div>
+                          
+                          <div className="h-64 overflow-y-auto border rounded-xl p-2 custom-scrollbar bg-gray-50">
+                              {filteredMembers.map(m => (
+                                  <div 
+                                    key={m.id} 
+                                    onClick={() => setSelectedMember(m)}
+                                    className={`p-3 rounded-lg flex items-center gap-3 cursor-pointer transition mb-1 ${selectedMember?.id === m.id ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white hover:shadow-sm text-gray-700'}`}
+                                  >
+                                      <div className={`p-2 rounded-full ${selectedMember?.id === m.id ? 'bg-white/20' : 'bg-gray-200'}`}><User size={16}/></div>
+                                      <span className="font-bold text-sm">{m.fullName}</span>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
 
-                <div className="text-justify text-lg leading-relaxed text-gray-800 font-serif mb-16">
-                    {/* Usa o texto carregado do banco ou o padrão */}
-                    <p dangerouslySetInnerHTML={{ __html: getDocContent() }} />
-                </div>
+                      {/* LADO DIREITO: PREVIEW E AÇÃO */}
+                      <div className="flex flex-col h-full">
+                          <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Detalhes da Emissão</label>
+                          
+                          <div className="flex-1 bg-gray-50 rounded-xl p-6 border border-dashed border-gray-300 flex flex-col justify-center items-center text-center">
+                              {selectedMember ? (
+                                  <div className="animate-in zoom-in">
+                                      <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                          <ShieldCheck size={40}/>
+                                      </div>
+                                      <h3 className="text-xl font-bold text-gray-800">{selectedMember.fullName}</h3>
+                                      <p className="text-sm text-gray-500 mb-4">{selectedMember.role} • {selectedMember.status === 'active' ? 'Ativo' : 'Inativo'}</p>
+                                      
+                                      <textarea 
+                                        placeholder="Observação (Opcional)..." 
+                                        value={obs}
+                                        onChange={e => setObs(e.target.value)}
+                                        className="w-full p-3 border rounded-xl text-sm mb-4"
+                                        rows={2}
+                                      />
 
-                {/* --- REMOVIDO O BLOCO "DADOS DO MEMBRO" AQUI --- */}
+                                      <button 
+                                        onClick={handlePrint}
+                                        className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition shadow-xl flex items-center gap-2 mx-auto"
+                                      >
+                                          <Printer size={20}/> Imprimir Documento
+                                      </button>
+                                  </div>
+                              ) : (
+                                  <p className="text-gray-400">Selecione um membro na lista ao lado para gerar o documento.</p>
+                              )}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          )}
 
-                {/* ASSINATURA */}
-                <div className="mt-auto pt-24 flex flex-col items-center">
-                    <div className="w-64 border-t border-gray-800 mb-2"></div>
-                    <p className="font-bold text-gray-800">{userName}</p>
-                    <p className="text-sm text-gray-500">Secretaria / Liderança</p>
-                </div>
-
-                <footer className="mt-20 text-center text-[10px] text-gray-400 border-t border-gray-100 pt-4">
-                    Documento gerado digitalmente via ReinoCloud System • {new Date().getFullYear()}
-                </footer>
-            </div>
-        </div>
-      );
-  }
-
-  return null;
+      </div>
+    </div>
+  );
 }

@@ -1,25 +1,23 @@
-"use client";
+"use client"; // <--- OBRIGATÓRIO
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useChurch } from "../contexts/ChurchContext";
 import { memberService } from "../services/memberService";
-import { financeService } from "../services/financeService"; // <--- Novo Import
+import { financeService } from "../services/financeService";
 import { db } from "../lib/firebase";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { 
   Users, Calendar, TrendingUp, ArrowRight, 
-  MapPin, Clock, Loader2, AlertCircle, Eye, EyeOff 
+  MapPin, Clock, Loader2, AlertCircle, Eye, EyeOff, Building2 
 } from "lucide-react";
 
 export default function Dashboard() {
-  const { churchId, churchName, userName, userRole, formatMoney } = useChurch(); // <--- Adicionei formatMoney
+  const { churchId, churchName, userName, userRole, formatMoney, logoUrl } = useChurch(); // <--- Peguei a logoUrl
   const [loading, setLoading] = useState(true);
   
   const [showBalance, setShowBalance] = useState(false);
-
-  // Estados dos Dados
   const [stats, setStats] = useState({ active: 0, inactive: 0, total: 0 });
-  const [balance, setBalance] = useState(0); // <--- Estado do Saldo
+  const [balance, setBalance] = useState(0);
   const [nextEvents, setNextEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -29,46 +27,25 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     try {
         setLoading(true);
-        
-        // Buscas em paralelo para ser mais rápido
         const [allMembers, allTransactions] = await Promise.all([
             memberService.listByChurch(churchId),
             financeService.listByChurch(churchId)
         ]);
 
-        // 1. Membros
         const activeCount = allMembers.filter(m => m.status === 'active').length;
         const inactiveCount = allMembers.length - activeCount;
         setStats({ active: activeCount, inactive: inactiveCount, total: allMembers.length });
 
-        // 2. Saldo Real (Soma tudo: Entradas - Saídas)
-        const totalIncome = allTransactions
-            .filter(t => t.type === 'income')
-            .reduce((acc, curr) => acc + Number(curr.amount), 0);
-            
-        const totalExpense = allTransactions
-            .filter(t => t.type === 'expense')
-            .reduce((acc, curr) => acc + Number(curr.amount), 0);
-
+        const totalIncome = allTransactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + Number(curr.amount), 0);
+        const totalExpense = allTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + Number(curr.amount), 0);
         setBalance(totalIncome - totalExpense);
 
-        // 3. Agenda
         const today = new Date().toISOString().split('T')[0]; 
-        const qEvents = query(
-            collection(db, "events"),
-            where("churchId", "==", churchId),
-            where("date", ">=", today),
-            orderBy("date", "asc"),
-            limit(3)
-        );
+        const qEvents = query(collection(db, "events"), where("churchId", "==", churchId), where("date", ">=", today), orderBy("date", "asc"), limit(3));
         const eventSnap = await getDocs(qEvents);
         setNextEvents(eventSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-    } catch (error) { 
-        console.error("Erro ao carregar dados:", error); 
-    } finally { 
-        setLoading(false); 
-    }
+    } catch (error) { console.error("Erro:", error); } finally { setLoading(false); }
   };
 
   const canSee = (allowedRoles: string[]) => {
@@ -82,15 +59,29 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* CABEÇALHO AZUL */}
+      {/* CABEÇALHO AZUL COM LOGO */}
       <div className="bg-[#1D4ED8] pt-12 pb-24 px-6 md:px-10 rounded-b-[3rem] shadow-sm relative z-0">
-        <div className="max-w-6xl mx-auto flex justify-between items-end">
-            <div>
-                <p className="text-blue-200 font-medium mb-1">Bem-vindo, {userName}</p>
-                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">{churchName}</h1>
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            
+            {/* Título e Logo */}
+            <div className="flex items-center gap-4">
+                {logoUrl ? (
+                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl p-1.5 backdrop-blur-sm border border-white/20 shadow-inner">
+                        <img src={logoUrl} alt="Logo" className="w-full h-full object-contain rounded-xl" />
+                    </div>
+                ) : (
+                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl flex items-center justify-center text-blue-100 border border-white/20">
+                        <Building2 size={32}/>
+                    </div>
+                )}
+                <div>
+                    <p className="text-blue-200 font-medium mb-1">Bem-vindo, {userName}</p>
+                    <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight leading-tight">{churchName}</h1>
+                </div>
             </div>
             
-            <div className="flex gap-4">
+            {/* Atalhos Rápidos */}
+            <div className="flex gap-4 self-end">
                 <Link href="/agenda" className="hidden md:flex flex-col items-center gap-1 text-white opacity-80 hover:opacity-100 transition">
                     <div className="bg-white/10 p-3 rounded-2xl"><Calendar size={20}/></div>
                     <span className="text-[10px] font-bold">AGENDA</span>
@@ -132,7 +123,7 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* CARD 2: CAIXA (Agora com Saldo Real) */}
+        {/* CARD 2: CAIXA */}
         {canSee(['treasurer']) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
@@ -142,7 +133,6 @@ export default function Dashboard() {
                     </div>
                     
                     <div className="flex items-center gap-3 mb-1">
-                        {/* Exibe o saldo formatado (Kz ou R$) ou esconde */}
                         <h2 className={`text-3xl font-extrabold tracking-tight ${balance < 0 ? 'text-red-600' : 'text-gray-800'}`}>
                             {showBalance ? formatMoney(balance) : "••••••••"}
                         </h2>
@@ -152,7 +142,6 @@ export default function Dashboard() {
                     </div>
                     <p className="text-xs text-gray-400">Saldo disponível</p>
                 </div>
-
                 <div className="mt-auto flex gap-2 pt-4">
                     <Link href="/financial" className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition text-center flex items-center justify-center">Extrato</Link>
                     <Link href="/financial" className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition text-center flex items-center justify-center">+ Lançar</Link>
@@ -166,7 +155,6 @@ export default function Dashboard() {
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Próximos Eventos</span>
                 <Calendar size={18} className="text-gray-300"/>
             </div>
-
             <div className="flex-1 space-y-3 overflow-y-auto max-h-[140px] pr-2 custom-scrollbar">
                 {nextEvents.length === 0 ? (
                     <div className="text-center py-4 text-gray-300">
@@ -190,14 +178,12 @@ export default function Dashboard() {
                     ))
                 )}
             </div>
-
             <div className="mt-3 pt-3 border-t border-gray-100 text-center">
                 <Link href="/agenda" className="text-blue-600 text-xs font-bold hover:underline flex items-center justify-center gap-1">
                     Ver Calendário <ArrowRight size={12}/>
                 </Link>
             </div>
         </div>
-
       </div>
     </div>
   );
