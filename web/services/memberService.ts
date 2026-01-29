@@ -5,13 +5,23 @@ import {
   orderBy, limit, startAt, endAt 
 } from "firebase/firestore";
 
+// --- ATUALIZAÇÃO DA INTERFACE ---
+// Adicionamos os campos opcionais (?) que o resto do sistema espera (Aniversários, Detalhes, etc)
 export interface Member {
   id?: string;
   fullName: string;
   churchId: string;
   role?: string;
   status?: string;
-  // adicione outros campos se precisar
+  email?: string;       // Adicionado
+  phone?: string;       // Adicionado
+  birthDate?: string;   // Adicionado (Essencial para a página de aniversários)
+  document?: string;    // Adicionado
+  address?: string;     // Adicionado
+  city?: string;        // Adicionado
+  photoUrl?: string;    // Adicionado
+  entryDate?: string;   // Adicionado
+  baptismDate?: string; // Adicionado
 }
 
 export const memberService = {
@@ -23,36 +33,23 @@ export const memberService = {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
   },
 
-  // --- NOVA FUNÇÃO DE BUSCA (A que estava faltando) ---
+  // Busca Inteligente (Nome)
   search: async (churchId: string, term: string) => {
-    // Busca simples por prefixo (Case sensitive no Firebase padrão)
-    // Para funcionar melhor, o ideal é salvar um campo "searchName" tudo minúsculo no cadastro.
-    // Mas aqui vamos tentar uma busca direta:
-    
     try {
         const membersRef = collection(db, "members");
         
-        // Opção 1: Busca exata de prefixo (Requer índice em alguns casos)
-        // const q = query(
-        //   membersRef, 
-        //   where("churchId", "==", churchId), 
-        //   where("fullName", ">=", term),
-        //   where("fullName", "<=", term + '\uf8ff')
-        // );
-
-        // Opção 2 (Mais Garantida para poucos registros): Baixa tudo e filtra na memória
-        // Se sua igreja tiver menos de 2000 membros, isso é instantâneo e não dá erro de índice.
+        // Busca todos da igreja (filtragem de texto feita em memória para evitar complexidade de índices agora)
         const q = query(membersRef, where("churchId", "==", churchId));
         const snapshot = await getDocs(q);
         
         const allMembers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
         
-        // Filtra aqui no Javascript (Ignora maiúsculas/minúsculas)
+        // Filtra ignorando maiúsculas/minúsculas
         const filtered = allMembers.filter(m => 
             m.fullName.toLowerCase().includes(term.toLowerCase())
         );
 
-        return filtered.slice(0, 5); // Retorna só os 5 primeiros
+        return filtered.slice(0, 5); // Retorna top 5
         
     } catch (error) {
         console.error("Erro na busca:", error);
