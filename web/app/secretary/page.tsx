@@ -1,70 +1,115 @@
 "use client";
 import Link from "next/link";
-import { Users, Calendar, PieChart, FileText, ArrowRight, BookOpen } from "lucide-react";
+import { 
+  Users, Calendar, Book, BarChart3, 
+  FileText, ArrowRight, ShieldCheck 
+} from "lucide-react";
 
 export default function SecretaryPage() {
-  const cards = [
+  
+  // Lista de Módulos (Fica fácil adicionar mais depois)
+  const modules = [
     {
       title: "Membros",
-      desc: "Cadastro e gestão de ovelhas",
-      icon: Users,
-      color: "bg-blue-600",
-      href: "/members"
+      desc: "Cadastro de ovelhas e liderança",
+      icon: <Users size={28}/>,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      border: "hover:border-blue-300",
+      link: "/members"
     },
     {
       title: "Agenda Pastoral",
-      desc: "Cultos e compromissos",
-      icon: Calendar,
-      color: "bg-purple-600",
-      href: "/agenda"
+      desc: "Cultos, reuniões e eventos",
+      icon: <Calendar size={28}/>,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+      border: "hover:border-purple-300",
+      link: "/agenda"
     },
-    // --- NOVO CARD ---
     {
       title: "Livro de Atas",
-      desc: "Registro de reuniões e assembleias",
-      icon: BookOpen,
-      color: "bg-indigo-600",
-      href: "/secretary/minutes"
+      desc: "Registro oficial de reuniões",
+      icon: <Book size={28}/>,
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+      border: "hover:border-indigo-300",
+      link: "/secretary/minutes" // Ajuste se a rota for diferente
     },
-    // ----------------
     {
       title: "Estatísticas",
       desc: "Relatórios de crescimento",
-      icon: PieChart,
-      color: "bg-green-600",
-      href: "/reports"
+      icon: <BarChart3 size={28}/>,
+      color: "text-green-600",
+      bg: "bg-green-50",
+      border: "hover:border-green-300",
+      link: "/reports"
     },
     {
-      title: "Serviços",
-      desc: "Cartas e Documentos",
-      icon: FileText,
-      color: "bg-orange-600",
-      href: "/services"
+      title: "Serviços & Doc.",
+      desc: "Cartas, certificados e ofícios",
+      icon: <FileText size={28}/>,
+      color: "text-orange-600",
+      bg: "bg-orange-50",
+      border: "hover:border-orange-300",
+      link: "/services"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Secretaria Digital</h1>
-        <p className="text-gray-500 mb-8">Central de gestão administrativa da igreja.</p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {cards.map((card) => (
-            <Link key={card.title} href={card.href} className="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition flex items-center gap-4">
-               <div className={`${card.color} text-white p-4 rounded-xl shadow-lg group-hover:scale-110 transition`}>
-                  <card.icon size={28} />
-               </div>
-               <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-800">{card.title}</h3>
-                  <p className="text-xs text-gray-500">{card.desc}</p>
-               </div>
-               <div className="bg-gray-50 p-2 rounded-full text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition">
-                  <ArrowRight size={18}/>
-               </div>
-            </Link>
-          ))}
+    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+      
+      {/* --- CABEÇALHO AZUL (Padrão ADP) --- */}
+      <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
+        <div className="max-w-6xl mx-auto">
+            <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+              <ShieldCheck className="text-blue-300"/> Secretaria Digital
+            </h1>
+            <p className="text-blue-100 text-lg opacity-90 max-w-2xl">
+              Central de gestão administrativa e eclesiástica. Selecione um módulo abaixo para começar.
+            </p>
         </div>
+      </div>
+
+      {/* --- GRID DE MÓDULOS (FLUTUANTE) --- */}
+      <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            {modules.map((mod, index) => (
+                <Link key={index} href={mod.link} className={`bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-start gap-4 transition duration-300 group ${mod.border} hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden`}>
+                    
+                    {/* Ícone com Fundo Colorido */}
+                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${mod.bg} ${mod.color} shadow-inner`}>
+                        {mod.icon}
+                    </div>
+
+                    {/* Textos */}
+                    <div className="flex-1">
+                        <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-700 transition">
+                            {mod.title}
+                        </h3>
+                        <p className="text-sm text-gray-400 mt-1 leading-relaxed">
+                            {mod.desc}
+                        </p>
+                    </div>
+
+                    {/* Seta Hover (Aparece ao passar o mouse) */}
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
+                        <ArrowRight className="text-gray-300" size={24}/>
+                    </div>
+
+                </Link>
+            ))}
+
+        </div>
+
+        {/* --- RODAPÉ DA SEÇÃO --- */}
+        <div className="mt-12 text-center">
+            <p className="text-sm text-gray-400">
+                Precisa de ajuda? Consulte o <span className="font-bold text-blue-600 cursor-pointer hover:underline">Manual do Secretário</span>.
+            </p>
+        </div>
+
       </div>
     </div>
   );
