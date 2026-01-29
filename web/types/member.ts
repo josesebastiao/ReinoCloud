@@ -27,4 +27,6 @@ export interface Member {
   searchKeywords?: string[];
   createdAt?: any;
   gender?: 'male' | 'female' | string;
+
+  isTither?: boolean;
 }

@@ -24,7 +24,6 @@ export default function FinancialPage() {
   // FILTROS
   const [filterType, setFilterType] = useState<'all'|'income'|'expense'>('all');
   
-  // Datas Iniciais (Padrão: Começo do mês até hoje)
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -59,31 +58,23 @@ export default function FinancialPage() {
          financeService.listByChurch(id),
          memberService.listByChurch(id)
       ]);
-      // Ordena por data (mais recente primeiro)
       listaFinancas.sort((a: any,b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setTransactions(listaFinancas);
       setMembers(listaMembros);
     } catch (e) { console.error(e); }
   };
 
-  // --- LÓGICA DE FILTRAGEM PODEROSA ---
   const filteredTransactions = transactions.filter(t => {
-      // 1. Filtro de Tipo (Entrada/Saída)
       const matchesType = filterType === 'all' ? true : t.type === filterType;
-      
-      // 2. Filtro de Data (O segredo do Pastor)
-      const tDate = t.date; // YYYY-MM-DD
+      const tDate = t.date; 
       const matchesDate = (!startDate || tDate >= startDate) && (!endDate || tDate <= endDate);
-
       return matchesType && matchesDate;
   });
 
-  // Totais baseados no FILTRO (Não no total geral)
   const totalIncome = filteredTransactions.filter(t => t.type === 'income').reduce((acc, c) => acc + Number(c.amount), 0);
   const totalExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, c) => acc + Number(c.amount), 0);
   const balance = totalIncome - totalExpense;
 
-  // Funções de Atalho de Data
   const setFilterPeriod = (period: 'thisMonth' | 'lastMonth' | 'last7' | 'all') => {
       const now = new Date();
       if (period === 'thisMonth') {
@@ -111,15 +102,24 @@ export default function FinancialPage() {
       let finalDesc = newTrans.description;
       let memberName = "";
 
+      // --- CORREÇÃO: LÓGICA INTELIGENTE DO DÍZIMO ---
       if (newTrans.type === 'income' && newTrans.category === "Dízimo" && newTrans.memberId) {
           const selectedMember = members.find(m => m.id === newTrans.memberId);
           if (selectedMember) {
               memberName = selectedMember.fullName;
               if (!finalDesc) finalDesc = `Dízimo - ${selectedMember.fullName}`;
+              
+              // AQUI A MÁGICA: Atualiza o membro para ser "Dizimista" automaticamente
+              if (!selectedMember.isTither) {
+                  await memberService.update(selectedMember.id!, { isTither: true });
+                  // Atualiza a lista local para refletir a mudança sem recarregar tudo
+                  setMembers(prev => prev.map(m => m.id === selectedMember.id ? {...m, isTither: true} : m));
+              }
           }
       } else if (!finalDesc) {
           finalDesc = newTrans.category; 
       }
+      // ------------------------------------------------
 
       const payload: any = {
         churchId,
@@ -204,7 +204,7 @@ export default function FinancialPage() {
         </div>
       </div>
       
-      {/* Botões Mobile (Só aparecem em telas pequenas) */}
+      {/* Botões Mobile */}
       <div className="md:hidden px-4 -mt-6 mb-6 flex gap-2 relative z-20 print:hidden">
             <button onClick={() => setIsModalOpen(true)} className="flex-1 bg-white text-blue-600 py-3 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 border border-blue-100">
                 <PlusCircle size={20}/> Novo

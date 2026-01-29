@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useChurch } from "../contexts/ChurchContext";
 import { memberService } from "../services/memberService";
+import { financeService } from "../services/financeService"; // <--- Novo Import
 import { db } from "../lib/firebase";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { 
@@ -11,14 +12,14 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
-  const { churchId, churchName, userName, userRole } = useChurch();
+  const { churchId, churchName, userName, userRole, formatMoney } = useChurch(); // <--- Adicionei formatMoney
   const [loading, setLoading] = useState(true);
   
-  // Estado do "Olho" do Saldo
   const [showBalance, setShowBalance] = useState(false);
 
   // Estados dos Dados
   const [stats, setStats] = useState({ active: 0, inactive: 0, total: 0 });
+  const [balance, setBalance] = useState(0); // <--- Estado do Saldo
   const [nextEvents, setNextEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -28,13 +29,30 @@ export default function Dashboard() {
   const loadDashboardData = async () => {
     try {
         setLoading(true);
+        
+        // Buscas em paralelo para ser mais rápido
+        const [allMembers, allTransactions] = await Promise.all([
+            memberService.listByChurch(churchId),
+            financeService.listByChurch(churchId)
+        ]);
+
         // 1. Membros
-        const allMembers = await memberService.listByChurch(churchId);
         const activeCount = allMembers.filter(m => m.status === 'active').length;
         const inactiveCount = allMembers.length - activeCount;
         setStats({ active: activeCount, inactive: inactiveCount, total: allMembers.length });
 
-        // 2. Agenda
+        // 2. Saldo Real (Soma tudo: Entradas - Saídas)
+        const totalIncome = allTransactions
+            .filter(t => t.type === 'income')
+            .reduce((acc, curr) => acc + Number(curr.amount), 0);
+            
+        const totalExpense = allTransactions
+            .filter(t => t.type === 'expense')
+            .reduce((acc, curr) => acc + Number(curr.amount), 0);
+
+        setBalance(totalIncome - totalExpense);
+
+        // 3. Agenda
         const today = new Date().toISOString().split('T')[0]; 
         const qEvents = query(
             collection(db, "events"),
@@ -46,11 +64,13 @@ export default function Dashboard() {
         const eventSnap = await getDocs(qEvents);
         setNextEvents(eventSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-    } catch (error) { console.error(error); } finally { setLoading(false); }
+    } catch (error) { 
+        console.error("Erro ao carregar dados:", error); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
-  // Função auxiliar para verificar permissão
-  // Se for admin, vê tudo. Se não, verifica se o cargo está na lista permitida.
   const canSee = (allowedRoles: string[]) => {
       if (!userRole) return false;
       if (userRole === 'admin') return true;
@@ -75,7 +95,6 @@ export default function Dashboard() {
                     <div className="bg-white/10 p-3 rounded-2xl"><Calendar size={20}/></div>
                     <span className="text-[10px] font-bold">AGENDA</span>
                 </Link>
-                {/* Só mostra botão de Extrato se tiver permissão financeira */}
                 {canSee(['treasurer']) && (
                     <Link href="/financial" className="hidden md:flex flex-col items-center gap-1 text-white opacity-80 hover:opacity-100 transition">
                         <div className="bg-white/10 p-3 rounded-2xl"><TrendingUp size={20}/></div>
@@ -89,7 +108,7 @@ export default function Dashboard() {
       {/* CARDS FLUTUANTES */}
       <div className="max-w-6xl mx-auto px-4 -mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
-        {/* CARD 1: MEMBRESIA (Visível para Admin e Secretária) */}
+        {/* CARD 1: MEMBRESIA */}
         {canSee(['secretary']) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
@@ -113,7 +132,7 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* CARD 2: CAIXA (Visível para Admin e Tesoureiro) */}
+        {/* CARD 2: CAIXA (Agora com Saldo Real) */}
         {canSee(['treasurer']) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
@@ -123,9 +142,9 @@ export default function Dashboard() {
                     </div>
                     
                     <div className="flex items-center gap-3 mb-1">
-                        {/* Lógica do Olho */}
-                        <h2 className="text-3xl font-extrabold text-gray-800 tracking-tight">
-                            {showBalance ? "R$ 0,00" : "••••••••"}
+                        {/* Exibe o saldo formatado (Kz ou R$) ou esconde */}
+                        <h2 className={`text-3xl font-extrabold tracking-tight ${balance < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+                            {showBalance ? formatMoney(balance) : "••••••••"}
                         </h2>
                         <button onClick={() => setShowBalance(!showBalance)} className="text-gray-400 hover:text-blue-600 transition">
                             {showBalance ? <EyeOff size={18}/> : <Eye size={18}/>}
@@ -141,7 +160,7 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* CARD 3: AGENDA (Visível para Todos) */}
+        {/* CARD 3: AGENDA */}
         <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col h-full min-h-[220px]">
             <div className="flex justify-between items-center mb-4">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Próximos Eventos</span>
