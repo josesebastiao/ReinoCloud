@@ -8,8 +8,8 @@ import {
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
-// SUAS CHAVES (Mantidas intactas)
-const firebaseConfig = {
+// --- A MUDANÇA FOI AQUI: Adicionamos 'export' antes de const ---
+export const firebaseConfig = {
   apiKey: "AIzaSyBl7etILVkrqYc0FU3MJv-HpXS1KYZeXYo",
   authDomain: "reino-cloud-app.firebaseapp.com",
   projectId: "reino-cloud-app",
@@ -44,4 +44,5 @@ if (typeof window !== "undefined") {
     });
 }
 
+// Exporta as instâncias para usar no resto do app
 export { app, db, auth, storage };

@@ -1,12 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link"; // <--- NOVO IMPORT AQUI
+import Link from "next/link";
 import { ministryService } from "../../services/ministryService";
 import { memberService } from "../../services/memberService";
 import { Ministry } from "../../types/ministry";
 import { Member } from "../../types/member";
-import { Users, Plus, Pencil, Trash2, Music, Heart, BookOpen, Mic2, X, Search, UserPlus, UserMinus } from "lucide-react";
+import { 
+  Users, Plus, Pencil, Trash2, Music, Heart, BookOpen, 
+  Mic2, X, Search, UserPlus, UserMinus, ShieldCheck 
+} from "lucide-react";
 
 export default function Ministries() {
   const router = useRouter();
@@ -29,6 +32,7 @@ export default function Ministries() {
   const [searchMember, setSearchMember] = useState("");
 
   useEffect(() => {
+    // Tenta pegar do localStorage ou espera o Contexto (optei por manter sua lógica original)
     const idSalvo = localStorage.getItem("churchId");
     if (!idSalvo) {
       router.push("/login");
@@ -39,12 +43,14 @@ export default function Ministries() {
   }, [router]);
 
   const carregarDados = async (id: string) => {
-    const [listaMin, listaMembros] = await Promise.all([
-      ministryService.listByChurch(id),
-      memberService.listByChurch(id)
-    ]);
-    setMinistries(listaMin);
-    setAllMembers(listaMembros);
+    try {
+        const [listaMin, listaMembros] = await Promise.all([
+            ministryService.listByChurch(id),
+            memberService.listByChurch(id)
+        ]);
+        setMinistries(listaMin);
+        setAllMembers(listaMembros);
+    } catch(e) { console.error(e); }
   };
 
   const countMembers = (ministryId: string) => {
@@ -109,7 +115,7 @@ export default function Ministries() {
   };
 
   const handleExcluir = async (id: string) => {
-    if (confirm("Tem certeza?")) {
+    if (confirm("Tem certeza que deseja excluir este ministério?")) {
       await ministryService.delete(id);
       carregarDados(churchId);
     }
@@ -133,61 +139,93 @@ export default function Ministries() {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Ministérios</h1>
-          <p className="text-gray-500">Gerencie as equipes da igreja</p>
+    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+      
+      {/* --- CABEÇALHO AZUL PADRONIZADO --- */}
+      <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
+        <div className="max-w-6xl mx-auto flex justify-between items-end">
+            <div>
+                <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+                  <Users className="text-blue-300"/> Ministérios
+                </h1>
+                <p className="text-blue-100 text-lg opacity-90">Gestão de departamentos e lideranças.</p>
+            </div>
+            {/* Botão Flutuante no Topo (Opcional, mas útil) */}
+            <button onClick={() => abrirModal()} className="hidden md:flex bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl font-bold transition items-center gap-2">
+                <Plus size={20} /> Nova Equipe
+            </button>
         </div>
-        <button onClick={() => abrirModal()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-          <Plus size={20} /> Nova Equipe
-        </button>
       </div>
 
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {ministries.map((m, index) => (
-          <div key={m.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition group relative flex flex-col">
-            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => abrirModal(m)} className="p-1.5 text-gray-400 hover:text-blue-600 bg-gray-50 rounded"><Pencil size={16} /></button>
-              <button onClick={() => handleExcluir(m.id!)} className="p-1.5 text-gray-400 hover:text-red-600 bg-gray-50 rounded"><Trash2 size={16} /></button>
-            </div>
+      {/* --- CONTEÚDO FLUTUANTE --- */}
+      <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16 relative z-10">
+          
+          {/* Botão Mobile (Só aparece em telas pequenas) */}
+          <button onClick={() => abrirModal()} className="md:hidden w-full mb-6 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2">
+             <Plus size={20}/> Criar Nova Equipe
+          </button>
 
-            <div className="w-12 h-12 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
-              {getRandomIcon(index)}
-            </div>
-            
-            {/* AQUI ESTÁ A MUDANÇA: O Título agora é um Link clicável */}
-            <Link href={`/ministries/${m.id}`} className="hover:underline cursor-pointer block">
-                <h3 className="text-lg font-bold text-gray-800 mb-1">{m.name}</h3>
-            </Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {ministries.map((m, index) => (
+              <div key={m.id} className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition duration-300 group relative flex flex-col">
+                
+                {/* Botões de Ação (Aparecem no Hover) */}
+                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => abrirModal(m)} className="p-2 text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition"><Pencil size={16} /></button>
+                  <button onClick={() => handleExcluir(m.id!)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 rounded-lg transition"><Trash2 size={16} /></button>
+                </div>
 
-            <p className="text-sm text-gray-500 line-clamp-2 min-h-[40px] mb-4">{m.description || "Sem descrição."}</p>
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 shadow-inner">
+                  {getRandomIcon(index)}
+                </div>
+                
+                {/* Título Linkável */}
+                <Link href={`/ministries/${m.id}`} className="hover:text-blue-600 transition cursor-pointer block">
+                    <h3 className="text-xl font-bold text-gray-800 mb-1">{m.name}</h3>
+                </Link>
+
+                <p className="text-sm text-gray-500 line-clamp-2 min-h-[40px] mb-4 leading-relaxed">{m.description || "Sem descrição."}</p>
+                
+                <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{countMembers(m.id!)} Membros</span>
+                  
+                  <button 
+                    onClick={() => abrirGestaoEquipe(m)}
+                    className="text-xs bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition font-bold flex items-center gap-1"
+                  >
+                    <Users size={14}/> Gerenciar
+                  </button>
+                </div>
+              </div>
+            ))}
             
-            <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
-              <span className="text-xs font-medium text-gray-400 uppercase">Membros: {countMembers(m.id!)}</span>
-              
-              <button 
-                onClick={() => abrirGestaoEquipe(m)}
-                className="text-xs bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-100 transition font-medium flex items-center gap-1"
-              >
-                <Users size={12}/> Gerenciar
-              </button>
-            </div>
+            {/* Card de "Adicionar Novo" (Vazio) */}
+            {ministries.length === 0 && (
+                <div onClick={() => abrirModal()} className="border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center p-10 cursor-pointer hover:border-blue-300 hover:bg-blue-50/50 transition text-gray-400 hover:text-blue-500">
+                    <Plus size={40} className="mb-2 opacity-50"/>
+                    <span className="font-bold text-sm">Criar Primeiro Ministério</span>
+                </div>
+            )}
           </div>
-        ))}
       </div>
 
       {/* --- MODAL 1: CRIAR/EDITAR MINISTÉRIO --- */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold mb-4">{editingId ? 'Editar' : 'Novo'}</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95">
+            <h2 className="text-xl font-bold text-gray-800 mb-6">{editingId ? 'Editar Ministério' : 'Novo Ministério'}</h2>
             <form onSubmit={handleSalvar} className="space-y-4">
-              <input value={name} onChange={e => setName(e.target.value)} className="w-full p-2 border rounded-lg" placeholder="Nome" required />
-              <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full p-2 border rounded-lg" placeholder="Descrição" rows={3}/>
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2 border rounded-lg">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 py-2 bg-blue-600 text-white rounded-lg">{loading ? '...' : 'Salvar'}</button>
+              <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome da Equipe</label>
+                  <input value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border rounded-xl focus:ring-2 ring-blue-100 outline-none" placeholder="Ex: Louvor" required />
+              </div>
+              <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Descrição</label>
+                  <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 border rounded-xl focus:ring-2 ring-blue-100 outline-none" placeholder="Objetivo do grupo..." rows={3}/>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition">Cancelar</button>
+                <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition">{loading ? 'Salvando...' : 'Salvar'}</button>
               </div>
             </form>
           </div>
@@ -196,29 +234,36 @@ export default function Ministries() {
 
       {/* --- MODAL 2: GERENCIAR EQUIPE --- */}
       {isTeamModalOpen && selectedMinistry && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl h-[600px] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl h-[650px] flex flex-col overflow-hidden animate-in zoom-in-95">
             
-            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+            {/* Topo do Modal */}
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <div>
-                <h2 className="text-lg font-bold text-gray-800">Gerenciar Equipe</h2>
-                <p className="text-sm text-blue-600 font-medium">{selectedMinistry.name}</p>
+                <h2 className="text-xl font-bold text-gray-800">Gerenciar Equipe</h2>
+                <p className="text-sm text-blue-600 font-bold flex items-center gap-1"><ShieldCheck size={14}/> {selectedMinistry.name}</p>
               </div>
-              <button onClick={() => setIsTeamModalOpen(false)}><X size={20} className="text-gray-400" /></button>
+              <button onClick={() => setIsTeamModalOpen(false)} className="bg-gray-200 hover:bg-red-100 hover:text-red-500 p-2 rounded-full transition"><X size={20}/></button>
             </div>
 
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-              <div className="flex-1 p-4 overflow-y-auto border-r border-gray-100 bg-white">
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-3">Membros Atuais ({membersInTeam.length})</h3>
-                {membersInTeam.length === 0 && <p className="text-sm text-gray-400 italic">Ninguém nesta equipe ainda.</p>}
+              {/* Esquerda: Lista Atual */}
+              <div className="flex-1 p-6 overflow-y-auto border-r border-gray-100 bg-white custom-scrollbar">
+                <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Membros Atuais ({membersInTeam.length})</h3>
+                {membersInTeam.length === 0 && (
+                    <div className="text-center py-10 opacity-50">
+                        <Users size={40} className="mx-auto mb-2 text-gray-300"/>
+                        <p className="text-sm text-gray-400 italic">Equipe vazia.</p>
+                    </div>
+                )}
                 
                 <div className="space-y-2">
                   {membersInTeam.map(member => (
-                    <div key={member.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg group">
-                      <span className="text-sm font-medium text-gray-700">{member.fullName}</span>
+                    <div key={member.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl group hover:bg-red-50 transition border border-transparent hover:border-red-100">
+                      <span className="text-sm font-bold text-gray-700">{member.fullName}</span>
                       <button 
                         onClick={() => handleRemoveMemberFromMinistry(member)}
-                        className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
+                        className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition p-1 bg-white rounded-lg shadow-sm"
                         title="Remover da equipe"
                       >
                         <UserMinus size={16} />
@@ -228,33 +273,34 @@ export default function Ministries() {
                 </div>
               </div>
 
-              <div className="flex-1 p-4 bg-gray-50 overflow-y-auto">
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-3">Adicionar Membro</h3>
+              {/* Direita: Adicionar Novos */}
+              <div className="flex-1 p-6 bg-gray-50/50 overflow-y-auto custom-scrollbar">
+                <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Adicionar Membro</h3>
                 <div className="relative mb-4">
-                  <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                  <Search className="absolute left-3 top-3 text-gray-400" size={18} />
                   <input 
                     type="text" 
-                    placeholder="Buscar para adicionar..." 
+                    placeholder="Buscar nome..." 
                     value={searchMember}
                     onChange={(e) => setSearchMember(e.target.value)}
-                    className="w-full pl-9 p-2 border rounded-lg text-sm"
+                    className="w-full pl-10 p-3 border rounded-xl text-sm focus:ring-2 ring-blue-100 outline-none bg-white shadow-sm"
                   />
                 </div>
 
                 <div className="space-y-2">
                   {membersNotInTeam.slice(0, 10).map(member => (
-                    <div key={member.id} className="flex justify-between items-center p-2 bg-white border border-gray-100 rounded-lg hover:border-blue-300 transition">
-                      <span className="text-sm text-gray-700 truncate max-w-[150px]">{member.fullName}</span>
+                    <div key={member.id} className="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-xl hover:border-blue-300 transition shadow-sm group">
+                      <span className="text-sm font-medium text-gray-700 truncate max-w-[150px]">{member.fullName}</span>
                       <button 
                         onClick={() => handleAddMemberToMinistry(member)}
-                        className="text-blue-600 hover:bg-blue-50 p-1 rounded transition"
+                        className="text-gray-400 group-hover:text-blue-600 group-hover:bg-blue-50 p-1.5 rounded-lg transition"
                       >
-                        <UserPlus size={16} />
+                        <UserPlus size={18} />
                       </button>
                     </div>
                   ))}
                   {searchMember && membersNotInTeam.length === 0 && (
-                    <p className="text-sm text-gray-400 text-center">Ninguém encontrado.</p>
+                    <p className="text-sm text-gray-400 text-center py-4">Ninguém encontrado.</p>
                   )}
                 </div>
               </div>
