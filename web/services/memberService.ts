@@ -1,64 +1,68 @@
 import { db } from "../lib/firebase";
 import { 
   collection, query, where, getDocs, 
-  doc, getDoc, addDoc, updateDoc, deleteDoc, 
-  orderBy, limit, startAt, endAt 
+  doc, getDoc, addDoc, updateDoc, deleteDoc 
 } from "firebase/firestore";
 
-// --- INTERFACE COMPLETA ---
-// Agora inclui 'ministries' para parar o erro de compilação
+// --- AQUI ESTAVA O PROBLEMA ---
+// Estamos redefinindo a interface para ser 100% flexível.
+// address: any -> Aceita tanto texto quanto o objeto { rua, cep... }
+// gender: string -> Aceita qualquer texto para não brigar com o formulário
 export interface Member {
   id?: string;
   fullName: string;
   churchId: string;
+  
+  // Campos Opcionais Flexíveis
   role?: string;
   status?: string;
   email?: string;
   phone?: string;
   birthDate?: string;
   document?: string;
-  address?: string;
+  
+  // A CHAVE MESTRA: 'any' aceita qualquer coisa (Objeto ou Texto)
+  address?: any; 
+  
   city?: string;
   photoUrl?: string;
   entryDate?: string;
   baptismDate?: string;
-  ministries?: string[]; // <--- ADICIONADO (O erro era aqui)
+  ministries?: string[];
+  
+  // Gender como string opcional
+  gender?: string; 
 }
 
 export const memberService = {
   
-  // Lista todos os membros da igreja
+  // Lista todos os membros
   listByChurch: async (churchId: string) => {
     const q = query(collection(db, "members"), where("churchId", "==", churchId));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
   },
 
-  // Busca Inteligente (Nome)
+  // Busca Inteligente
   search: async (churchId: string, term: string) => {
     try {
         const membersRef = collection(db, "members");
-        
-        // Busca todos e filtra em memória (mais seguro sem índices complexos)
         const q = query(membersRef, where("churchId", "==", churchId));
         const snapshot = await getDocs(q);
         
         const allMembers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
         
-        // Filtra ignorando maiúsculas/minúsculas
         const filtered = allMembers.filter(m => 
             m.fullName.toLowerCase().includes(term.toLowerCase())
         );
 
-        return filtered.slice(0, 5); // Retorna top 5
-        
+        return filtered.slice(0, 5); 
     } catch (error) {
         console.error("Erro na busca:", error);
         return [];
     }
   },
 
-  // Buscar um único membro pelo ID
   getById: async (id: string) => {
     const docRef = doc(db, "members", id);
     const snapshot = await getDoc(docRef);
@@ -66,18 +70,15 @@ export const memberService = {
     return null;
   },
 
-  // Criar membro
   create: async (data: Member) => {
     return await addDoc(collection(db, "members"), data);
   },
 
-  // Atualizar membro
   update: async (id: string, data: Partial<Member>) => {
     const docRef = doc(db, "members", id);
     await updateDoc(docRef, data);
   },
 
-  // Deletar membro
   delete: async (id: string) => {
     const docRef = doc(db, "members", id);
     await deleteDoc(docRef);
