@@ -23,6 +23,7 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
+  // Estados Globais
   const [churchId, setChurchId] = useState("");
   const [churchName, setChurchName] = useState("");
   const [userRole, setUserRole] = useState("member");
@@ -37,55 +38,61 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       
       if (currentUser) {
-        let currentChurchId = "";
+        let currentIdToListen = "";
 
-        // 1. IDENTIFICAR SE É SUPER ADMIN OU MEMBRO COMUM
+        // --- 1. IDENTIFICAR USUÁRIO ---
         if (currentUser.email === "alfaministro1@gmail.com") {
-             console.log("👑 Super Admin Logado");
-             currentChurchId = "master_admin";
+             // É O CHEFE (ADMIN)
+             console.log("👑 Super Admin Detectado");
              setChurchId("master_admin");
+             currentIdToListen = "master_admin"; 
              setUserRole("admin");
              setUserName("Super Admin");
-             
-             // Garante que o documento da igreja master existe no banco
+
+             // Garante que o documento 'master_admin' existe para não dar erro
              const masterRef = doc(db, "churches", "master_admin");
              getDoc(masterRef).then((snap) => {
-                if(!snap.exists()) {
-                    setDoc(masterRef, { name: "ReinoCloud HQ", currency: "BR" });
-                }
+                 if(!snap.exists()) {
+                     setDoc(masterRef, { name: "ReinoCloud HQ", currency: "BR" });
+                 }
              });
 
         } else {
-             // Membro normal: Busca ID no cadastro de membros
+             // É UM CLIENTE (IGREJA)
              try {
                 const userSnap = await getDoc(doc(db, "members", currentUser.uid));
                 if (userSnap.exists()) {
                     const userData = userSnap.data();
-                    currentChurchId = userData.churchId;
                     setChurchId(userData.churchId);
+                    currentIdToListen = userData.churchId; // Define qual ID vamos escutar
                     setUserRole(userData.role || "member");
                     setUserName(userData.fullName || "Usuário");
                 }
              } catch (e) { console.error(e); }
         }
 
-        // 2. ESCUTAR MUDANÇAS DA IGREJA EM TEMPO REAL (Para todos)
-        if (currentChurchId) {
-            unsubscribeChurch = onSnapshot(doc(db, "churches", currentChurchId), (docSnap) => {
+        // --- 2. ESCUTAR MUDANÇAS EM TEMPO REAL (Seja Admin ou Igreja) ---
+        if (currentIdToListen) {
+            unsubscribeChurch = onSnapshot(doc(db, "churches", currentIdToListen), (docSnap) => {
                 if (docSnap.exists()) {
-                    const churchData = docSnap.data();
-                    // AQUI ESTÁ A CORREÇÃO: Atualiza o nome sempre que o banco mudar
-                    setChurchName(churchData.name || "Minha Igreja");
-                    setLogoUrl(churchData.logoUrl || "");
-                    setCurrency(churchData.currency || "AO");
+                    const data = docSnap.data();
+                    
+                    // Atualiza estados imediatamente quando salva no Settings
+                    setChurchName(data.name || "Minha Igreja");
+                    setLogoUrl(data.logoUrl || "");
+                    setCurrency(data.currency || "AO"); 
+                    
+                    console.log("🔄 Dados atualizados via Contexto:", data.name);
                 }
             });
         }
+
       } else {
         // Logout
         setChurchId("");
         setChurchName("");
         setUserRole("member");
+        setCurrency("AO");
       }
       setLoading(false);
     });
@@ -101,11 +108,17 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
       await updateDoc(doc(db, "churches", churchId), data);
   };
 
+  // --- FORMATAÇÃO INTELIGENTE (Aceita BR/BRL/R$) ---
   const formatMoney = (value: number) => {
+    // Se for Brasil
     if (currency === 'BR' || currency === 'BRL') {
         return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    } else {
-        return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' }).format(value).replace('AOA', 'Kz');
+    } 
+    // Se for Angola (Padrão)
+    else {
+        return new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA' })
+               .format(value)
+               .replace('AOA', 'Kz');
     }
   };
 
