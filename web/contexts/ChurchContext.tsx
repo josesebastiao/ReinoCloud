@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { doc, getDoc, onSnapshot } from "firebase/firestore"; 
+import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore"; // <--- Adicionado updateDoc
 
 interface ChurchContextType {
   user: User | null;
@@ -14,6 +14,7 @@ interface ChurchContextType {
   currency: string;
   logoUrl: string;
   formatMoney: (value: number) => string;
+  updateSettings: (data: { currency?: string; name?: string; logoUrl?: string }) => Promise<void>; // <--- Adicionado
 }
 
 const ChurchContext = createContext<ChurchContextType>({} as ChurchContextType);
@@ -37,16 +38,16 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       
       if (currentUser) {
-        // --- AQUI ESTÁ A MÁGICA: MODO DEUS ---
+        // --- MODO DEUS (SUPER ADMIN) ---
         if(currentUser.email === "alfaministro1@gmail.com") {
              console.log("👑 Contexto: Super Admin Detectado");
              setChurchId("master_admin");
              setChurchName("ReinoCloud HQ (Super Admin)");
-             setUserRole("admin"); // Papel máximo
+             setUserRole("admin");
              setUserName("Sebastião (CEO)");
-             setCurrency("BR"); // Ou AO, como preferir
+             setCurrency("BR");
              setLoading(false);
-             return; // Sai da função, não busca no banco
+             return;
         }
         // -------------------------------------
 
@@ -90,6 +91,20 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Função para salvar configurações (Faltava isso!)
+  const updateSettings = async (data: { currency?: string; name?: string; logoUrl?: string }) => {
+      if (!churchId || churchId === 'master_admin') return;
+      
+      try {
+          const churchRef = doc(db, "churches", churchId);
+          await updateDoc(churchRef, data);
+          // Não precisa dar setCurrency manual aqui, pois o onSnapshot lá em cima vai detectar a mudança e atualizar sozinho!
+      } catch (error) {
+          console.error("Erro ao atualizar configurações:", error);
+          throw error;
+      }
+  };
+
   const formatMoney = (value: number) => {
     if (currency === 'BR') {
         return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -101,7 +116,7 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
   return (
     <ChurchContext.Provider value={{ 
         user, loading, churchId, churchName, userRole, userName,
-        currency, logoUrl, formatMoney
+        currency, logoUrl, formatMoney, updateSettings
     }}>
       {children}
     </ChurchContext.Provider>
