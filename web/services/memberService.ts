@@ -5,23 +5,24 @@ import {
   orderBy, limit, startAt, endAt 
 } from "firebase/firestore";
 
-// --- ATUALIZAÇÃO DA INTERFACE ---
-// Adicionamos os campos opcionais (?) que o resto do sistema espera (Aniversários, Detalhes, etc)
+// --- INTERFACE COMPLETA ---
+// Agora inclui 'ministries' para parar o erro de compilação
 export interface Member {
   id?: string;
   fullName: string;
   churchId: string;
   role?: string;
   status?: string;
-  email?: string;       // Adicionado
-  phone?: string;       // Adicionado
-  birthDate?: string;   // Adicionado (Essencial para a página de aniversários)
-  document?: string;    // Adicionado
-  address?: string;     // Adicionado
-  city?: string;        // Adicionado
-  photoUrl?: string;    // Adicionado
-  entryDate?: string;   // Adicionado
-  baptismDate?: string; // Adicionado
+  email?: string;
+  phone?: string;
+  birthDate?: string;
+  document?: string;
+  address?: string;
+  city?: string;
+  photoUrl?: string;
+  entryDate?: string;
+  baptismDate?: string;
+  ministries?: string[]; // <--- ADICIONADO (O erro era aqui)
 }
 
 export const memberService = {
@@ -38,7 +39,7 @@ export const memberService = {
     try {
         const membersRef = collection(db, "members");
         
-        // Busca todos da igreja (filtragem de texto feita em memória para evitar complexidade de índices agora)
+        // Busca todos e filtra em memória (mais seguro sem índices complexos)
         const q = query(membersRef, where("churchId", "==", churchId));
         const snapshot = await getDocs(q);
         
