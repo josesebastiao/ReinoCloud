@@ -4,16 +4,12 @@ import {
   doc, getDoc, addDoc, updateDoc, deleteDoc 
 } from "firebase/firestore";
 
-// --- AQUI ESTAVA O PROBLEMA ---
-// Estamos redefinindo a interface para ser 100% flexível.
-// address: any -> Aceita tanto texto quanto o objeto { rua, cep... }
-// gender: string -> Aceita qualquer texto para não brigar com o formulário
 export interface Member {
   id?: string;
   fullName: string;
   churchId: string;
   
-  // Campos Opcionais Flexíveis
+  // Campos Opcionais
   role?: string;
   status?: string;
   email?: string;
@@ -21,7 +17,6 @@ export interface Member {
   birthDate?: string;
   document?: string;
   
-  // A CHAVE MESTRA: 'any' aceita qualquer coisa (Objeto ou Texto)
   address?: any; 
   
   city?: string;
@@ -29,21 +24,20 @@ export interface Member {
   entryDate?: string;
   baptismDate?: string;
   ministries?: string[];
+  gender?: string;
   
-  // Gender como string opcional
-  gender?: string; 
+  // --- NOVO CAMPO ---
+  isTither?: boolean; // True = Dizimista, False = Não
 }
 
 export const memberService = {
   
-  // Lista todos os membros
   listByChurch: async (churchId: string) => {
     const q = query(collection(db, "members"), where("churchId", "==", churchId));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
   },
 
-  // Busca Inteligente
   search: async (churchId: string, term: string) => {
     try {
         const membersRef = collection(db, "members");
