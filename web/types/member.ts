@@ -1,34 +1,30 @@
 export interface Member {
   id?: string;
-  fullName: string; // Nome é obrigatório
-  churchId: string; // ID da igreja é obrigatório
+  fullName: string;
+  churchId: string;
   
-  // Tudo abaixo virou opcional (?) para evitar erro de build
-  // se o cadastro estiver incompleto no banco de dados.
+  // Campos Opcionais
+  role?: string;
+  status?: string;
+  email?: string;
+  phone?: string;
+  birthDate?: string;
+  document?: string;
+  baptismDate?: string;
+  photoUrl?: string;
+  entryDate?: string;
   
-  email?: string; 
-  role?: 'admin' | 'pastor' | 'leader' | 'member' | 'treasurer' | 'secretary' | string;
-  status?: 'active' | 'inactive' | string;
+  // --- A CORREÇÃO MÁGICA ---
+  // Aceita string (texto simples) OU objeto (complexo) OU any
+  // Isso resolve o conflito de tipos de uma vez por todas.
+  address?: string | any; 
   
-  gender?: 'male' | 'female';
+  city?: string;
+  ministries?: string[];
+  leadershipId?: string;
+  
+  // Campos extras de legado
   searchKeywords?: string[];
   createdAt?: any;
-  
-  phone?: string;
-  document?: string;
-  birthDate?: string;
-  baptismDate?: string;
-  
-  // Endereço também opcional
-  address?: {
-    street?: string;
-    number?: string;
-    neighborhood?: string;
-    city?: string;
-    state?: string;
-    zipCode?: string;
-  };
-  
-  ministries?: string[];
-  leadershipId?: string; 
+  gender?: 'male' | 'female' | string;
 }
