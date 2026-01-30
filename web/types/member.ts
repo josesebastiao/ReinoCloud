@@ -3,30 +3,35 @@ export interface Member {
   fullName: string;
   churchId: string;
   
-  // Campos Opcionais
-  role?: string;
-  status?: string;
+  // Contato
   email?: string;
   phone?: string;
-  birthDate?: string;
+  
+  // Pessoal
   document?: string;
+  birthDate?: string;
+  gender?: string;
+  maritalStatus?: string; // <--- O erro some ao adicionar esta linha
+  photoUrl?: string;      // <--- E esta linha
+  
+  // Eclesiástico
   baptismDate?: string;
-  photoUrl?: string;
+  role?: string;
+  status?: string;
   entryDate?: string;
-  
-  // --- A CORREÇÃO MÁGICA ---
-  // Aceita string (texto simples) OU objeto (complexo) OU any
-  // Isso resolve o conflito de tipos de uma vez por todas.
-  address?: string | any; 
-  
-  city?: string;
-  ministries?: string[];
-  leadershipId?: string;
-  
-  // Campos extras de legado
-  searchKeywords?: string[];
-  createdAt?: any;
-  gender?: 'male' | 'female' | string;
-
   isTither?: boolean;
+  
+  // Grupos e Ministérios/Departamentos
+  ministries?: string[];
+  departments?: string[]; // Mantemos por compatibilidade se necessário
+  
+  // Endereço Completo
+  address?: {
+      street: string;
+      number: string;
+      neighborhood: string;
+      city: string;
+      state: string;
+      zipCode: string;
+  };
 }
