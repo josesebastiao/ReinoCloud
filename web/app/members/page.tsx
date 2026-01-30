@@ -1,7 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
-import { memberService, Member } from "../../services/memberService";
+
+// --- CORREÇÃO AQUI: IMPORTS SEPARADOS ---
+import { memberService } from "../../services/memberService";
+import { Member } from "../../types/member"; 
+// ----------------------------------------
+
 import { createSystemUser } from "../../services/adminAuthService";
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
@@ -34,7 +39,7 @@ export default function MembersPage() {
   // Formulário Principal
   const [formData, setFormData] = useState({
     fullName: "", email: "", phone: "", document: "", 
-    birthDate: "", baptismDate: "", photoUrl: "", // <--- Campo Foto
+    birthDate: "", baptismDate: "", photoUrl: "", 
     gender: "male", maritalStatus: "single", 
     role: "member", status: "active", isTither: false,
     street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "",
@@ -133,7 +138,7 @@ export default function MembersPage() {
       setFormData({
         fullName: member.fullName, email: member.email || "", phone: member.phone || "",
         document: member.document || "", birthDate: member.birthDate || "", baptismDate: member.baptismDate || "",
-        photoUrl: member.photoUrl || "", // Carrega foto
+        photoUrl: member.photoUrl || "", 
         gender: (member.gender as string) || "male", 
         maritalStatus: member.maritalStatus || "single", 
         role: member.role || "member", status: member.status || "active",
@@ -161,7 +166,7 @@ export default function MembersPage() {
       const payload: Member = {
         fullName: formData.fullName, churchId, email: formData.email, phone: formData.phone,
         document: formData.document, birthDate: formData.birthDate, baptismDate: formData.baptismDate,
-        photoUrl: formData.photoUrl, // Salva foto
+        photoUrl: formData.photoUrl, 
         gender: formData.gender, maritalStatus: formData.maritalStatus, 
         role: formData.role, status: formData.status, isTither: formData.isTither,
         ministries: formData.selectedMinistries,
@@ -208,7 +213,6 @@ export default function MembersPage() {
                 <tr key={member.id} onClick={() => handleOpenModal(member)} className="hover:bg-blue-50/50 transition group cursor-pointer">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                        {/* FOTO DO MEMBRO NA LISTA */}
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
                             {member.photoUrl ? (
                                 <img src={member.photoUrl} alt={member.fullName} className="w-full h-full object-cover"/>

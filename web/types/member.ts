@@ -1,7 +1,7 @@
 export interface Member {
   id?: string;
-  fullName: string;
   churchId: string;
+  fullName: string;
   
   // Contato
   email?: string;
@@ -11,8 +11,8 @@ export interface Member {
   document?: string;
   birthDate?: string;
   gender?: string;
-  maritalStatus?: string; // <--- O erro some ao adicionar esta linha
-  photoUrl?: string;      // <--- E esta linha
+  maritalStatus?: string; // <--- O erro no build acontece pela falta desta linha
+  photoUrl?: string;      // <--- Adicione esta também para garantir
   
   // Eclesiástico
   baptismDate?: string;
@@ -21,9 +21,9 @@ export interface Member {
   entryDate?: string;
   isTither?: boolean;
   
-  // Grupos e Ministérios/Departamentos
+  // Grupos e Ministérios
   ministries?: string[];
-  departments?: string[]; // Mantemos por compatibilidade se necessário
+  departments?: string[]; // Mantemos para compatibilidade
   
   // Endereço Completo
   address?: {
