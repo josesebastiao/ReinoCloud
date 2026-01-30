@@ -4,12 +4,12 @@ import { useChurch } from "../../contexts/ChurchContext";
 import { memberService, Member } from "../../services/memberService";
 import { createSystemUser } from "../../services/adminAuthService";
 import { 
-  Users, Search, PlusCircle, Edit, Trash2, Key,
+  Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
   MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock 
 } from "lucide-react";
 
 export default function MembersPage() {
-  const { churchId } = useChurch();
+  const { churchId, churchName } = useChurch(); // <--- Pegamos churchName para o cabeçalho da impressão
   
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,16 +46,77 @@ export default function MembersPage() {
     } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
+  // Filtra membros
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
+  
+  // Paginação
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // --- AÇÕES DO MODAL DE MEMBROS ---
+  // --- NOVA FUNÇÃO: IMPRIMIR LISTA ---
+  const handlePrintList = () => {
+    const printWindow = window.open('', '', 'width=900,height=600');
+    if (!printWindow) return;
+
+    const today = new Date().toLocaleDateString('pt-BR');
+
+    // Gera as linhas da tabela baseadas no filtro atual (se buscou "João", imprime só os Joões)
+    const rows = filteredMembers.map((m, index) => `
+        <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px;">${index + 1}</td>
+            <td style="padding: 8px;"><strong>${m.fullName}</strong></td>
+            <td style="padding: 8px;">${m.role === 'admin' ? 'Pastor' : m.role === 'treasurer' ? 'Tesouraria' : m.role === 'secretary' ? 'Secretaria' : 'Membro'}</td>
+            <td style="padding: 8px;">${m.phone || '-'}</td>
+            <td style="padding: 8px;">${m.status === 'active' ? 'Ativo' : 'Inativo'}</td>
+        </tr>
+    `).join('');
+
+    const html = `
+        <html>
+            <head>
+                <title>Lista de Membros - ${churchName}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 30px; }
+                    h1 { margin: 0; font-size: 20px; color: #333; }
+                    p { margin: 5px 0 20px 0; font-size: 12px; color: #666; }
+                    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                    th { text-align: left; padding: 8px; background: #f9fafb; border-bottom: 2px solid #eee; text-transform: uppercase; font-size: 10px; color: #666; }
+                    .footer { margin-top: 30px; border-top: 1px solid #eee; padding-top: 10px; font-size: 10px; text-align: center; color: #999; }
+                </style>
+            </head>
+            <body>
+                <h1>${churchName}</h1>
+                <p>Relatório de Membros • Gerado em ${today} • Total: ${filteredMembers.length}</p>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="30">#</th>
+                            <th>Nome Completo</th>
+                            <th>Cargo</th>
+                            <th>Telefone</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+
+                <div class="footer">Sistema ReinoCloud</div>
+                <script>window.print();</script>
+            </body>
+        </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  // --- MODAIS E SALVAMENTO ---
   const handleOpenModal = (member?: Member) => {
     if (member) {
       setEditingId(member.id || null);
-      
-      // Tratamento seguro do endereço
       let addr: any = { street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "" };
       if (member.address && typeof member.address === 'object') {
           addr = member.address;
@@ -141,7 +202,6 @@ export default function MembersPage() {
     }
   };
 
-  // --- AÇÕES DO MODAL DE ACESSO (SENHA) ---
   const openAccessModal = (member: Member) => {
       if(!member.email) {
           alert("Este membro precisa de um e-mail cadastrado primeiro para ter acesso.");
@@ -182,9 +242,17 @@ export default function MembersPage() {
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Users className="text-blue-600"/> Membros</h1>
           <p className="text-sm text-gray-500">{members.length} membros cadastrados</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition">
-          <PlusCircle size={20}/> Novo Membro
-        </button>
+        
+        <div className="flex gap-2 w-full md:w-auto">
+            {/* BOTÃO DE IMPRIMIR */}
+            <button onClick={handlePrintList} className="flex-1 md:flex-none justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition">
+              <Printer size={20}/> <span className="hidden md:inline">Imprimir Lista</span>
+            </button>
+            
+            <button onClick={() => handleOpenModal()} className="flex-1 md:flex-none justify-center bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition shadow-lg shadow-blue-200">
+              <PlusCircle size={20}/> Novo Membro
+            </button>
+        </div>
       </div>
 
       {/* BUSCA */}
@@ -214,7 +282,6 @@ export default function MembersPage() {
               {currentMembers.map(member => (
                 <tr 
                     key={member.id} 
-                    // AQUI ESTÁ A CORREÇÃO DO CLIQUE NA LINHA
                     onClick={() => handleOpenModal(member)} 
                     className="hover:bg-blue-50/50 transition group cursor-pointer"
                 >
@@ -239,11 +306,10 @@ export default function MembersPage() {
                     </div>
                   </td>
                   <td className="p-4 text-right">
-                    {/* AQUI ESTÁ A CORREÇÃO DA VISIBILIDADE DOS BOTÕES */}
                     <div className="flex justify-end gap-2">
                       {member.email && (
                           <button 
-                            onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} // stopPropagation evita abrir o modal de editar
+                            onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} 
                             className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition" 
                             title="Criar Senha de Acesso"
                           >
@@ -279,7 +345,8 @@ export default function MembersPage() {
         )}
       </div>
 
-      {/* --- MODAL 1: CADASTRO/EDIÇÃO --- */}
+      {/* --- MODAIS DE CADASTRO E SENHA (CÓDIGO ORIGINAL MANTIDO) --- */}
+      {/* ... (mantém os modais iguais ao código anterior) ... */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
@@ -350,7 +417,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* --- MODAL 2: CRIAR ACESSO (SENHA) --- */}
       {showAccessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
@@ -360,10 +426,13 @@ export default function MembersPage() {
                     </div>
                     <h2 className="text-xl font-bold text-gray-800">Criar Acesso ao Sistema</h2>
                     <p className="text-sm text-gray-500">Defina uma senha para <strong>{selectedMemberForAccess?.fullName}</strong>.</p>
-                    <p className="text-xs mt-2 text-gray-400">O login será: <strong>{selectedMemberForAccess?.email}</strong></p>
                 </div>
 
                 <form onSubmit={handleCreateAccess} className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase">E-mail (Login)</label>
+                        <input type="text" disabled value={selectedMemberForAccess?.email} className="w-full p-3 border rounded-xl bg-gray-100 text-gray-500" />
+                    </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Nova Senha</label>
                         <input type="text" required minLength={6} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-xl focus:ring-2 ring-yellow-200 outline-none" placeholder="Ex: financeiro2024" />
