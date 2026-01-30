@@ -1,7 +1,12 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
-import { memberService, Member } from "../../services/memberService";
+
+// --- CORREÇÃO DOS IMPORTS (SEPARADOS) ---
+import { memberService } from "../../services/memberService";
+import { Member } from "../../types/member"; // <--- Importando do lugar certo
+// ----------------------------------------
+
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
   User, X, Building2, Loader2, ShieldCheck 
@@ -11,7 +16,7 @@ export default function ServicesPage() {
   const { churchId, churchName, logoUrl } = useChurch(); 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
-  const [printing, setPrinting] = useState(false); // Estado para mostrar feedback durante conversão
+  const [printing, setPrinting] = useState(false); 
   
   // Controle dos Modais
   const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | null>(null);
@@ -32,7 +37,7 @@ export default function ServicesPage() {
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
-  // --- FUNÇÃO MÁGICA: CONVERTER URL PARA BASE64 ---
+  // --- FUNÇÃO CONVERTER URL PARA BASE64 ---
   const toDataURL = async (url: string) => {
     try {
         const res = await fetch(url);
@@ -43,17 +48,16 @@ export default function ServicesPage() {
             reader.readAsDataURL(blob);
         });
     } catch (e) {
-        console.error("Erro ao converter imagem:", e);
-        return ""; // Se der erro, retorna vazio e imprime sem logo
+        console.error("Erro conversão imagem:", e);
+        return "";
     }
   };
 
-  // --- IMPRESSÃO BLINDADA ---
+  // --- IMPRESSÃO ---
   const handlePrint = async () => {
     if (!selectedMember) return;
-    setPrinting(true); // Trava o botão para o usuário saber que está processando
+    setPrinting(true); 
 
-    // 1. Converte a logo ANTES de abrir a janela
     let finalLogo = "";
     if (logoUrl) {
         finalLogo = await toDataURL(logoUrl);
@@ -75,7 +79,6 @@ export default function ServicesPage() {
           <style>
             body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; }
             .header { margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            /* AQUI: Garantimos que a imagem fique contida e centralizada */
             .logo { max-width: 120px; max-height: 120px; object-fit: contain; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto; }
             .title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin: 10px 0; }
             .content { font-size: 18px; line-height: 1.8; text-align: justify; margin: 40px 0; }
@@ -115,10 +118,8 @@ export default function ServicesPage() {
           <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
           
           <script>
-             // Pequeno delay de segurança apenas para garantir renderização da base64
              setTimeout(function() {
                 window.print();
-                // window.close(); // Opcional: fechar automático no mobile as vezes atrapalha o "Salvar como PDF"
              }, 500);
           </script>
         </body>
@@ -127,7 +128,7 @@ export default function ServicesPage() {
     
     printWindow.document.write(htmlContent);
     printWindow.document.close();
-    setPrinting(false); // Destrava o botão
+    setPrinting(false);
   };
 
   if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
@@ -207,7 +208,6 @@ export default function ServicesPage() {
                               {selectedMember ? (
                                   <div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200">
                                       
-                                      {/* LOGO NO PREVIEW DO APP */}
                                       <div className="flex justify-center mb-3">
                                           {logoUrl ? (
                                               <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" />
@@ -223,7 +223,7 @@ export default function ServicesPage() {
                                       </div>
                                       
                                       <textarea 
-                                        placeholder="Observação extra (aparecerá na carta)..." 
+                                        placeholder="Observação extra..." 
                                         value={obs}
                                         onChange={e => setObs(e.target.value)}
                                         className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300"
