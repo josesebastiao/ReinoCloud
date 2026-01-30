@@ -4,13 +4,14 @@ import { useChurch } from "../../contexts/ChurchContext";
 import { memberService, Member } from "../../services/memberService";
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
-  MapPin, Calendar, Loader2, ShieldCheck, User, X, Building2 
+  User, X, Building2, Loader2, ShieldCheck 
 } from "lucide-react";
 
 export default function ServicesPage() {
-  const { churchId, churchName, logoUrl, userName } = useChurch(); // Pegamos a logo aqui
+  const { churchId, churchName, logoUrl } = useChurch(); 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
+  const [printing, setPrinting] = useState(false); // Estado para mostrar feedback durante conversão
   
   // Controle dos Modais
   const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | null>(null);
@@ -31,11 +32,40 @@ export default function ServicesPage() {
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
-  // Função de Impressão (Mantida igual, pois já estava funcionando)
-  const handlePrint = () => {
+  // --- FUNÇÃO MÁGICA: CONVERTER URL PARA BASE64 ---
+  const toDataURL = async (url: string) => {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.error("Erro ao converter imagem:", e);
+        return ""; // Se der erro, retorna vazio e imprime sem logo
+    }
+  };
+
+  // --- IMPRESSÃO BLINDADA ---
+  const handlePrint = async () => {
     if (!selectedMember) return;
+    setPrinting(true); // Trava o botão para o usuário saber que está processando
+
+    // 1. Converte a logo ANTES de abrir a janela
+    let finalLogo = "";
+    if (logoUrl) {
+        finalLogo = await toDataURL(logoUrl);
+    }
+
     const printWindow = window.open('', '', 'width=800,height=600');
-    if (!printWindow) return;
+    if (!printWindow) {
+        setPrinting(false);
+        alert("Permita pop-ups para imprimir!");
+        return;
+    }
+
     const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
     const htmlContent = `
@@ -45,21 +75,29 @@ export default function ServicesPage() {
           <style>
             body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; }
             .header { margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            .logo { width: 100px; height: 100px; object-fit: contain; margin-bottom: 10px; }
+            /* AQUI: Garantimos que a imagem fique contida e centralizada */
+            .logo { max-width: 120px; max-height: 120px; object-fit: contain; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto; }
             .title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin: 10px 0; }
             .content { font-size: 18px; line-height: 1.8; text-align: justify; margin: 40px 0; }
             .footer { margin-top: 80px; display: flex; justify-content: space-around; }
             .signature { border-top: 1px solid #000; padding-top: 10px; width: 40%; font-weight: bold; }
             .meta { font-size: 12px; color: #999; margin-top: 50px; }
+            
+            @media print {
+                @page { margin: 2cm; }
+                body { padding: 0; }
+            }
           </style>
         </head>
         <body>
           <div class="header">
-            ${logoUrl ? `<img src="${logoUrl}" class="logo" />` : ''}
+            ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
             <div class="title">${churchName}</div>
             <div style="font-size: 14px; color: #666;">Departamento de Secretaria</div>
           </div>
+          
           <h2>${selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : 'CARTA DE TRANSFERÊNCIA'}</h2>
+          
           <div class="content">
             <p>
               Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) 
@@ -70,15 +108,26 @@ export default function ServicesPage() {
             ${obs ? `<p><strong>Observação:</strong> ${obs}</p>` : ''}
             <p>Sem mais para o momento, subscrevemo-nos em Cristo.</p>
           </div>
+          
           <p style="text-align: right; margin-top: 40px;">${today}</p>
+          
           <div class="footer"><div class="signature">Pastor Responsável</div><div class="signature">Secretaria</div></div>
           <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
-          <script>window.print();</script>
+          
+          <script>
+             // Pequeno delay de segurança apenas para garantir renderização da base64
+             setTimeout(function() {
+                window.print();
+                // window.close(); // Opcional: fechar automático no mobile as vezes atrapalha o "Salvar como PDF"
+             }, 500);
+          </script>
         </body>
       </html>
     `;
+    
     printWindow.document.write(htmlContent);
     printWindow.document.close();
+    setPrinting(false); // Destrava o botão
   };
 
   if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
@@ -120,11 +169,13 @@ export default function ServicesPage() {
                           {selectedDoc === 'recommendation' ? <FileBadge className="text-blue-500"/> : <ArrowRightLeft className="text-orange-500"/>}
                           Emitir {selectedDoc === 'recommendation' ? 'Recomendação' : 'Transferência'}
                       </h2>
-                      <button onClick={() => setSelectedDoc(null)} className="text-gray-400 hover:text-red-500 font-bold text-sm bg-gray-100 px-3 py-1 rounded-lg">FECHAR</button>
+                      <button onClick={() => setSelectedDoc(null)} className="text-gray-500 hover:text-red-500 font-bold text-sm bg-gray-100 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-1 transition">
+                          <X size={16}/> FECHAR
+                      </button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* LADO ESQUERDO: BUSCA (Esconde no mobile se já tiver selecionado alguém para focar no preview) */}
+                      {/* LADO ESQUERDO: BUSCA */}
                       <div className={`${selectedMember ? 'hidden md:block' : 'block'}`}>
                           <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Selecione o Membro</label>
                           <div className="relative mb-4">
@@ -141,14 +192,13 @@ export default function ServicesPage() {
                           </div>
                       </div>
 
-                      {/* LADO DIREITO: PREVIEW E AÇÃO */}
+                      {/* LADO DIREITO: PREVIEW */}
                       <div className={`flex flex-col h-full ${!selectedMember ? 'hidden md:flex' : 'flex'}`}>
                           <label className="text-xs font-bold text-gray-400 uppercase mb-2 flex justify-between items-center">
                               <span>Pré-visualização</span>
-                              {/* Botão para fechar preview no mobile */}
                               {selectedMember && (
-                                  <button onClick={() => setSelectedMember(null)} className="md:hidden text-red-500 font-bold flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg">
-                                      <X size={14}/> Voltar para lista
+                                  <button onClick={() => setSelectedMember(null)} className="md:hidden text-blue-600 font-bold flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-lg text-xs">
+                                      ← Trocar Membro
                                   </button>
                               )}
                           </label>
@@ -156,7 +206,8 @@ export default function ServicesPage() {
                           <div className="flex-1 bg-gray-100 rounded-xl p-4 md:p-6 border border-gray-200 flex flex-col items-center">
                               {selectedMember ? (
                                   <div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200">
-                                      {/* --- AQUI: LOGO NO PREVIEW DO APP --- */}
+                                      
+                                      {/* LOGO NO PREVIEW DO APP */}
                                       <div className="flex justify-center mb-3">
                                           {logoUrl ? (
                                               <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" />
@@ -175,17 +226,22 @@ export default function ServicesPage() {
                                         placeholder="Observação extra (aparecerá na carta)..." 
                                         value={obs}
                                         onChange={e => setObs(e.target.value)}
-                                        className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none"
+                                        className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300"
                                         rows={3}
                                       />
 
-                                      <button onClick={handlePrint} className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2">
-                                          <Printer size={18}/> Imprimir
+                                      <button 
+                                        onClick={handlePrint} 
+                                        disabled={printing}
+                                        className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-wait"
+                                      >
+                                          {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} 
+                                          {printing ? "Gerando..." : "Imprimir"}
                                       </button>
                                   </div>
                               ) : (
                                   <div className="text-center py-20 text-gray-400">
-                                      <FileText size={40} className="mx-auto mb-2 opacity-20"/>
+                                      <ShieldCheck size={40} className="mx-auto mb-2 opacity-20"/>
                                       <p className="text-sm">Selecione um membro para visualizar.</p>
                                   </div>
                               )}
