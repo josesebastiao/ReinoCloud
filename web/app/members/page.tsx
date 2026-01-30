@@ -54,6 +54,8 @@ export default function MembersPage() {
   const handleOpenModal = (member?: Member) => {
     if (member) {
       setEditingId(member.id || null);
+      
+      // Tratamento seguro do endereço
       let addr: any = { street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "" };
       if (member.address && typeof member.address === 'object') {
           addr = member.address;
@@ -142,7 +144,7 @@ export default function MembersPage() {
   // --- AÇÕES DO MODAL DE ACESSO (SENHA) ---
   const openAccessModal = (member: Member) => {
       if(!member.email) {
-          alert("Este membro precisa de um e-mail cadastrado primeiro.");
+          alert("Este membro precisa de um e-mail cadastrado primeiro para ter acesso.");
           return;
       }
       setSelectedMemberForAccess(member);
@@ -210,7 +212,12 @@ export default function MembersPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {currentMembers.map(member => (
-                <tr key={member.id} className="hover:bg-blue-50/50 transition group">
+                <tr 
+                    key={member.id} 
+                    // AQUI ESTÁ A CORREÇÃO DO CLIQUE NA LINHA
+                    onClick={() => handleOpenModal(member)} 
+                    className="hover:bg-blue-50/50 transition group cursor-pointer"
+                >
                   <td className="p-4">
                     <div className="flex flex-col">
                         <span className="font-bold text-gray-800">{member.fullName}</span>
@@ -232,12 +239,29 @@ export default function MembersPage() {
                     </div>
                   </td>
                   <td className="p-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition">
+                    {/* AQUI ESTÁ A CORREÇÃO DA VISIBILIDADE DOS BOTÕES */}
+                    <div className="flex justify-end gap-2">
                       {member.email && (
-                          <button onClick={() => openAccessModal(member)} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100" title="Criar Senha de Acesso"><Key size={16}/></button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} // stopPropagation evita abrir o modal de editar
+                            className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition" 
+                            title="Criar Senha de Acesso"
+                          >
+                              <Key size={16}/>
+                          </button>
                       )}
-                      <button onClick={() => handleOpenModal(member)} className="p-2 bg-gray-100 rounded-lg text-blue-600 hover:bg-blue-100"><Edit size={16}/></button>
-                      <button onClick={() => handleDelete(member.id!)} className="p-2 bg-gray-100 rounded-lg text-red-600 hover:bg-red-100"><Trash2 size={16}/></button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleOpenModal(member); }} 
+                        className="p-2 bg-gray-100 rounded-lg text-blue-600 hover:bg-blue-100 transition"
+                      >
+                          <Edit size={16}/>
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} 
+                        className="p-2 bg-gray-100 rounded-lg text-red-600 hover:bg-red-100 transition"
+                      >
+                          <Trash2 size={16}/>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -255,7 +279,7 @@ export default function MembersPage() {
         )}
       </div>
 
-      {/* --- MODAL 1: CADASTRO COMPLETO (RESTAURADO) --- */}
+      {/* --- MODAL 1: CADASTRO/EDIÇÃO --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
@@ -336,13 +360,10 @@ export default function MembersPage() {
                     </div>
                     <h2 className="text-xl font-bold text-gray-800">Criar Acesso ao Sistema</h2>
                     <p className="text-sm text-gray-500">Defina uma senha para <strong>{selectedMemberForAccess?.fullName}</strong>.</p>
+                    <p className="text-xs mt-2 text-gray-400">O login será: <strong>{selectedMemberForAccess?.email}</strong></p>
                 </div>
 
                 <form onSubmit={handleCreateAccess} className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase">E-mail (Login)</label>
-                        <input type="text" disabled value={selectedMemberForAccess?.email} className="w-full p-3 border rounded-xl bg-gray-100 text-gray-500" />
-                    </div>
                     <div>
                         <label className="text-xs font-bold text-gray-500 uppercase">Nova Senha</label>
                         <input type="text" required minLength={6} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-xl focus:ring-2 ring-yellow-200 outline-none" placeholder="Ex: financeiro2024" />
