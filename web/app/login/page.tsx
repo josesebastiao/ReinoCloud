@@ -9,8 +9,12 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/aut
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 
+// INTEGRADO AO CONTEXTO (IMPORTANTE)
+import { useChurch } from "../../contexts/ChurchContext";
+
 export default function LoginPage() {
   const router = useRouter();
+  const { setChurchData } = useChurch(); // <--- Usamos o contexto para salvar dados
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,50 +34,64 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      if (user.email === "alfaministro1@gmail.com") {
-          localStorage.setItem("token", await user.getIdToken());
-          localStorage.setItem("churchId", "master_admin");
-          localStorage.setItem("userRole", "admin");
-          localStorage.setItem("userName", "Super Admin");
-          localStorage.setItem("churchName", "ReinoCloud HQ");
+      // 1. SUPER ADMIN (BYPASS)
+      if (user.email === "alfaministro1@gmail.com" || user.email === "alfaministro1@hotmail.com") {
+          // Salva no contexto e redireciona
+          setChurchData("master_admin", "ReinoCloud HQ", "admin", "Super Admin", "", "AO");
           router.push("/");
           return;
       }
 
+      // 2. BUSCA DADOS DO USUÁRIO NO BANCO
       const userDocRef = doc(db, "members", user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
       if (!userDocSnap.exists()) {
-        throw new Error("Usuário não encontrado no sistema.");
+        // Se logou no Firebase mas não tem ficha de membro (Erro crítico)
+        throw new Error("Usuário sem cadastro no sistema.");
       }
 
       const userData = userDocSnap.data();
       
+      // 3. BUSCA DADOS DA IGREJA (Nome, Logo, Moeda)
       let churchName = "Minha Igreja";
+      let churchLogo = "";
+      let churchCurrency = "AO";
+
       if (userData.churchId) {
           try {
             const churchDocRef = doc(db, "churches", userData.churchId);
             const churchDocSnap = await getDoc(churchDocRef);
             if (churchDocSnap.exists()) {
-                churchName = churchDocSnap.data().name;
+                const cData = churchDocSnap.data();
+                churchName = cData.name;
+                churchLogo = cData.logoUrl || "";
+                churchCurrency = cData.currency || "AO";
             }
-          } catch (err) { console.warn(err); }
+          } catch (err) { console.warn("Erro ao buscar igreja:", err); }
       }
 
-      localStorage.setItem("token", await user.getIdToken());
-      localStorage.setItem("churchId", userData.churchId || "");
-      localStorage.setItem("userRole", userData.role || "member");
-      localStorage.setItem("userName", userData.fullName || "Usuário");
-      localStorage.setItem("churchName", churchName);
+      // 4. SALVA TUDO NO CONTEXTO (Isso resolve os bugs de F5 e Logo sumindo)
+      setChurchData(
+          userData.churchId || "", 
+          churchName, 
+          userData.role || "member", 
+          userData.fullName || "Usuário", 
+          churchLogo, 
+          churchCurrency
+      );
 
+      // Redireciona
       router.push("/");
 
     } catch (err: any) {
       console.error("Erro login:", err);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
           setError("E-mail ou senha incorretos.");
+      } else if (err.code === 'auth/too-many-requests') {
+          setError("Muitas tentativas. Aguarde alguns minutos.");
       } else {
-          setError("Erro ao conectar. Verifique seus dados.");
+          setError(err.message || "Erro ao conectar. Verifique seus dados.");
       }
     } finally {
       setLoading(false);
@@ -100,12 +118,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col justify-between bg-slate-50 text-gray-600 font-sans selection:bg-blue-100">
       
-      {/* CABEÇALHO COM LOGO CORRIGIDA */}
+      {/* CABEÇALHO */}
       <header className="w-full p-6 md:p-8 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500">
-         
-         {/* AQUI ESTAVA O ERRO: Mudamos de favicon.ico para icon.svg */}
          <img src="/icon.svg" alt="ReinoCloud Logo" className="w-12 h-12 object-contain" /> 
-         
          <div>
             <h1 className="text-xl md:text-2xl font-bold text-blue-900 tracking-tight leading-none">ReinoCloud</h1>
             <p className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Gestão Eclesiástica</p>
