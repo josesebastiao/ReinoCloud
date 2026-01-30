@@ -34,11 +34,9 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrency] = useState("AO");
   const [loading, setLoading] = useState(true);
 
-  // --- FUNÇÃO PARA BUSCAR DADOS DO MEMBRO NO BANCO ---
-  // Essa função salva o dia se o localStorage falhar
+  // --- FUNÇÃO DE AUTO-RESGATE (Se o localStorage falhar) ---
   const fetchMemberData = async (currentUser: User) => {
     try {
-        console.log("🔍 Buscando dados do membro para:", currentUser.email);
         const q = query(collection(db, "members"), where("email", "==", currentUser.email));
         const snapshot = await getDocs(q);
 
@@ -46,13 +44,12 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
             const memberData = snapshot.docs[0].data();
             const foundChurchId = memberData.churchId;
             
-            // Agora busca os dados da igreja (Nome, Logo, Moeda)
             if (foundChurchId) {
                 const churchSnap = await getDoc(doc(db, "churches", foundChurchId));
                 if (churchSnap.exists()) {
                     const churchData = churchSnap.data();
                     
-                    // APLICA TUDO (Salva o dia!)
+                    // Salva tudo e recupera o dia
                     setChurchData(
                         foundChurchId,
                         churchData.name || "Igreja",
@@ -61,13 +58,13 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
                         churchData.logoUrl || "",
                         churchData.currency || "AO"
                     );
-                    return true; // Sucesso
+                    return true;
                 }
             }
         }
-        return false; // Não achou nada
+        return false;
     } catch (error) {
-        console.error("Erro no Auto-Discovery:", error);
+        console.error("Erro Auto-Discovery:", error);
         return false;
     }
   };
@@ -77,34 +74,30 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
       setUser(currentUser);
 
       if (currentUser) {
-        // --- CENÁRIO 1: Tenta Cache Rápido (localStorage) ---
+        // Tenta recuperar do localStorage (Cache)
         if (typeof window !== 'undefined') {
             const storedId = localStorage.getItem("churchId");
-            // Só confia no cache se o email bater (segurança extra)
-            // Mas como localStorage não guarda email do usuario, vamos confiar
-            // apenas se tivermos dados. Se falhar, vamos pro banco.
-            
+            const storedLogo = localStorage.getItem("churchLogo"); // <--- RECUPERA LOGO
+            const storedCurrency = localStorage.getItem("churchCurrency");
+
             if (storedId) {
                 setChurchId(storedId);
                 setChurchName(localStorage.getItem("churchName") || "");
                 setUserRole(localStorage.getItem("userRole") || "");
                 setUserName(localStorage.getItem("userName") || "");
-                setLogoUrl(localStorage.getItem("churchLogo") || "");
-                setCurrency(localStorage.getItem("churchCurrency") || "AO");
+                
+                if (storedLogo) setLogoUrl(storedLogo); // <--- APLICA LOGO
+                if (storedCurrency) setCurrency(storedCurrency);
+                
                 setLoading(false);
             } else {
-                // --- CENÁRIO 2: Cache vazio? Busca no Banco (Auto-Repair) ---
-                const success = await fetchMemberData(currentUser);
-                if (!success) {
-                    // Se logou no Firebase mas não tem ficha de membro (Erro crítico)
-                    console.error("Usuário sem vínculo com igreja.");
-                    // Opcional: signOutUser();
-                }
+                // Se cache vazio, busca no banco
+                await fetchMemberData(currentUser);
                 setLoading(false);
             }
         }
       } else {
-        // Deslogou
+        // Deslogado: Limpa Estados
         setChurchId("");
         setChurchName("");
         setUserRole("");
@@ -124,12 +117,17 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
     setLogoUrl(logo);
     setCurrency(curr);
 
+    // Salva no LocalStorage (Persistência)
     if (typeof window !== 'undefined') {
         localStorage.setItem("churchId", id);
         localStorage.setItem("churchName", name);
         localStorage.setItem("userRole", role);
         localStorage.setItem("userName", uName);
+        
+        // --- AQUI ESTÁ A CORREÇÃO: SALVAR A LOGO ---
         if(logo) localStorage.setItem("churchLogo", logo);
+        else localStorage.removeItem("churchLogo");
+
         if(curr) localStorage.setItem("churchCurrency", curr);
     }
   };
@@ -137,13 +135,17 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
   const signOutUser = async () => {
       try {
           await auth.signOut();
+          
+          // Limpa Estados
+          setUser(null);
           setChurchId("");
           setChurchName("");
           setUserRole("");
           setLogoUrl("");
           
+          // --- LIMPEZA PROFUNDA DA MEMÓRIA ---
           if (typeof window !== 'undefined') {
-            localStorage.clear(); // Limpa TUDO para garantir que o próximo login venha limpo
+            localStorage.clear(); // Remove TUDO para não sobrar lixo do admin anterior
           }
           
           router.push("/login");
