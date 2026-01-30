@@ -4,7 +4,7 @@ import { useChurch } from "../../contexts/ChurchContext";
 import { memberService, Member } from "../../services/memberService";
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
-  MapPin, Calendar, Loader2, ShieldCheck, User 
+  MapPin, Calendar, Loader2, ShieldCheck, User, X, Building2 
 } from "lucide-react";
 
 export default function ServicesPage() {
@@ -16,7 +16,7 @@ export default function ServicesPage() {
   const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [search, setSearch] = useState("");
-  const [obs, setObs] = useState(""); // Observação extra para a carta
+  const [obs, setObs] = useState(""); 
 
   useEffect(() => {
     if (churchId) loadMembers();
@@ -31,16 +31,13 @@ export default function ServicesPage() {
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
-  // --- FUNÇÃO DE IMPRESSÃO (AQUI ESTÁ A CORREÇÃO DA LOGO) ---
+  // Função de Impressão (Mantida igual, pois já estava funcionando)
   const handlePrint = () => {
     if (!selectedMember) return;
-
     const printWindow = window.open('', '', 'width=800,height=600');
     if (!printWindow) return;
-
     const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    // HTML da Carta
     const htmlContent = `
       <html>
         <head>
@@ -62,41 +59,24 @@ export default function ServicesPage() {
             <div class="title">${churchName}</div>
             <div style="font-size: 14px; color: #666;">Departamento de Secretaria</div>
           </div>
-
           <h2>${selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : 'CARTA DE TRANSFERÊNCIA'}</h2>
-
           <div class="content">
             <p>
               Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) 
               <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão, 
               não constando nada, até a presente data, que desabone sua conduta cristã.
             </p>
-            
-            ${selectedDoc === 'transfer' ? `
-              <p>Solicitamos que o(a) mesmo(a) seja recebido(a) como membro dessa amada igreja, cessando assim suas responsabilidades conosco.</p>
-            ` : ''}
-
+            ${selectedDoc === 'transfer' ? `<p>Solicitamos que o(a) mesmo(a) seja recebido(a) como membro dessa amada igreja, cessando assim suas responsabilidades conosco.</p>` : ''}
             ${obs ? `<p><strong>Observação:</strong> ${obs}</p>` : ''}
-
             <p>Sem mais para o momento, subscrevemo-nos em Cristo.</p>
           </div>
-
           <p style="text-align: right; margin-top: 40px;">${today}</p>
-
-          <div class="footer">
-            <div class="signature">Pastor Responsável</div>
-            <div class="signature">Secretaria</div>
-          </div>
-
+          <div class="footer"><div class="signature">Pastor Responsável</div><div class="signature">Secretaria</div></div>
           <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
-          
-          <script>
-            window.print();
-          </script>
+          <script>window.print();</script>
         </body>
       </html>
     `;
-
     printWindow.document.write(htmlContent);
     printWindow.document.close();
   };
@@ -106,7 +86,7 @@ export default function ServicesPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* CABEÇALHO AZUL */}
+      {/* CABEÇALHO */}
       <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-6xl mx-auto">
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
@@ -118,64 +98,42 @@ export default function ServicesPage() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16">
           
-          {/* SELEÇÃO DE TIPO DE DOCUMENTO */}
+          {/* SELEÇÃO DE TIPO */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div 
-                onClick={() => { setSelectedDoc('recommendation'); setSelectedMember(null); }}
-                className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'recommendation' ? 'border-blue-500 ring-4 ring-blue-50' : 'border-transparent hover:border-blue-200'}`}
-              >
-                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4">
-                      <FileBadge size={28}/>
-                  </div>
+              <div onClick={() => { setSelectedDoc('recommendation'); setSelectedMember(null); }} className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'recommendation' ? 'border-blue-500 ring-4 ring-blue-50' : 'border-transparent hover:border-blue-200'}`}>
+                  <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4"><FileBadge size={28}/></div>
                   <h3 className="text-xl font-bold text-gray-800">Carta de Recomendação</h3>
-                  <p className="text-sm text-gray-500 mt-2">Para membros que vão visitar outras igrejas ou participar de eventos.</p>
+                  <p className="text-sm text-gray-500 mt-2">Para membros que vão visitar outras igrejas.</p>
               </div>
-
-              <div 
-                onClick={() => { setSelectedDoc('transfer'); setSelectedMember(null); }}
-                className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'transfer' ? 'border-orange-500 ring-4 ring-orange-50' : 'border-transparent hover:border-orange-200'}`}
-              >
-                  <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-4">
-                      <ArrowRightLeft size={28}/>
-                  </div>
+              <div onClick={() => { setSelectedDoc('transfer'); setSelectedMember(null); }} className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'transfer' ? 'border-orange-500 ring-4 ring-orange-50' : 'border-transparent hover:border-orange-200'}`}>
+                  <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-4"><ArrowRightLeft size={28}/></div>
                   <h3 className="text-xl font-bold text-gray-800">Carta de Transferência</h3>
-                  <p className="text-sm text-gray-500 mt-2">Documento oficial para mudança definitiva de membro para outra congregação.</p>
+                  <p className="text-sm text-gray-500 mt-2">Para mudança definitiva de congregação.</p>
               </div>
           </div>
 
-          {/* ÁREA DE EMISSÃO (SÓ APARECE SE TIVER SELECIONADO UM TIPO) */}
+          {/* ÁREA DE EMISSÃO */}
           {selectedDoc && (
-              <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
+              <div className="bg-white rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
                   <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-100">
-                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      <h2 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
                           {selectedDoc === 'recommendation' ? <FileBadge className="text-blue-500"/> : <ArrowRightLeft className="text-orange-500"/>}
                           Emitir {selectedDoc === 'recommendation' ? 'Recomendação' : 'Transferência'}
                       </h2>
-                      <button onClick={() => setSelectedDoc(null)} className="text-gray-400 hover:text-red-500 font-bold text-sm">CANCELAR</button>
+                      <button onClick={() => setSelectedDoc(null)} className="text-gray-400 hover:text-red-500 font-bold text-sm bg-gray-100 px-3 py-1 rounded-lg">FECHAR</button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* LADO ESQUERDO: BUSCA */}
-                      <div>
+                      {/* LADO ESQUERDO: BUSCA (Esconde no mobile se já tiver selecionado alguém para focar no preview) */}
+                      <div className={`${selectedMember ? 'hidden md:block' : 'block'}`}>
                           <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Selecione o Membro</label>
                           <div className="relative mb-4">
                               <Search className="absolute left-3 top-3 text-gray-400" size={20}/>
-                              <input 
-                                type="text" 
-                                placeholder="Buscar membro..." 
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white transition outline-none focus:ring-2 ring-blue-100"
-                              />
+                              <input type="text" placeholder="Buscar membro..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white transition outline-none focus:ring-2 ring-blue-100"/>
                           </div>
-                          
                           <div className="h-64 overflow-y-auto border rounded-xl p-2 custom-scrollbar bg-gray-50">
                               {filteredMembers.map(m => (
-                                  <div 
-                                    key={m.id} 
-                                    onClick={() => setSelectedMember(m)}
-                                    className={`p-3 rounded-lg flex items-center gap-3 cursor-pointer transition mb-1 ${selectedMember?.id === m.id ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white hover:shadow-sm text-gray-700'}`}
-                                  >
+                                  <div key={m.id} onClick={() => setSelectedMember(m)} className={`p-3 rounded-lg flex items-center gap-3 cursor-pointer transition mb-1 ${selectedMember?.id === m.id ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white hover:shadow-sm text-gray-700'}`}>
                                       <div className={`p-2 rounded-full ${selectedMember?.id === m.id ? 'bg-white/20' : 'bg-gray-200'}`}><User size={16}/></div>
                                       <span className="font-bold text-sm">{m.fullName}</span>
                                   </div>
@@ -184,35 +142,52 @@ export default function ServicesPage() {
                       </div>
 
                       {/* LADO DIREITO: PREVIEW E AÇÃO */}
-                      <div className="flex flex-col h-full">
-                          <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Detalhes da Emissão</label>
+                      <div className={`flex flex-col h-full ${!selectedMember ? 'hidden md:flex' : 'flex'}`}>
+                          <label className="text-xs font-bold text-gray-400 uppercase mb-2 flex justify-between items-center">
+                              <span>Pré-visualização</span>
+                              {/* Botão para fechar preview no mobile */}
+                              {selectedMember && (
+                                  <button onClick={() => setSelectedMember(null)} className="md:hidden text-red-500 font-bold flex items-center gap-1 bg-red-50 px-2 py-1 rounded-lg">
+                                      <X size={14}/> Voltar para lista
+                                  </button>
+                              )}
+                          </label>
                           
-                          <div className="flex-1 bg-gray-50 rounded-xl p-6 border border-dashed border-gray-300 flex flex-col justify-center items-center text-center">
+                          <div className="flex-1 bg-gray-100 rounded-xl p-4 md:p-6 border border-gray-200 flex flex-col items-center">
                               {selectedMember ? (
-                                  <div className="animate-in zoom-in">
-                                      <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                                          <ShieldCheck size={40}/>
+                                  <div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200">
+                                      {/* --- AQUI: LOGO NO PREVIEW DO APP --- */}
+                                      <div className="flex justify-center mb-3">
+                                          {logoUrl ? (
+                                              <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" />
+                                          ) : (
+                                              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-400"><Building2 size={32}/></div>
+                                          )}
                                       </div>
-                                      <h3 className="text-xl font-bold text-gray-800">{selectedMember.fullName}</h3>
-                                      <p className="text-sm text-gray-500 mb-4">{selectedMember.role} • {selectedMember.status === 'active' ? 'Ativo' : 'Inativo'}</p>
+                                      
+                                      <h3 className="text-sm font-bold text-gray-800 uppercase border-b pb-2 mb-3">{churchName}</h3>
+                                      
+                                      <div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">
+                                          {selectedMember.fullName}
+                                      </div>
                                       
                                       <textarea 
-                                        placeholder="Observação (Opcional)..." 
+                                        placeholder="Observação extra (aparecerá na carta)..." 
                                         value={obs}
                                         onChange={e => setObs(e.target.value)}
-                                        className="w-full p-3 border rounded-xl text-sm mb-4"
-                                        rows={2}
+                                        className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none"
+                                        rows={3}
                                       />
 
-                                      <button 
-                                        onClick={handlePrint}
-                                        className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition shadow-xl flex items-center gap-2 mx-auto"
-                                      >
-                                          <Printer size={20}/> Imprimir Documento
+                                      <button onClick={handlePrint} className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2">
+                                          <Printer size={18}/> Imprimir
                                       </button>
                                   </div>
                               ) : (
-                                  <p className="text-gray-400">Selecione um membro na lista ao lado para gerar o documento.</p>
+                                  <div className="text-center py-20 text-gray-400">
+                                      <FileText size={40} className="mx-auto mb-2 opacity-20"/>
+                                      <p className="text-sm">Selecione um membro para visualizar.</p>
+                                  </div>
                               )}
                           </div>
                       </div>
