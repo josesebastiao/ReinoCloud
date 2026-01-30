@@ -1,6 +1,6 @@
-"use client"; 
+"use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // <--- 1. IMPORTAR ROUTER
+import { useRouter } from "next/navigation"; // <--- Importante
 import Link from "next/link";
 import { useChurch } from "../contexts/ChurchContext";
 import { memberService } from "../services/memberService";
@@ -9,35 +9,51 @@ import { db } from "../lib/firebase";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { 
   Users, Calendar, TrendingUp, ArrowRight, 
-  MapPin, Clock, Loader2, AlertCircle, Eye, EyeOff, Building2 
+  Clock, Loader2, AlertCircle, Eye, EyeOff, Building2 
 } from "lucide-react";
 
 export default function Dashboard() {
-  const router = useRouter(); // <--- 2. INICIALIZAR ROUTER
+  const router = useRouter();
   const { churchId, churchName, userName, userRole, formatMoney, logoUrl } = useChurch();
-  const [loading, setLoading] = useState(true);
   
+  const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(false);
+  
+  // Estados
   const [stats, setStats] = useState({ active: 0, inactive: 0, total: 0 });
   const [balance, setBalance] = useState(0);
   const [nextEvents, setNextEvents] = useState<any[]>([]);
 
   useEffect(() => {
-    // --- 3. CORREÇÃO DO LOOP INFINITO ---
-    if (churchId) {
-        // Se tem ID, carrega os dados normalmente
-        loadDashboardData();
-    } else {
-        // Se NÃO tem ID (pode ser delay do contexto ou deslogado), espera um pouco
-        const timer = setTimeout(() => {
-            // Se passar 500ms e ainda não tiver churchId, verifica o localStorage direto pra ter certeza
-            const savedId = localStorage.getItem("churchId");
-            if (!savedId) {
-                router.push("/login"); // <--- MANDA PRO LOGIN
-            }
-        }, 500); 
-        return () => clearTimeout(timer);
-    }
+    // --- LÓGICA DE PROTEÇÃO (ANTI-LOOP) ---
+    let isMounted = true;
+
+    const checkAndLoad = async () => {
+        // 1. Se já tem ID no contexto, carrega
+        if (churchId) {
+            await loadDashboardData();
+            return;
+        }
+
+        // 2. Se não tem, verifica o localStorage diretamente (backup)
+        const storedId = localStorage.getItem("churchId");
+        
+        if (!storedId) {
+            // Se não tem nem no contexto nem no storage, manda pro login
+            router.push("/login");
+        } else {
+            // Se tem no storage mas o contexto ainda não pegou, esperamos um pouco
+            // ou recarregamos a página se travar muito tempo
+            if (isMounted) setLoading(true);
+        }
+    };
+
+    // Pequeno delay para dar tempo ao Contexto de iniciar
+    const timer = setTimeout(() => {
+        checkAndLoad();
+    }, 500);
+
+    return () => { isMounted = false; clearTimeout(timer); };
   }, [churchId, router]);
 
   const loadDashboardData = async () => {
@@ -62,13 +78,14 @@ export default function Dashboard() {
         setNextEvents(eventSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
     } catch (error) { 
-        console.error("Erro:", error); 
+        console.error("Erro dashboard:", error);
     } finally { 
         setLoading(false); 
     }
   };
 
   const canSee = (allowedRoles: string[]) => {
+      // Se userRole estiver vazio (delay), assume false temporariamente
       if (!userRole) return false;
       if (userRole === 'admin') return true;
       return allowedRoles.includes(userRole);
@@ -79,11 +96,9 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* CABEÇALHO AZUL COM LOGO */}
+      {/* CABEÇALHO */}
       <div className="bg-[#1D4ED8] pt-12 pb-24 px-6 md:px-10 rounded-b-[3rem] shadow-sm relative z-0">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-            
-            {/* Título e Logo */}
             <div className="flex items-center gap-4">
                 {logoUrl ? (
                     <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl p-1.5 backdrop-blur-sm border border-white/20 shadow-inner">
@@ -100,7 +115,6 @@ export default function Dashboard() {
                 </div>
             </div>
             
-            {/* Atalhos Rápidos */}
             <div className="flex gap-4 self-end">
                 <Link href="/agenda" className="hidden md:flex flex-col items-center gap-1 text-white opacity-80 hover:opacity-100 transition">
                     <div className="bg-white/10 p-3 rounded-2xl"><Calendar size={20}/></div>
@@ -116,10 +130,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* CARDS FLUTUANTES */}
+      {/* CARDS */}
       <div className="max-w-6xl mx-auto px-4 -mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
-        {/* CARD 1: MEMBRESIA */}
+        {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
@@ -143,7 +157,7 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* CARD 2: CAIXA */}
+        {/* CARD CAIXA */}
         {canSee(['treasurer']) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
@@ -169,7 +183,7 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* CARD 3: AGENDA */}
+        {/* CARD AGENDA */}
         <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col h-full min-h-[220px]">
             <div className="flex justify-between items-center mb-4">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Próximos Eventos</span>

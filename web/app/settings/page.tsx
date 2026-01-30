@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useChurch } from "../../contexts/ChurchContext"; // Contexto
+import { useRouter } from "next/navigation"; // <--- 1. IMPORTAR ROUTER
+import { useChurch } from "../../contexts/ChurchContext"; 
 import { auth, db } from "../../lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
@@ -11,9 +11,8 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const router = useRouter();
+  const router = useRouter(); // <--- 2. INICIALIZAR ROUTER
   
-  // --- AQUI: Pegamos também os outros dados e a função setChurchData ---
   const { churchId, user, setChurchData, userRole, userName } = useChurch(); 
   
   const [loading, setLoading] = useState(true);
@@ -35,8 +34,31 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
-    if (churchId) loadSettings();
-  }, [churchId]);
+    // --- 3. LÓGICA DE PROTEÇÃO (ANTI-LOOP) ---
+    let isMounted = true;
+
+    const checkAndLoad = async () => {
+        // Se já tem ID no contexto, carrega
+        if (churchId) {
+            await loadSettings();
+            return;
+        }
+
+        // Se não tem, verifica o localStorage como backup
+        const storedId = localStorage.getItem("churchId");
+        
+        if (!storedId) {
+            // Se não tem nem no contexto nem no storage, manda pro login
+            router.push("/login");
+        } else {
+            // Se tem no storage, aguarda o contexto sincronizar
+            if (isMounted) setLoading(true);
+        }
+    };
+
+    const timer = setTimeout(checkAndLoad, 500);
+    return () => { isMounted = false; clearTimeout(timer); };
+  }, [churchId, router]);
 
   const loadSettings = async () => {
     try {
@@ -70,8 +92,7 @@ export default function SettingsPage() {
           updatedAt: new Date().toISOString()
       });
 
-      // 2. --- A CORREÇÃO MÁGICA --- 
-      // Atualiza o Contexto do App imediatamente para refletir a nova moeda/logo
+      // 2. Atualiza o Contexto do App imediatamente
       setChurchData(churchId, name, userRole, userName, logoUrl, currency);
 
       alert("✅ Configurações salvas e aplicadas!");
@@ -118,7 +139,7 @@ export default function SettingsPage() {
       }
   };
 
-  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
+  if (loading) return <div className="flex justify-center p-10 min-h-screen items-center"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
@@ -133,7 +154,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 md:px-0 -mt-16">
+      <div className="max-w-4xl mx-auto px-4 md:px-0 -mt-16 relative z-10">
           
           {/* MENU DE ABAS */}
           <div className="bg-white rounded-t-3xl shadow-sm border-b border-gray-100 px-6 pt-4 flex gap-4">
@@ -151,10 +172,10 @@ export default function SettingsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase">Nome da Igreja (Cabeçalho)</label>
-                                <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border rounded-xl font-medium bg-white" />
+                                <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border rounded-xl font-medium bg-white outline-none focus:ring-2 ring-blue-100" />
                             </div>
-                            <div><label className="text-xs font-bold text-gray-500 uppercase">Pastor Responsável</label><input type="text" value={pastor} onChange={e => setPastor(e.target.value)} className="w-full p-3 border rounded-xl bg-white" /></div>
-                            <div><label className="text-xs font-bold text-gray-500 uppercase">Cidade / Sede</label><input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full p-3 border rounded-xl bg-white" /></div>
+                            <div><label className="text-xs font-bold text-gray-500 uppercase">Pastor Responsável</label><input type="text" value={pastor} onChange={e => setPastor(e.target.value)} className="w-full p-3 border rounded-xl bg-white outline-none focus:ring-2 ring-blue-100" /></div>
+                            <div><label className="text-xs font-bold text-gray-500 uppercase">Cidade / Sede</label><input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full p-3 border rounded-xl bg-white outline-none focus:ring-2 ring-blue-100" /></div>
                         </div>
                     </div>
 
@@ -175,7 +196,7 @@ export default function SettingsPage() {
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase">Link da Logo (URL)</label>
-                                <div className="relative"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white" placeholder="https://..." /></div>
+                                <div className="relative"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="https://..." /></div>
                             </div>
                         </div>
                     </div>
@@ -184,8 +205,8 @@ export default function SettingsPage() {
                     <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><FileText size={14}/> Textos Padrão (Cartas)</h3>
                         <div className="space-y-4">
-                            <div><label className="text-xs font-bold text-gray-500 uppercase">Texto Recomendação</label><textarea rows={3} value={textRecommendation} onChange={e => setTextRecommendation(e.target.value)} className="w-full p-3 border rounded-xl text-sm bg-white" /></div>
-                            <div><label className="text-xs font-bold text-gray-500 uppercase">Texto Transferência</label><textarea rows={3} value={textTransfer} onChange={e => setTextTransfer(e.target.value)} className="w-full p-3 border rounded-xl text-sm bg-white" /></div>
+                            <div><label className="text-xs font-bold text-gray-500 uppercase">Texto Recomendação</label><textarea rows={3} value={textRecommendation} onChange={e => setTextRecommendation(e.target.value)} className="w-full p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" /></div>
+                            <div><label className="text-xs font-bold text-gray-500 uppercase">Texto Transferência</label><textarea rows={3} value={textTransfer} onChange={e => setTextTransfer(e.target.value)} className="w-full p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" /></div>
                         </div>
                     </div>
 
@@ -215,16 +236,16 @@ export default function SettingsPage() {
                       <div className="space-y-4">
                           <div>
                               <label className="text-xs font-bold text-gray-500 uppercase">Senha Atual</label>
-                              <input type="password" required value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3 border rounded-xl" placeholder="••••••••" />
+                              <input type="password" required value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3 border rounded-xl outline-none focus:ring-2 ring-blue-100" placeholder="••••••••" />
                           </div>
                           <hr className="border-gray-100 my-2"/>
                           <div>
                               <label className="text-xs font-bold text-gray-500 uppercase">Nova Senha</label>
-                              <input type="password" required minLength={6} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-xl" placeholder="Mínimo 6 caracteres" />
+                              <input type="password" required minLength={6} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-xl outline-none focus:ring-2 ring-blue-100" placeholder="Mínimo 6 caracteres" />
                           </div>
                           <div>
                               <label className="text-xs font-bold text-gray-500 uppercase">Confirmar Nova Senha</label>
-                              <input type="password" required minLength={6} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-3 border rounded-xl" placeholder="Repita a nova senha" />
+                              <input type="password" required minLength={6} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-3 border rounded-xl outline-none focus:ring-2 ring-blue-100" placeholder="Repita a nova senha" />
                           </div>
                       </div>
 
