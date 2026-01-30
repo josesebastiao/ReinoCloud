@@ -18,14 +18,12 @@ export default function Dashboard() {
   
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(false);
-  
-  // Estados
   const [stats, setStats] = useState({ active: 0, inactive: 0, total: 0 });
   const [balance, setBalance] = useState(0);
   const [nextEvents, setNextEvents] = useState<any[]>([]);
 
   useEffect(() => {
-    // --- LÓGICA DE PROTEÇÃO (ANTI-LOOP) ---
+    // --- LÓGICA DE PROTEÇÃO (VACINA CONTRA LOOP) ---
     let isMounted = true;
 
     const checkAndLoad = async () => {
@@ -36,27 +34,24 @@ export default function Dashboard() {
         }
 
         // 2. Se não tem, verifica o localStorage diretamente (backup)
+        // Isso evita que a página fique girando se o contexto demorar
         const storedId = localStorage.getItem("churchId");
         
         if (!storedId) {
             // Se não tem nem no contexto nem no storage, manda pro login
             router.push("/login");
         } else {
-            // Se tem no storage mas o contexto ainda não pegou, esperamos um pouco
-            // ou recarregamos a página se travar muito tempo
+            // Se tem no storage mas o contexto ainda não pegou, aguarda um pouco
             if (isMounted) setLoading(true);
         }
     };
 
-    // Pequeno delay para dar tempo ao Contexto de iniciar
-    const timer = setTimeout(() => {
-        checkAndLoad();
-    }, 500);
-
+    const timer = setTimeout(checkAndLoad, 800); // Espera o contexto carregar
     return () => { isMounted = false; clearTimeout(timer); };
   }, [churchId, router]);
 
   const loadDashboardData = async () => {
+    if(!churchId) return;
     try {
         setLoading(true);
         const [allMembers, allTransactions] = await Promise.all([
@@ -65,8 +60,7 @@ export default function Dashboard() {
         ]);
 
         const activeCount = allMembers.filter(m => m.status === 'active').length;
-        const inactiveCount = allMembers.length - activeCount;
-        setStats({ active: activeCount, inactive: inactiveCount, total: allMembers.length });
+        setStats({ active: activeCount, inactive: allMembers.length - activeCount, total: allMembers.length });
 
         const totalIncome = allTransactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + Number(curr.amount), 0);
         const totalExpense = allTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + Number(curr.amount), 0);
@@ -85,9 +79,8 @@ export default function Dashboard() {
   };
 
   const canSee = (allowedRoles: string[]) => {
-      // Se userRole estiver vazio (delay), assume false temporariamente
       if (!userRole) return false;
-      if (userRole === 'admin') return true;
+      if (userRole === 'admin') return true; // Pastor Admin vê tudo
       return allowedRoles.includes(userRole);
   };
 
