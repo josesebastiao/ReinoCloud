@@ -1,28 +1,43 @@
-import { initializeApp, getApp, getApps } from "firebase/app";
+import { initializeApp, getApp, getApps, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { firebaseConfig } from "../lib/firebase";
 
-// Esse serviço cria uma "Segunda Instância" do Firebase
-// Só para criar o usuário novo sem deslogar o Admin atual
 export const createSystemUser = async (email: string, password: string) => {
-  try {
-    const secondaryAppName = "secondaryApp";
-    let secondaryApp;
+  let secondaryApp;
+  const appName = "SecondaryApp";
 
-    if (!getApps().length) {
-        secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+  try {
+    // 1. Verifica se já existe ou cria uma nova instância
+    if (getApps().length > 0 && getApps().find(app => app.name === appName)) {
+        secondaryApp = getApp(appName);
     } else {
-        secondaryApp = getApps().find(app => app.name === secondaryAppName) || initializeApp(firebaseConfig, secondaryAppName);
+        secondaryApp = initializeApp(firebaseConfig, appName);
     }
 
     const secondaryAuth = getAuth(secondaryApp);
-    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-    
-    // Importante: Deslogar dessa instância secundária para não dar conflito
+
+    // 2. Cria o usuário sem deslogar o Admin principal
+    await createUserWithEmailAndPassword(secondaryAuth, email, password);
+
+    // 3. Desloga da instância secundária para limpar a sessão dela
     await signOut(secondaryAuth);
 
-    return userCredential.user.uid;
-  } catch (error) {
-    throw error;
+    return true;
+
+  } catch (error: any) {
+    console.error("Erro ao criar usuário:", error);
+    
+    // TRADUÇÃO DE ERROS PARA O USUÁRIO
+    if (error.code === 'auth/email-already-in-use') {
+        throw new Error("Este e-mail já possui acesso ao sistema.");
+    }
+    if (error.code === 'auth/weak-password') {
+        throw new Error("A senha deve ter pelo menos 6 caracteres.");
+    }
+    if (error.code === 'auth/invalid-email') {
+        throw new Error("O formato do e-mail é inválido.");
+    }
+    
+    throw new Error("Erro técnico: " + error.code);
   }
 };
