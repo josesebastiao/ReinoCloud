@@ -2,10 +2,11 @@
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
 
-// --- CORREÇÃO AQUI: IMPORTS SEPARADOS ---
+// Imports Separados (Corrigidos)
 import { memberService } from "../../services/memberService";
+import { ministryService } from "../../services/ministryService"; // <--- NOVO
 import { Member } from "../../types/member"; 
-// ----------------------------------------
+import { Ministry } from "../../types/ministry"; // <--- NOVO
 
 import { createSystemUser } from "../../services/adminAuthService";
 import { 
@@ -17,6 +18,7 @@ export default function MembersPage() {
   const { churchId, churchName, logoUrl } = useChurch(); 
   
   const [members, setMembers] = useState<Member[]>([]);
+  const [ministryOptions, setMinistryOptions] = useState<Ministry[]>([]); // <--- Lista Dinâmica
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -27,14 +29,10 @@ export default function MembersPage() {
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   
-  // Estados de Edição/Criação
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedMemberForAccess, setSelectedMemberForAccess] = useState<Member | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [creatingAccess, setCreatingAccess] = useState(false);
-
-  // LISTA DE MINISTÉRIOS
-  const AVAILABLE_MINISTRIES = ["Louvor", "Infantil", "Jovens", "Casais", "Homens", "Mulheres", "Recepção", "Mídia/Tech", "Intercessão", "Ação Social", "Diaconato", "EBD"];
 
   // Formulário Principal
   const [formData, setFormData] = useState({
@@ -47,26 +45,45 @@ export default function MembersPage() {
   });
 
   useEffect(() => {
-    if (churchId) loadMembers();
+    if (churchId) {
+        loadData();
+    }
   }, [churchId]);
 
-  const loadMembers = async () => {
+  const loadData = async () => {
+    setLoading(true);
     try {
-      const list = await memberService.listByChurch(churchId);
-      setMembers(list);
-    } catch (error) { console.error(error); } finally { setLoading(false); }
+      // Carrega Membros e Ministérios em paralelo
+      const [membersList, ministriesList] = await Promise.all([
+          memberService.listByChurch(churchId),
+          ministryService.listByChurch(churchId)
+      ]);
+      setMembers(membersList);
+      setMinistryOptions(ministriesList);
+    } catch (error) { 
+        console.error(error); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const toggleMinistry = (min: string) => {
-      if (formData.selectedMinistries.includes(min)) {
-          setFormData({ ...formData, selectedMinistries: formData.selectedMinistries.filter(m => m !== min) });
+  // Toggle Ministérios (Agora usa o ID do ministério, não o nome)
+  const toggleMinistry = (ministryId: string) => {
+      if (formData.selectedMinistries.includes(ministryId)) {
+          setFormData({ ...formData, selectedMinistries: formData.selectedMinistries.filter(id => id !== ministryId) });
       } else {
-          setFormData({ ...formData, selectedMinistries: [...formData.selectedMinistries, min] });
+          setFormData({ ...formData, selectedMinistries: [...formData.selectedMinistries, ministryId] });
       }
+  };
+
+  // Ajuda a pegar o nome do ministério pelo ID na hora de imprimir
+  const getMinistryName = (id: string) => {
+      const min = ministryOptions.find(m => m.id === id);
+      return min ? min.name : "Desconhecido";
   };
 
   const handlePrintExecute = () => {
@@ -121,9 +138,7 @@ export default function MembersPage() {
                     <tbody>${rows}</tbody>
                 </table>
                 <div class="footer">Sistema ReinoCloud</div>
-                <script>
-                    setTimeout(() => window.print(), 500);
-                </script>
+                <script>setTimeout(() => window.print(), 500);</script>
             </body>
         </html>
     `;
@@ -169,7 +184,7 @@ export default function MembersPage() {
         photoUrl: formData.photoUrl, 
         gender: formData.gender, maritalStatus: formData.maritalStatus, 
         role: formData.role, status: formData.status, isTither: formData.isTither,
-        ministries: formData.selectedMinistries,
+        ministries: formData.selectedMinistries, // Salva IDs dos ministérios reais
         address: { 
             street: formData.street, number: formData.number, neighborhood: formData.neighborhood, 
             city: formData.city, state: formData.state, zipCode: formData.zipCode 
@@ -177,11 +192,12 @@ export default function MembersPage() {
       };
       if (editingId) await memberService.update(editingId, payload);
       else await memberService.create(payload);
-      setShowModal(false); loadMembers();
+      setShowModal(false); 
+      loadData(); // Recarrega tudo
     } catch (error) { alert("Erro ao salvar."); } finally { setLoading(false); }
   };
 
-  const handleDelete = async (id: string) => { if (confirm("Excluir membro?")) { await memberService.delete(id); loadMembers(); } };
+  const handleDelete = async (id: string) => { if (confirm("Excluir membro?")) { await memberService.delete(id); loadData(); } };
   const openAccessModal = (member: Member) => { if(!member.email) { alert("Este membro precisa de um e-mail."); return; } setSelectedMemberForAccess(member); setNewPassword(""); setShowAccessModal(true); };
   const handleCreateAccess = async (e: React.FormEvent) => { e.preventDefault(); if(!selectedMemberForAccess?.email) return; setCreatingAccess(true); try { await createSystemUser(selectedMemberForAccess.email, newPassword); alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); setShowAccessModal(false); } catch (error: any) { alert("Erro: " + error.message); } finally { setCreatingAccess(false); } };
 
@@ -214,11 +230,7 @@ export default function MembersPage() {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                            {member.photoUrl ? (
-                                <img src={member.photoUrl} alt={member.fullName} className="w-full h-full object-cover"/>
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>
-                            )}
+                            {member.photoUrl ? (<img src={member.photoUrl} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
                         </div>
                         <div className="flex flex-col">
                             <span className="font-bold text-gray-800">{member.fullName}</span>
@@ -258,7 +270,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* --- MODAL 1: CADASTRO/EDIÇÃO --- */}
+      {/* --- MODAL 1: CADASTRO/EDIÇÃO (GIGANTE AGORA) --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
@@ -268,69 +280,37 @@ export default function MembersPage() {
                 </div>
                 <form onSubmit={handleSave} className="p-6 space-y-6">
                     
-                    {/* SEÇÃO 1: DADOS PESSOAIS */}
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase">Link da Foto (URL)</label>
-                                <div className="relative">
-                                    <Camera className="absolute left-3 top-3 text-gray-400" size={16}/>
-                                    <input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white" placeholder="https://..." />
-                                </div>
-                            </div>
-                            <div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label><input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div>
-                            <div><label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div>
-                            <div><label className="text-[10px] font-bold text-gray-400 uppercase">Telefone</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase">Estado Civil</label>
-                                <div className="relative">
-                                    <Heart className="absolute left-3 top-3 text-pink-400" size={16}/>
-                                    <select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white appearance-none">
-                                        <option value="single">Solteiro(a)</option>
-                                        <option value="married">Casado(a)</option>
-                                        <option value="divorced">Divorciado(a)</option>
-                                        <option value="widowed">Viúvo(a)</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div><label className="text-[10px] font-bold text-gray-400 uppercase">Nascimento</label><input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div>
-                        </div>
-                    </div>
+                    {/* ... DADOS PESSOAIS E ECLESIÁSTICOS (IGUAIS AO ANTERIOR) ... */}
+                    {/* Vou manter essa parte igual, o foco é a seção de ministérios abaixo */}
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Link da Foto (URL)</label><div className="relative"><Camera className="absolute left-3 top-3 text-gray-400" size={16}/><input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white" placeholder="https://..." /></div></div><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label><input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Telefone</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Estado Civil</label><div className="relative"><Heart className="absolute left-3 top-3 text-pink-400" size={16}/><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white appearance-none"><option value="single">Solteiro(a)</option><option value="married">Casado(a)</option><option value="divorced">Divorciado(a)</option><option value="widowed">Viúvo(a)</option></select></div></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Nascimento</label><input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div></div></div>
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-[10px] font-bold text-gray-400 uppercase">Cargo</label><select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="member">Membro</option><option value="leader">Líder</option><option value="secretary">Secretaria</option><option value="treasurer">Tesouraria</option><option value="admin">Pastor</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-xl border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-50" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-bold text-gray-700">É Dizimista?</span></div></div></div></div>
 
-                    {/* SEÇÃO 2: DADOS ECLESIÁSTICOS */}
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className="text-[10px] font-bold text-gray-400 uppercase">Cargo</label><select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="member">Membro</option><option value="leader">Líder</option><option value="secretary">Secretaria</option><option value="treasurer">Tesouraria</option><option value="admin">Pastor</option></select></div>
-                            <div><label className="text-[10px] font-bold text-gray-400 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div>
-                            <div><label className="text-[10px] font-bold text-gray-400 uppercase">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div>
-                            <div className="flex items-end"><div className="w-full bg-white p-3 rounded-xl border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-50" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-bold text-gray-700">É Dizimista?</span></div></div>
-                        </div>
-                    </div>
-
-                    {/* SEÇÃO 3: MINISTÉRIOS */}
+                    {/* SEÇÃO 3: MINISTÉRIOS (AGORA DINÂMICO) */}
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                         <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Briefcase size={14}/> Ministérios & Departamentos</h3>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                            {AVAILABLE_MINISTRIES.map(dept => (
-                                <div key={dept} onClick={() => toggleMinistry(dept)} className={`p-2 rounded-lg border text-xs font-bold cursor-pointer transition flex items-center gap-2 ${formData.selectedMinistries.includes(dept) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'}`}>
-                                    <div className={`w-3 h-3 rounded-full border ${formData.selectedMinistries.includes(dept) ? 'bg-white border-white' : 'bg-transparent border-gray-300'}`}></div>
-                                    {dept}
-                                </div>
-                            ))}
-                        </div>
+                        
+                        {ministryOptions.length === 0 ? (
+                            <div className="text-center p-4 text-gray-400 text-xs italic">
+                                Nenhum ministério cadastrado na igreja. Vá em "Ministérios" para criar.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {ministryOptions.map(dept => (
+                                    <div 
+                                        key={dept.id} 
+                                        onClick={() => toggleMinistry(dept.id!)} // Usa o ID, não o nome
+                                        className={`p-2 rounded-lg border text-xs font-bold cursor-pointer transition flex items-center gap-2 ${formData.selectedMinistries.includes(dept.id!) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'}`}
+                                    >
+                                        <div className={`w-3 h-3 rounded-full border ${formData.selectedMinistries.includes(dept.id!) ? 'bg-white border-white' : 'bg-transparent border-gray-300'}`}></div>
+                                        {dept.name}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* SEÇÃO 4: ENDEREÇO */}
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><MapPin size={14}/> Endereço</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                             <div className="col-span-2"><input placeholder="Rua / Avenida" value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div>
-                             <div><input placeholder="Cidade" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div>
-                             <div><input placeholder="Estado/Província" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div>
-                        </div>
-                    </div>
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><MapPin size={14}/> Endereço</h3><div className="grid grid-cols-2 gap-4"><div className="col-span-2"><input placeholder="Rua / Avenida" value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><input placeholder="Cidade" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><input placeholder="Estado/Província" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div></div></div>
 
                     <div className="flex justify-end pt-4 gap-3">
                         <button type="button" onClick={() => setShowModal(false)} className="px-6 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50">Cancelar</button>
