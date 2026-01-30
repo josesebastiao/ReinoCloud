@@ -1,5 +1,6 @@
-"use client"; // <--- OBRIGATÓRIO
+"use client"; 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"; // <--- 1. IMPORTAR ROUTER
 import Link from "next/link";
 import { useChurch } from "../contexts/ChurchContext";
 import { memberService } from "../services/memberService";
@@ -12,7 +13,8 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
-  const { churchId, churchName, userName, userRole, formatMoney, logoUrl } = useChurch(); // <--- Peguei a logoUrl
+  const router = useRouter(); // <--- 2. INICIALIZAR ROUTER
+  const { churchId, churchName, userName, userRole, formatMoney, logoUrl } = useChurch();
   const [loading, setLoading] = useState(true);
   
   const [showBalance, setShowBalance] = useState(false);
@@ -21,8 +23,22 @@ export default function Dashboard() {
   const [nextEvents, setNextEvents] = useState<any[]>([]);
 
   useEffect(() => {
-    if (churchId) loadDashboardData();
-  }, [churchId]);
+    // --- 3. CORREÇÃO DO LOOP INFINITO ---
+    if (churchId) {
+        // Se tem ID, carrega os dados normalmente
+        loadDashboardData();
+    } else {
+        // Se NÃO tem ID (pode ser delay do contexto ou deslogado), espera um pouco
+        const timer = setTimeout(() => {
+            // Se passar 500ms e ainda não tiver churchId, verifica o localStorage direto pra ter certeza
+            const savedId = localStorage.getItem("churchId");
+            if (!savedId) {
+                router.push("/login"); // <--- MANDA PRO LOGIN
+            }
+        }, 500); 
+        return () => clearTimeout(timer);
+    }
+  }, [churchId, router]);
 
   const loadDashboardData = async () => {
     try {
@@ -45,7 +61,11 @@ export default function Dashboard() {
         const eventSnap = await getDocs(qEvents);
         setNextEvents(eventSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-    } catch (error) { console.error("Erro:", error); } finally { setLoading(false); }
+    } catch (error) { 
+        console.error("Erro:", error); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const canSee = (allowedRoles: string[]) => {
