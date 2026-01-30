@@ -1,8 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // <--- Importante
+import { useRouter } from "next/navigation"; 
 import { useChurch } from "../../contexts/ChurchContext";
-import { memberService, Member } from "../../services/memberService";
+
+// --- CORREÇÃO DOS IMPORTS ---
+import { memberService } from "../../services/memberService";
+import { Member } from "../../types/member"; // <--- Importando do lugar certo!
+// ----------------------------
+
 import { 
   Users, BarChart3, Cake, HandCoins, HeartHandshake, AlertCircle, Sparkles, 
   PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2
@@ -118,8 +123,6 @@ export default function ReportsPage() {
 
   if (loading) return <div className="flex justify-center p-10 min-h-screen items-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // ... (RESTANTE DO CÓDIGO VISUAL MANTIDO IGUAL AO ANTERIOR) ...
-  // Vou manter o retorno visual exatamente como estava, só alterei o início (useEffect)
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
