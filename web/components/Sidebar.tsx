@@ -5,23 +5,19 @@ import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Menu, X, Shield, ShieldAlert 
 } from "lucide-react";
-
-// 1. IMPORTAR O CONTEXTO
 import { useChurch } from "../contexts/ChurchContext";
 
-// 2. LISTA DE SUPER ADMINS (Tudo minúsculo para garantir)
+// SEUS EMAILS DE SUPER ADMIN
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-
-  // 3. PEGAR DADOS DIRETOS DO CONTEXTO
   const { user, userRole, signOutUser } = useChurch();
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
-  // Regras de Acesso
+  // REGRAS DE ACESSO
   const accessRules = {
     dashboard: ['admin', 'pastor', 'treasurer', 'leader', 'secretary'],
     secretary: ['admin', 'pastor', 'secretary'],
@@ -35,7 +31,7 @@ export function Sidebar() {
       return accessRules[module].includes(userRole);
   };
 
-  // 4. VERIFICAÇÃO BLINDADA (Converte para minúsculo antes de checar)
+  // --- LÓGICA DE VERIFICAÇÃO ---
   const userEmail = user?.email ? user.email.toLowerCase() : "";
   const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
 
@@ -46,7 +42,7 @@ export function Sidebar() {
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
     ...(canAccess('settings')  ? [{ icon: Settings, label: "Configurações", href: "/settings" }] : []),
     
-    // SÓ APARECE SE O EMAIL FOR O SEU REALMENTE
+    // ITEM DO SUPER ADMIN
     ...(isSuperAdmin ? [{ icon: ShieldAlert, label: "Painel SaaS", href: "/admin", special: true }] : []),
   ];
 
@@ -57,12 +53,12 @@ export function Sidebar() {
       </button>
 
       <aside className={`fixed left-0 top-0 h-full bg-[#0F172A] text-white w-64 z-50 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl border-r border-slate-800 ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
+        
         <div className="p-6">
           <div className="flex items-center gap-2 mb-1">
               <div className="bg-blue-600 p-1.5 rounded-lg"><Shield size={18} className="text-white"/></div>
               <h1 className="text-xl font-bold text-white tracking-tight">ReinoCloud</h1>
           </div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest pl-1">Gestão para Igrejas</p>
           
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
@@ -70,6 +66,17 @@ export function Sidebar() {
                 {isSuperAdmin ? 'SUPER ADMIN' : userRole === 'admin' ? 'PASTOR TITULAR' : userRole || 'Membro'}
             </span>
           </div>
+
+          {/* --- ÁREA DE DEBUG (TEMPORÁRIA) --- */}
+          {/* Isso vai nos mostrar QUEM o sistema acha que está logado */}
+          <div className="mt-2 p-2 bg-red-900/50 border border-red-500/50 rounded text-[10px] text-red-200 font-mono break-all">
+             DEBUG:<br/>
+             Email: {userEmail || "Sem email"}<br/>
+             Role: {userRole}<br/>
+             É Super?: {isSuperAdmin ? "SIM" : "NÃO"}
+          </div>
+          {/* ---------------------------------- */}
+
         </div>
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-2">
