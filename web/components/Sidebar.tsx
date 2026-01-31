@@ -7,8 +7,7 @@ import {
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
 
-// SEUS EMAILS DE SUPER ADMIN
-// Certifique-se que estão todos em minúsculo
+// SEUS EMAILS DE SUPER ADMIN (IMPORTANTE: Mantenha minúsculo)
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
 
 export function Sidebar() {
@@ -18,7 +17,7 @@ export function Sidebar() {
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
-  // REGRAS DE ACESSO
+  // Regras de Acesso
   const accessRules = {
     dashboard: ['admin', 'pastor', 'treasurer', 'leader', 'secretary'],
     secretary: ['admin', 'pastor', 'secretary'],
@@ -33,7 +32,6 @@ export function Sidebar() {
   };
 
   // --- LÓGICA DE VERIFICAÇÃO ---
-  // Converte para minúsculo para garantir a comparação exata
   const userEmail = user?.email ? user.email.toLowerCase() : "";
   const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
 
@@ -44,12 +42,33 @@ export function Sidebar() {
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
     ...(canAccess('settings')  ? [{ icon: Settings, label: "Configurações", href: "/settings" }] : []),
     
-    // ITEM DO SUPER ADMIN
+    // O PAINEL SAAS SÓ DEVE APARECER AQUI SE isSuperAdmin FOR TRUE
     ...(isSuperAdmin ? [{ icon: ShieldAlert, label: "Painel SaaS", href: "/admin", special: true }] : []),
   ];
 
   return (
     <>
+      {/* ============================================================ */}
+      {/* DEBUGADOR FLUTUANTE - VAI APARECER NO CANTO DA TELA FORA DO MENU */}
+      {/* ============================================================ */}
+      <div className="fixed bottom-4 right-4 z-[9999] bg-red-600 text-white p-4 rounded-xl shadow-2xl border-4 border-white font-mono text-xs max-w-xs break-all">
+          <h3 className="font-bold border-b border-red-400 mb-2 pb-1">🕵️ DETECTOR DE ERRO</h3>
+          <p><strong>Email Logado:</strong><br/>{userEmail || "(Nenhum)"}</p>
+          <div className="mt-2 p-2 bg-black/20 rounded">
+             <strong>Sou Super Admin?</strong>
+             <span className={`ml-2 px-2 py-0.5 rounded font-bold ${isSuperAdmin ? 'bg-white text-red-600' : 'bg-green-400 text-black'}`}>
+                {isSuperAdmin ? "SIM 😡" : "NÃO ✅"}
+             </span>
+          </div>
+          {isSuperAdmin && (
+             <p className="mt-2 text-[10px] leading-tight">
+                ⚠️ O sistema acha que seu email está na lista de donos!
+             </p>
+          )}
+      </div>
+      {/* ============================================================ */}
+
+
       <button onClick={() => setIsOpen(!isOpen)} className="md:hidden fixed top-4 right-4 z-[60] bg-slate-900 text-white p-2 rounded-lg shadow-lg border border-slate-700">
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
@@ -62,33 +81,12 @@ export function Sidebar() {
               <h1 className="text-xl font-bold text-white tracking-tight">ReinoCloud</h1>
           </div>
           
-          {/* ================================================== */}
-          {/* AQUI ESTÁ O DETECTOR DE MENTIRAS          */}
-          {/* ================================================== */}
-          <div className="mt-4 p-3 bg-red-600 text-white text-xs font-bold rounded-lg border-2 border-white shadow-xl">
-             <p className="border-b border-red-400 mb-1 pb-1">🔍 DIAGNÓSTICO:</p>
-             <p className="font-mono mt-1 text-[10px]">Email: {userEmail || "Nenhum"}</p>
-             <div className="mt-2 flex justify-between items-center">
-                 <span>Sou Super Admin?</span>
-                 <span className={`px-2 py-0.5 rounded ${isSuperAdmin ? 'bg-white text-red-600' : 'bg-green-600 text-white'}`}>
-                    {isSuperAdmin ? "SIM" : "NÃO"}
-                 </span>
-             </div>
-             {isSuperAdmin && (
-                 <p className="mt-2 text-[9px] bg-black/20 p-1 rounded text-center">
-                    ⚠️ ERRO: O sistema acha que você é o Dono!
-                 </p>
-             )}
-          </div>
-          {/* ================================================== */}
-
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
             <span className="truncate max-w-[150px]">
                 {isSuperAdmin ? 'SUPER ADMIN' : userRole === 'admin' ? 'PASTOR TITULAR' : userRole || 'Membro'}
             </span>
           </div>
-
         </div>
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-2">
