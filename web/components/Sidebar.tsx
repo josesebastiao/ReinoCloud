@@ -73,7 +73,7 @@ export function Sidebar() {
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      <aside className={`fixed left-0 top-0 h-full bg-[#0F172A] text-white w-64 z-50 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl border-r border-slate-800 ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
+      <aside className={`fixed left-0 top-0 h-full bg-red-600 text-white w-64 z-50 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl border-r border-slate-800 ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
         
         <div className="p-6">
           <div className="flex items-center gap-2 mb-1">
