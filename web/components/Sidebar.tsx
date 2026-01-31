@@ -9,14 +9,14 @@ import {
 // 1. IMPORTAR O CONTEXTO
 import { useChurch } from "../contexts/ChurchContext";
 
-// 2. LISTA DE SUPER ADMINS (Coloque seus emails aqui)
+// 2. LISTA DE SUPER ADMINS (Tudo minúsculo para garantir)
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
-  // 3. PEGAR DADOS DIRETOS DO CONTEXTO (Fonte Segura)
+  // 3. PEGAR DADOS DIRETOS DO CONTEXTO
   const { user, userRole, signOutUser } = useChurch();
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
@@ -35,10 +35,9 @@ export function Sidebar() {
       return accessRules[module].includes(userRole);
   };
 
-  // 4. VERIFICAÇÃO FINAL (BLINDADA)
-  // O botão SaaS só aparece se o usuário logado tiver um email que está na lista acima.
-  // Não importa se o localStorage diz outra coisa.
-  const isSuperAdmin = user?.email && SUPER_ADMINS.includes(user.email);
+  // 4. VERIFICAÇÃO BLINDADA (Converte para minúsculo antes de checar)
+  const userEmail = user?.email ? user.email.toLowerCase() : "";
+  const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
 
   const menuItems = [
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Início", href: "/" }] : []),
@@ -47,7 +46,7 @@ export function Sidebar() {
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
     ...(canAccess('settings')  ? [{ icon: Settings, label: "Configurações", href: "/settings" }] : []),
     
-    // SÓ APARECE SE O EMAIL FOR O SEU
+    // SÓ APARECE SE O EMAIL FOR O SEU REALMENTE
     ...(isSuperAdmin ? [{ icon: ShieldAlert, label: "Painel SaaS", href: "/admin", special: true }] : []),
   ];
 
@@ -65,7 +64,6 @@ export function Sidebar() {
           </div>
           <p className="text-[10px] text-slate-400 uppercase tracking-widest pl-1">Gestão para Igrejas</p>
           
-          {/* Badge que mostra quem realmente está logado */}
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
             <span className="truncate max-w-[150px]">

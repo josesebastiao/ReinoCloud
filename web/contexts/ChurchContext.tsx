@@ -37,6 +37,12 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
   // --- FUNÇÃO DE AUTO-RESGATE (Se o localStorage falhar) ---
   const fetchMemberData = async (currentUser: User) => {
     try {
+        // Se for o Super Admin (Bypass)
+        if (currentUser.email === "alfaministro1@gmail.com" || currentUser.email === "alfaministro1@hotmail.com") {
+             setChurchData("master_admin", "ReinoCloud HQ", "admin", "Super Admin", "", "AO");
+             return true;
+        }
+
         const q = query(collection(db, "members"), where("email", "==", currentUser.email));
         const snapshot = await getDocs(q);
 
@@ -77,7 +83,7 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
         // Tenta recuperar do localStorage (Cache)
         if (typeof window !== 'undefined') {
             const storedId = localStorage.getItem("churchId");
-            const storedLogo = localStorage.getItem("churchLogo"); // <--- RECUPERA LOGO
+            const storedLogo = localStorage.getItem("churchLogo"); // <--- AQUI ESTÁ A CORREÇÃO DA LOGO
             const storedCurrency = localStorage.getItem("churchCurrency");
 
             if (storedId) {
@@ -86,7 +92,7 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
                 setUserRole(localStorage.getItem("userRole") || "");
                 setUserName(localStorage.getItem("userName") || "");
                 
-                if (storedLogo) setLogoUrl(storedLogo); // <--- APLICA LOGO
+                if (storedLogo) setLogoUrl(storedLogo); // <--- RECUPERA LOGO
                 if (storedCurrency) setCurrency(storedCurrency);
                 
                 setLoading(false);
@@ -124,7 +130,7 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("userRole", role);
         localStorage.setItem("userName", uName);
         
-        // --- AQUI ESTÁ A CORREÇÃO: SALVAR A LOGO ---
+        // --- GRAVA A LOGO PARA NÃO PERDER NO F5 ---
         if(logo) localStorage.setItem("churchLogo", logo);
         else localStorage.removeItem("churchLogo");
 
@@ -136,7 +142,7 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
       try {
           await auth.signOut();
           
-          // Limpa Estados
+          // Limpa Estados React
           setUser(null);
           setChurchId("");
           setChurchName("");
@@ -144,8 +150,9 @@ export function ChurchProvider({ children }: { children: ReactNode }) {
           setLogoUrl("");
           
           // --- LIMPEZA PROFUNDA DA MEMÓRIA ---
+          // Isso garante que o Sidebar não ache que você é Super Admin
           if (typeof window !== 'undefined') {
-            localStorage.clear(); // Remove TUDO para não sobrar lixo do admin anterior
+            localStorage.clear(); 
           }
           
           router.push("/login");
