@@ -1,150 +1,54 @@
 "use client";
-import { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import Link from "next/link";
-import { 
-  Users, FileText, Settings, LogOut, Menu, X, 
-  Music, DollarSign, PieChart, Shield, Home, ArrowLeft 
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Sidebar } from "./Sidebar"; // <--- AGORA VAI USAR A SIDEBAR CERTA
 import InstallPWA from "./InstallPWA";
 import OfflineIndicator from "./OfflineIndicator";
+import { Menu, ArrowLeft, Home } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useChurch } from "../contexts/ChurchContext";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [userRole, setUserRole] = useState("member");
+  const { userRole, userName } = useChurch(); // Usa o contexto global
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const isAuthPage = pathname === "/login" || pathname === "/register";
-
-  useEffect(() => {
-    const role = localStorage.getItem("userRole");
-    if (role) setUserRole(role);
-  }, [pathname]);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    router.push("/login");
-  };
-
-  const menuItems = [
-    // 1. INÍCIO
-    { name: "Início", icon: Home, path: "/", roles: ["admin", "pastor", "treasurer", "secretary", "member"] },
-    
-    // 2. SECRETARIA (Agora engloba a ideia de membros visualmente)
-    { name: "Secretaria", icon: FileText, path: "/secretary", roles: ["admin", "pastor", "secretary"] },
-    
-    // REMOVI "Membros" DAQUI (Mas o link /members continua funcionando via Dashboard)
-    
-    // 3. DEPARTAMENTOS (Era Ministérios)
-    { name: "Departamentos", icon: Music, path: "/ministries", roles: ["admin", "pastor", "leader"] },
-    
-    // 4. TESOURARIA (Era Financeiro)
-    { name: "Tesouraria", icon: DollarSign, path: "/financial", roles: ["admin", "pastor", "treasurer"] },
-    
-    // 5. ESTATÍSTICAS (Era Relatórios)
-    { name: "Estatísticas", icon: PieChart, path: "/reports", roles: ["admin", "pastor"] },
-    
-    // 6. CONFIGURAÇÕES
-    { name: "Configurações", icon: Settings, path: "/settings", roles: ["admin", "pastor"] },
-  ];
-
-  const canView = (roles: string[]) => roles.includes(userRole) || userRole === 'admin';
-
-  if (isAuthPage) {
+  // Se for Login ou Registro, mostra sem layout
+  if (pathname === "/login" || pathname === "/register") {
     return <>{children}</>;
   }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
         
-        {/* OVERLAY MOBILE */}
-        {isSidebarOpen && (
-        <div 
-            className="fixed inset-0 bg-black/60 z-50 md:hidden backdrop-blur-sm transition-opacity"
-            onClick={() => setIsSidebarOpen(false)}
-        />
+        {/* USANDO O COMPONENTE SIDEBAR EXTERNO (O QUE TEM A LÓGICA CERTA) */}
+        <div className="hidden md:block">
+            <Sidebar />
+        </div>
+
+        {/* --- MENU MOBILE (TELA PEQUENA) --- */}
+        {/* Mantivemos a lógica mobile aqui para não quebrar o layout responsivo */}
+        {isMobileMenuOpen && (
+             <div className="fixed inset-0 z-50 md:hidden flex">
+                 <div className="relative z-50 w-72 h-full bg-slate-900 shadow-xl">
+                     <Sidebar /> {/* Reusa a Sidebar no mobile também */}
+                     <button 
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="absolute top-4 right-4 text-white/50 hover:text-white"
+                     >
+                        ✕
+                     </button>
+                 </div>
+                 <div onClick={() => setIsMobileMenuOpen(false)} className="flex-1 bg-black/60 backdrop-blur-sm" />
+             </div>
         )}
 
-        {/* SIDEBAR PC */}
-        <aside 
-        className={`
-            fixed md:sticky md:top-0 md:h-screen inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white flex flex-col h-full shadow-2xl transition-transform duration-300 ease-in-out print:hidden
-            ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        `}
-        >
-        <div className="p-6 flex justify-between items-center border-b border-gray-800">
-            <div className="flex items-center gap-3">
-                <img src="/icon.svg" className="w-8 h-8"/>
-                <div>
-                    <h1 className="text-xl font-bold text-white tracking-tight">ReinoCloud</h1>
-                    <p className="text-[10px] text-gray-400">Gestão para Igrejas</p>
-                </div>
-            </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white">
-            <X size={24} />
-            </button>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-            <div className="md:hidden mb-4">
-            <InstallPWA />
-            </div>
-
-            {userRole === 'admin' && (
-                <div className="mb-4 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center gap-2">
-                <Shield size={14} className="text-yellow-500"/>
-                <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider">Super Admin</span>
-                </div>
-            )}
-
-          {/* ... parte do menuItems.map ... */}
-            {menuItems.map((item) => (
-                canView(item.roles) && (
-                    <Link 
-                    key={item.path} 
-                    href={item.path}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                        pathname === item.path 
-                        ? "bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/50" 
-                        : "text-gray-400 hover:bg-gray-800 hover:text-white"
-                    }`}
-                    >
-                    <item.icon size={20} />
-                    <span>{item.name}</span>
-                    </Link>
-                )
-            ))}
-
-            {/* --- AQUI ESTÁ O RESGATE DO SUPER ADMIN --- */}
-            {/* Só aparece se o cargo for 'admin' */}
-            {userRole === 'admin' && (
-                <div className="mt-6 pt-6 border-t border-gray-800">
-                    <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Administração</p>
-                    <Link 
-                        href="/admin" 
-                        onClick={() => setIsSidebarOpen(false)}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all group"
-                    >
-                        <Shield size={20} className="group-hover:animate-pulse"/>
-                        <span className="font-bold">Painel SaaS</span>
-                    </Link>
-                </div>
-            )}
-        </nav>
-
-        <div className="p-4 border-t border-gray-800">
-            <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full text-left text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl transition">
-            <LogOut size={20} /> <span>Sair</span>
-            </button>
-        </div>
-        </aside>
-
         {/* CONTEÚDO PRINCIPAL */}
-        <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50">
+        <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50 md:pl-64">
         
-        {/* HEADER MOBILE (AZUL ESCURO) */}
+        {/* HEADER MOBILE */}
         <header className="md:hidden bg-blue-900 border-b border-blue-800 px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top print:hidden text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
@@ -152,7 +56,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     <ArrowLeft size={24} />
                 </button>
                 ) : (
-                <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-blue-100 hover:bg-blue-800 rounded-lg">
+                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-blue-100 hover:bg-blue-800 rounded-lg">
                     <Menu size={24} />
                 </button>
                 )}
@@ -166,11 +70,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </div>
 
             <div className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-blue-100 font-bold text-sm border border-blue-600">
-                {userRole.slice(0,2).toUpperCase()}
+                {userRole ? userRole.slice(0,2).toUpperCase() : 'ME'}
             </div>
         </header>
 
         <div className="flex-1 overflow-auto p-0 md:p-0 pb-32 md:pb-8 relative">
+            <div className="md:hidden px-4 pt-2">
+                <InstallPWA />
+            </div>
             {children}
         </div>
 
@@ -180,7 +87,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <Home size={24} strokeWidth={pathname === '/' ? 2.5 : 2} />
                 <span className="text-[10px] font-medium">Início</span>
             </Link>
-             <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 text-gray-400">
+             <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center gap-1 text-gray-400">
                 <Menu size={24} />
                 <span className="text-[10px] font-medium">Menu</span>
             </button>

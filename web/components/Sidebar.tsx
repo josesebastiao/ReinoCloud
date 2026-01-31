@@ -48,38 +48,18 @@ export function Sidebar() {
 
   return (
     <>
-      {/* ============================================================ */}
-      {/* DEBUGADOR FLUTUANTE - VAI APARECER NO CANTO DA TELA FORA DO MENU */}
-      {/* ============================================================ */}
-      <div className="fixed bottom-4 right-4 z-[9999] bg-red-600 text-white p-4 rounded-xl shadow-2xl border-4 border-white font-mono text-xs max-w-xs break-all">
-          <h3 className="font-bold border-b border-red-400 mb-2 pb-1">🕵️ DETECTOR DE ERRO</h3>
-          <p><strong>Email Logado:</strong><br/>{userEmail || "(Nenhum)"}</p>
-          <div className="mt-2 p-2 bg-black/20 rounded">
-             <strong>Sou Super Admin?</strong>
-             <span className={`ml-2 px-2 py-0.5 rounded font-bold ${isSuperAdmin ? 'bg-white text-red-600' : 'bg-green-400 text-black'}`}>
-                {isSuperAdmin ? "SIM 😡" : "NÃO ✅"}
-             </span>
-          </div>
-          {isSuperAdmin && (
-             <p className="mt-2 text-[10px] leading-tight">
-                ⚠️ O sistema acha que seu email está na lista de donos!
-             </p>
-          )}
-      </div>
-      {/* ============================================================ */}
-
-
       <button onClick={() => setIsOpen(!isOpen)} className="md:hidden fixed top-4 right-4 z-[60] bg-slate-900 text-white p-2 rounded-lg shadow-lg border border-slate-700">
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      <aside className={`fixed left-0 top-0 h-full bg-red-600 text-white w-64 z-50 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl border-r border-slate-800 ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
+      <aside className={`fixed left-0 top-0 h-full bg-[#0F172A] text-white w-64 z-50 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl border-r border-slate-800 ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
         
         <div className="p-6">
           <div className="flex items-center gap-2 mb-1">
               <div className="bg-blue-600 p-1.5 rounded-lg"><Shield size={18} className="text-white"/></div>
               <h1 className="text-xl font-bold text-white tracking-tight">ReinoCloud</h1>
           </div>
+          <p className="text-[10px] text-slate-400 uppercase tracking-widest pl-1">Gestão para Igrejas</p>
           
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
