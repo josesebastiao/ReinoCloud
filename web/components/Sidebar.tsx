@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
 
-// SEUS EMAILS DE SUPER ADMIN (IMPORTANTE: Mantenha minúsculo)
+// SEUS EMAILS DE SUPER ADMIN
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
 
 export function Sidebar() {
@@ -55,11 +55,15 @@ export function Sidebar() {
       <aside className={`fixed left-0 top-0 h-full bg-[#0F172A] text-white w-64 z-50 transition-transform duration-300 ease-in-out flex flex-col shadow-2xl border-r border-slate-800 ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}>
         
         <div className="p-6">
-          <div className="flex items-center gap-2 mb-1">
-              <div className="bg-blue-600 p-1.5 rounded-lg"><Shield size={18} className="text-white"/></div>
-              <h1 className="text-xl font-bold text-white tracking-tight">ReinoCloud</h1>
+          <div className="flex items-center gap-3 mb-1">
+              {/* --- VOLTAMOS COM O ÍCONE ORIGINAL AQUI --- */}
+              <img src="/icon.svg" alt="ReinoCloud" className="w-8 h-8 object-contain" />
+              
+              <div>
+                <h1 className="text-xl font-bold text-white tracking-tight leading-none">ReinoCloud</h1>
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest">Gestão para Igrejas</p>
+              </div>
           </div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-widest pl-1">Gestão para Igrejas</p>
           
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
