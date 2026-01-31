@@ -8,6 +8,7 @@ import {
 import { useChurch } from "../contexts/ChurchContext";
 
 // SEUS EMAILS DE SUPER ADMIN
+// Certifique-se que estão todos em minúsculo
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
 
 export function Sidebar() {
@@ -32,6 +33,7 @@ export function Sidebar() {
   };
 
   // --- LÓGICA DE VERIFICAÇÃO ---
+  // Converte para minúsculo para garantir a comparação exata
   const userEmail = user?.email ? user.email.toLowerCase() : "";
   const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
 
@@ -60,22 +62,32 @@ export function Sidebar() {
               <h1 className="text-xl font-bold text-white tracking-tight">ReinoCloud</h1>
           </div>
           
+          {/* ================================================== */}
+          {/* AQUI ESTÁ O DETECTOR DE MENTIRAS          */}
+          {/* ================================================== */}
+          <div className="mt-4 p-3 bg-red-600 text-white text-xs font-bold rounded-lg border-2 border-white shadow-xl">
+             <p className="border-b border-red-400 mb-1 pb-1">🔍 DIAGNÓSTICO:</p>
+             <p className="font-mono mt-1 text-[10px]">Email: {userEmail || "Nenhum"}</p>
+             <div className="mt-2 flex justify-between items-center">
+                 <span>Sou Super Admin?</span>
+                 <span className={`px-2 py-0.5 rounded ${isSuperAdmin ? 'bg-white text-red-600' : 'bg-green-600 text-white'}`}>
+                    {isSuperAdmin ? "SIM" : "NÃO"}
+                 </span>
+             </div>
+             {isSuperAdmin && (
+                 <p className="mt-2 text-[9px] bg-black/20 p-1 rounded text-center">
+                    ⚠️ ERRO: O sistema acha que você é o Dono!
+                 </p>
+             )}
+          </div>
+          {/* ================================================== */}
+
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
             <span className="truncate max-w-[150px]">
                 {isSuperAdmin ? 'SUPER ADMIN' : userRole === 'admin' ? 'PASTOR TITULAR' : userRole || 'Membro'}
             </span>
           </div>
-
-          {/* --- ÁREA DE DEBUG (TEMPORÁRIA) --- */}
-          {/* Isso vai nos mostrar QUEM o sistema acha que está logado */}
-          <div className="mt-2 p-2 bg-red-900/50 border border-red-500/50 rounded text-[10px] text-red-200 font-mono break-all">
-             DEBUG:<br/>
-             Email: {userEmail || "Sem email"}<br/>
-             Role: {userRole}<br/>
-             É Super?: {isSuperAdmin ? "SIM" : "NÃO"}
-          </div>
-          {/* ---------------------------------- */}
 
         </div>
 
