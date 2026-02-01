@@ -27,13 +27,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <Sidebar />
         </aside>
 
-        {/* MENU MOBILE (COM AÇÃO DE FECHAR) */}
+        {/* MENU MOBILE */}
         {isMobileMenuOpen && (
              <div className="fixed inset-0 z-[60] md:hidden flex animate-in fade-in duration-200">
                  <div className="relative w-72 h-full bg-[#0F172A] shadow-2xl animate-in slide-in-from-left duration-300">
-                     {/* Passamos a função para fechar o menu ao clicar num link */}
                      <Sidebar onNavigate={() => setIsMobileMenuOpen(false)} /> 
-                     
                      <button 
                         onClick={() => setIsMobileMenuOpen(false)}
                         className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-slate-800/50 rounded-lg"
@@ -45,44 +43,46 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
              </div>
         )}
 
-        {/* CONTEÚDO */}
+        {/* CONTEÚDO PRINCIPAL */}
         <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-gray-50 md:pl-64 transition-all">
         
-        {/* HEADER MOBILE - CORRIGIDO PARA COBRIR O TOPO */}
-        {/* Mudamos para bg-blue-900 para combinar com o tema escuro da sidebar, ou pode usar bg-blue-600 se preferir mais claro */}
-        <header className="md:hidden bg-[#0F172A] border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-md z-30 sticky top-0 text-white">
+        {/* HEADER MOBILE (FIXO E AZUL) */}
+        <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-blue-600 border-b border-blue-500 px-4 flex items-center justify-between shadow-md z-30 safe-area-top text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
-                <button onClick={() => router.back()} className="p-2 -ml-2 text-slate-300 hover:bg-slate-800 rounded-full transition">
+                <button onClick={() => router.back()} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-full transition">
                     <ArrowLeft size={24} />
                 </button>
                 ) : (
-                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-slate-300 hover:bg-slate-800 rounded-lg">
+                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-lg">
                     <Menu size={24} />
                 </button>
                 )}
                 
                 <div className="flex items-center gap-2">
-                    {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 rounded-lg bg-blue-600 p-1.5"/>}
+                    {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 rounded-lg bg-blue-700 p-1"/>}
                     <span className="font-bold text-white text-lg tracking-tight">
                         {pathname === '/' ? 'ReinoCloud' : 'Voltar'}
                     </span>
                 </div>
             </div>
 
-            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-[#0F172A] shadow-lg">
+            <div className="w-9 h-9 bg-blue-800 rounded-full flex items-center justify-center text-white font-bold text-sm border border-blue-400 shadow-sm">
                 {userRole ? userRole.slice(0,2).toUpperCase() : 'ME'}
             </div>
         </header>
 
-        <div className="flex-1 p-4 md:p-8 pb-24 md:pb-8">
+        {/* ÁREA DO CONTEÚDO */}
+        {/* Correção Desktop: removemos o padding (md:p-0) */}
+        {/* Correção Mobile: adicionamos pt-20 para não esconder atrás do menu */}
+        <div className="flex-1 pb-24 md:pb-0 pt-20 px-4 md:p-0">
             <div className="md:hidden mb-4">
                 <InstallPWA />
             </div>
             {children}
         </div>
 
-        {/* BOTTOM BAR */}
+        {/* BARRA INFERIOR MOBILE */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-8 py-3 flex justify-between items-center z-40 safe-area-bottom shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
             <Link href="/" className={`flex flex-col items-center gap-1 transition ${pathname === '/' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
                 <Home size={24} strokeWidth={pathname === '/' ? 2.5 : 2} />
