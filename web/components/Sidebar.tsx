@@ -6,16 +6,19 @@ import {
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
 
-// SEUS EMAILS DE SUPER ADMIN
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
 
-export function Sidebar() {
+// 1. ADICIONAMOS UMA PROPRIEDADE OPCIONAL
+interface SidebarProps {
+    onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const { user, userRole, signOutUser } = useChurch();
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
-  // Regras de Acesso
   const accessRules = {
     dashboard: ['admin', 'pastor', 'treasurer', 'leader', 'secretary'],
     secretary: ['admin', 'pastor', 'secretary'],
@@ -41,8 +44,6 @@ export function Sidebar() {
     ...(isSuperAdmin ? [{ icon: ShieldAlert, label: "Painel SaaS", href: "/admin", special: true }] : []),
   ];
 
-  // OBS: Removemos 'fixed', 'translate', botões e estados.
-  // Agora ele apenas preenche 100% do espaço que o pai (MainLayout) der para ele.
   return (
     <div className="w-full h-full bg-[#0F172A] text-white flex flex-col border-r border-slate-800">
         
@@ -65,7 +66,12 @@ export function Sidebar() {
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-slate-700">
           {menuItems.map((item) => (
-            <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group ${(item as any).special ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 mt-6" : pathname === item.href ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 font-bold translate-x-1" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}>
+            <Link 
+                key={item.href} 
+                href={item.href} 
+                onClick={onNavigate} // <--- 2. AQUI ESTÁ A MÁGICA: Fecha o menu ao clicar
+                className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group ${(item as any).special ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 mt-6" : pathname === item.href ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 font-bold translate-x-1" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}
+            >
               <item.icon size={20} className={pathname === item.href ? "text-white" : (item as any).special ? "text-red-400" : "text-slate-500 group-hover:text-white transition-colors"} />
               <span className="text-sm">{item.label}</span>
             </Link>
