@@ -1,9 +1,9 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { Sidebar } from "./Sidebar"; // <--- AGORA VAI USAR A SIDEBAR CERTA
+import { Sidebar } from "./Sidebar";
 import InstallPWA from "./InstallPWA";
 import OfflineIndicator from "./OfflineIndicator";
-import { Menu, ArrowLeft, Home } from "lucide-react";
+import { Menu, ArrowLeft, Home, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -12,10 +12,9 @@ import { useChurch } from "../contexts/ChurchContext";
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { userRole, userName } = useChurch(); // Usa o contexto global
+  const { userRole } = useChurch();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Se for Login ou Registro, mostra sem layout
   if (pathname === "/login" || pathname === "/register") {
     return <>{children}</>;
   }
@@ -23,71 +22,85 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen bg-gray-50">
         
-        {/* USANDO O COMPONENTE SIDEBAR EXTERNO (O QUE TEM A LÓGICA CERTA) */}
-        <div className="hidden md:block">
+        {/* --- SIDEBAR DESKTOP (FIXA) --- */}
+        {/* Aqui definimos a largura e posição fixa apenas para telas grandes */}
+        <aside className="hidden md:flex fixed top-0 left-0 h-screen w-64 z-50 shadow-xl">
             <Sidebar />
-        </div>
+        </aside>
 
         {/* --- MENU MOBILE (TELA PEQUENA) --- */}
-        {/* Mantivemos a lógica mobile aqui para não quebrar o layout responsivo */}
+        {/* O Z-Index 50 garante que fique acima de tudo */}
         {isMobileMenuOpen && (
-             <div className="fixed inset-0 z-50 md:hidden flex">
-                 <div className="relative z-50 w-72 h-full bg-slate-900 shadow-xl">
-                     <Sidebar /> {/* Reusa a Sidebar no mobile também */}
+             <div className="fixed inset-0 z-[60] md:hidden flex animate-in fade-in duration-200">
+                 {/* Conteúdo da Sidebar Mobile */}
+                 <div className="relative w-72 h-full bg-[#0F172A] shadow-2xl animate-in slide-in-from-left duration-300">
+                     <Sidebar /> 
+                     
+                     {/* Botão X para fechar (dentro da sidebar mobile) */}
                      <button 
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className="absolute top-4 right-4 text-white/50 hover:text-white"
+                        className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-slate-800/50 rounded-lg"
                      >
-                        ✕
+                        <X size={20} />
                      </button>
                  </div>
+                 
+                 {/* Fundo escuro (Overlay) - Clica para fechar */}
                  <div onClick={() => setIsMobileMenuOpen(false)} className="flex-1 bg-black/60 backdrop-blur-sm" />
              </div>
         )}
 
         {/* CONTEÚDO PRINCIPAL */}
-        <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden bg-gray-50 md:pl-64">
+        {/* md:pl-64 empurra o conteúdo para a direita no Desktop para não ficar embaixo da Sidebar */}
+        <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-gray-50 md:pl-64 transition-all">
         
         {/* HEADER MOBILE */}
-        <header className="md:hidden bg-blue-900 border-b border-blue-800 px-4 py-3 flex items-center justify-between shadow-sm z-30 sticky top-0 safe-area-top print:hidden text-white">
+        <header className="md:hidden bg-[#0F172A] border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-md z-30 sticky top-0 safe-area-top text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
-                <button onClick={() => router.back()} className="p-2 -ml-2 text-blue-100 hover:bg-blue-800 rounded-full transition">
+                <button onClick={() => router.back()} className="p-2 -ml-2 text-slate-300 hover:bg-slate-800 rounded-full transition">
                     <ArrowLeft size={24} />
                 </button>
                 ) : (
-                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-blue-100 hover:bg-blue-800 rounded-lg">
+                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-slate-300 hover:bg-slate-800 rounded-lg">
                     <Menu size={24} />
                 </button>
                 )}
                 
                 <div className="flex items-center gap-2">
-                    {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 rounded-lg bg-blue-800/50 p-1"/>}
+                    {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 rounded-lg bg-blue-600 p-1.5"/>}
                     <span className="font-bold text-white text-lg tracking-tight">
                         {pathname === '/' ? 'ReinoCloud' : 'Voltar'}
                     </span>
                 </div>
             </div>
 
-            <div className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-blue-100 font-bold text-sm border border-blue-600">
+            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 border-[#0F172A] shadow-lg">
                 {userRole ? userRole.slice(0,2).toUpperCase() : 'ME'}
             </div>
         </header>
 
-        <div className="flex-1 overflow-auto p-0 md:p-0 pb-32 md:pb-8 relative">
-            <div className="md:hidden px-4 pt-2">
+        {/* ÁREA DE SCROLL DO CONTEÚDO */}
+        <div className="flex-1 p-4 md:p-8 pb-24 md:pb-8">
+            <div className="md:hidden mb-4">
                 <InstallPWA />
             </div>
             {children}
         </div>
 
-        {/* BOTTOM TAB BAR */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 flex justify-between items-center z-40 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] print:hidden">
-            <Link href="/" className={`flex flex-col items-center gap-1 ${pathname === '/' ? 'text-blue-600' : 'text-gray-400'}`}>
+        {/* BOTTOM TAB BAR (Rodapé Mobile) */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-8 py-3 flex justify-between items-center z-40 safe-area-bottom shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+            <Link href="/" className={`flex flex-col items-center gap-1 transition ${pathname === '/' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
                 <Home size={24} strokeWidth={pathname === '/' ? 2.5 : 2} />
                 <span className="text-[10px] font-medium">Início</span>
             </Link>
-             <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center gap-1 text-gray-400">
+            
+            {/* Botão Central de Ação (Opcional - Visual) */}
+            <div className="w-12 h-12 -mt-8 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-600/30 text-white border-4 border-gray-50">
+                 <img src="/icon.svg" className="w-6 h-6 invert brightness-0"/>
+            </div>
+
+             <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition">
                 <Menu size={24} />
                 <span className="text-[10px] font-medium">Menu</span>
             </button>
