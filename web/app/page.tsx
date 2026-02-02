@@ -82,12 +82,10 @@ export default function Dashboard() {
       {/* ================================================= */}
       {/* CABEÇALHO FIXO (BANNER AZUL)                      */}
       {/* ================================================= */}
-      {/* ALTERAÇÕES DE CSS AQUI: */}
-      {/* 1. -mt-28: Puxa o banner para cima para tapar o buraco branco. */}
-      {/* 2. pt-36: Adiciona espaço interno no topo para compensar a puxada. */}
-      {/* 3. pb-32: Aumenta o espaço embaixo para afastar os cards. */}
-      {/* 4. rounded-b-[3rem]: Arredonda as bordas também no mobile. */}
-      <div className="bg-[#1D4ED8] -mt-28 pt-36 pb-32 px-6 md:px-10 shadow-lg relative z-40 md:static sticky top-28 md:top-0 rounded-b-[3rem] md:rounded-b-[3rem]">
+      {/* AJUSTE FINO REALIZADO: */}
+      {/* 1. pt-32: Reduzi um pouco o topo para subir o texto. */}
+      {/* 2. pb-24: Reduzi DRASTICAMENTE a parte de baixo (era 48). Agora o azul é mais curto. */}
+      <div className="bg-[#1D4ED8] -mt-28 pt-32 pb-24 px-6 md:px-10 shadow-lg relative z-40 md:static sticky top-28 md:top-0 rounded-b-[3rem]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
@@ -123,7 +121,10 @@ export default function Dashboard() {
       {/* ================================================= */}
       {/* CARDS (ROLAM POR BAIXO)                           */}
       {/* ================================================= */}
-      <div className="max-w-6xl mx-auto px-4 -mt-8 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+      {/* AJUSTE FINO REALIZADO: */}
+      {/* -mt-12: Como diminuímos o banner azul, o card tem que subir menos (-12) para não atropelar o texto. */}
+      {/* Isso cria aquele efeito visual de "encaixe" perfeito da imagem de referência. */}
+      <div className="max-w-6xl mx-auto px-4 -mt-12 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
@@ -140,7 +141,7 @@ export default function Dashboard() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                     {stats.inactive > 0 ? (
-                        <div className="flex items-center gap-2 text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-lg">
+                        <div className="flex items-center gap-2 text-xs font-bold text-red-50 bg-red-50 px-2 py-1 rounded-lg">
                             <AlertCircle size={12}/> {stats.inactive} Inativos
                         </div>
                     ) : <span className="text-xs text-green-500 font-bold">100% Ativos</span>}
