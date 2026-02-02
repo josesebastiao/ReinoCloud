@@ -3,21 +3,23 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation"; 
 import { useChurch } from "../../contexts/ChurchContext";
 
-// --- CORREÇÃO DOS IMPORTS ---
 import { memberService } from "../../services/memberService";
-import { Member } from "../../types/member"; // <--- Importando do lugar certo!
-// ----------------------------
+import { Member } from "../../types/member"; 
 
 import { 
   Users, BarChart3, Cake, HandCoins, HeartHandshake, AlertCircle, Sparkles, 
-  PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2
+  PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2, ArrowLeft
 } from "lucide-react";
+import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function ReportsPage() {
   const router = useRouter();
-  const { churchId } = useChurch();
-  const [loading, setLoading] = useState(true);
+  
+  // 1. Pegamos a segurança e o ID do contexto
+  const { churchId, userRole, hasPermission, loading: authLoading } = useChurch();
+  
+  const [loadingData, setLoadingData] = useState(true);
   
   // Estados numéricos
   const [totalMembers, setTotalMembers] = useState(0);
@@ -30,28 +32,22 @@ export default function ReportsPage() {
   const [needsVisit, setNeedsVisit] = useState<Member[]>([]); 
   const [ageData, setAgeData] = useState<any[]>([]);
 
+  // 2. Efeito de Segurança (O Guardião)
   useEffect(() => {
-    // --- LÓGICA DE PROTEÇÃO (ANTI-LOOP) ---
-    let isMounted = true;
-    
-    const checkAndLoad = async () => {
-        if (churchId) {
-            await calculateStats();
-            return;
+    if (!authLoading) {
+        // Se NÃO é Pastor E NÃO tem permissão de secretaria... TCHAU!
+        if (userRole !== 'admin' && !hasPermission('secretary')) {
+            router.push('/'); 
         }
-        
-        // Verifica backup
-        const storedId = localStorage.getItem("churchId");
-        if (!storedId) {
-            router.push("/login");
-        } else {
-            if (isMounted) setLoading(true); // Aguarda contexto carregar
-        }
-    };
+    }
+  }, [authLoading, userRole, hasPermission, router]);
 
-    const timer = setTimeout(checkAndLoad, 500);
-    return () => { isMounted = false; clearTimeout(timer); };
-  }, [churchId, router]);
+  // 3. Efeito de Carregamento de Dados
+  useEffect(() => {
+    if (churchId) {
+        calculateStats();
+    }
+  }, [churchId]);
 
   const getAge = (dateString: string) => {
     if (!dateString) return 0;
@@ -64,6 +60,9 @@ export default function ReportsPage() {
   };
 
   const calculateStats = async () => {
+    // CORREÇÃO CRÍTICA: Se não tiver ID, para tudo. Remove o erro de build.
+    if (!churchId) return;
+
     try {
         const members = await memberService.listByChurch(churchId);
         setTotalMembers(members.length);
@@ -115,18 +114,25 @@ export default function ReportsPage() {
     } catch (e) {
         console.error(e);
     } finally {
-        setLoading(false);
+        setLoadingData(false);
     }
   };
 
   const currentMonthName = new Date().toLocaleString('pt-BR', { month: 'long' });
 
-  if (loading) return <div className="flex justify-center p-10 min-h-screen items-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
+  // Loading geral da autenticação ou dos dados
+  if (authLoading || (loadingData && !totalMembers)) return <div className="flex justify-center p-10 min-h-screen items-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
+
+  // Se não tem permissão, não mostra nada (evita piscar tela proibida)
+  if (userRole !== 'admin' && !hasPermission('secretary')) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-6xl mx-auto">
+            <Link href="/secretary" className="text-blue-200 hover:text-white flex items-center gap-2 mb-4 transition w-fit">
+                <ArrowLeft size={20}/> Voltar para Secretaria
+            </Link>
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3"><BarChart3 className="text-blue-300"/> Relatórios & Estatísticas</h1>
             <p className="text-blue-100 text-lg opacity-90">Visão estratégica do rebanho.</p>
         </div>
