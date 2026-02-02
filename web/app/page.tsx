@@ -67,10 +67,9 @@ export default function Dashboard() {
       {/* ================================================= */}
       {/* 2. BANNER AZUL (NÍVEL 2 - FIXO)                   */}
       {/* ================================================= */}
-      {/* fixed: Garante que ele nunca saia do lugar. */}
-      {/* top-28: Começa EXATAMENTE onde termina o topo escuro. */}
-      {/* z-40: Fica na frente dos cards (z-10) mas atrás do menu (z-50). */}
-      <div className="md:static fixed top-28 left-0 right-0 bg-[#1D4ED8] pt-6 pb-24 px-6 md:px-10 shadow-lg rounded-b-[2.5rem] z-40 h-[220px]">
+      {/* AJUSTE FINO: h-[180px] (Era 220px). Ficou mais curto/elegante. */}
+      {/* pb-10: Reduzi o padding de baixo para acompanhar a altura menor. */}
+      <div className="md:static fixed top-28 left-0 right-0 bg-[#1D4ED8] pt-6 pb-10 px-6 md:px-10 shadow-lg rounded-b-[2.5rem] z-40 h-[180px]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
@@ -106,9 +105,9 @@ export default function Dashboard() {
       {/* ================================================= */}
       {/* 3. CARDS (NÍVEL 1 - CONTEÚDO QUE ROLA)            */}
       {/* ================================================= */}
-      {/* pt-[200px]: Empurra os cards para baixo para eles não ficarem escondidos pelo banner azul fixo inicialmente. */}
-      {/* z-10: Garante que eles rolem POR TRÁS do banner azul (z-40). */}
-      <div className="max-w-6xl mx-auto px-4 pt-[200px] md:pt-0 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+      {/* AJUSTE FINO: pt-[165px] (Era 200px). */}
+      {/* Como diminuímos o banner, subimos os cards para manter o encaixe perfeito. */}
+      <div className="max-w-6xl mx-auto px-4 pt-[165px] md:pt-0 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
