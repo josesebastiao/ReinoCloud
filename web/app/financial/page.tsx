@@ -8,19 +8,32 @@ import { Transaction } from "../../types/finance";
 import { Member } from "../../types/member";
 import { 
   TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, 
-  PieChart as PieIcon, Calendar, Filter, X, DollarSign 
+  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2 
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 export default function FinancialPage() {
   const router = useRouter();
-  const { formatMoney, churchName, userRole } = useChurch();
-  const [churchId, setChurchId] = useState("");
   
+  // 1. Contexto e Segurança
+  const { formatMoney, churchName, userRole, hasPermission, loading: authLoading } = useChurch();
+  
+  const [churchId, setChurchId] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [members, setMembers] = useState<Member[]>([]); 
   const [loading, setLoading] = useState(false);
-  
+  const [dataLoading, setDataLoading] = useState(true); // Novo loading para dados
+
+  // 2. Trava de Segurança (O porteiro da Tesouraria)
+  useEffect(() => {
+    if (!authLoading) {
+        // Se NÃO é Pastor (Admin) E NÃO tem permissão financeira... TCHAU!
+        if (userRole !== 'admin' && !hasPermission('financial') && userRole !== 'treasurer') {
+            router.push('/'); 
+        }
+    }
+  }, [authLoading, userRole, hasPermission, router]);
+
   // FILTROS
   const [filterType, setFilterType] = useState<'all'|'income'|'expense'>('all');
   
@@ -45,14 +58,22 @@ export default function FinancialPage() {
   const INCOME_CATEGORIES = ["Dízimo", "Oferta de Culto", "Oferta Especial", "Voto", "Bazar", "Cantina", "Doação Externa", "Outros"];
   const EXPENSE_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Manutenção", "Material de Limpeza", "Ajuda Social", "Salário Pastoral", "Equipamentos", "Outros"];
 
+  // 3. Carregar Dados Seguro
   useEffect(() => {
     const idSalvo = localStorage.getItem("churchId");
-    if (!idSalvo) { router.push("/login"); return; }
+    
+    // Se não tem ID ou não tem permissão (ainda carregando), não busca nada
+    if (!idSalvo) {
+        if (!authLoading) router.push("/login");
+        return; 
+    }
+
     setChurchId(idSalvo);
     carregarDados(idSalvo);
-  }, [router]);
+  }, [authLoading, router]); // Adicionado dependências
 
   const carregarDados = async (id: string) => {
+    setDataLoading(true);
     try {
       const [listaFinancas, listaMembros] = await Promise.all([
          financeService.listByChurch(id),
@@ -61,7 +82,7 @@ export default function FinancialPage() {
       listaFinancas.sort((a: any,b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setTransactions(listaFinancas);
       setMembers(listaMembros);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); } finally { setDataLoading(false); }
   };
 
   const filteredTransactions = transactions.filter(t => {
@@ -102,24 +123,20 @@ export default function FinancialPage() {
       let finalDesc = newTrans.description;
       let memberName = "";
 
-      // --- CORREÇÃO: LÓGICA INTELIGENTE DO DÍZIMO ---
       if (newTrans.type === 'income' && newTrans.category === "Dízimo" && newTrans.memberId) {
           const selectedMember = members.find(m => m.id === newTrans.memberId);
           if (selectedMember) {
               memberName = selectedMember.fullName;
               if (!finalDesc) finalDesc = `Dízimo - ${selectedMember.fullName}`;
               
-              // AQUI A MÁGICA: Atualiza o membro para ser "Dizimista" automaticamente
               if (!selectedMember.isTither) {
                   await memberService.update(selectedMember.id!, { isTither: true });
-                  // Atualiza a lista local para refletir a mudança sem recarregar tudo
                   setMembers(prev => prev.map(m => m.id === selectedMember.id ? {...m, isTither: true} : m));
               }
           }
       } else if (!finalDesc) {
           finalDesc = newTrans.category; 
       }
-      // ------------------------------------------------
 
       const payload: any = {
         churchId,
@@ -180,6 +197,12 @@ export default function FinancialPage() {
   ];
   const COLORS = ['#10b981', '#ef4444']; 
 
+  // Loading Inicial
+  if (authLoading || (dataLoading && transactions.length === 0)) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
+
+  // Proteção Visual
+  if (userRole !== 'admin' && !hasPermission('financial') && userRole !== 'treasurer') return null;
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans print:p-0 print:bg-white">
       
@@ -192,7 +215,6 @@ export default function FinancialPage() {
                 </h1>
                 <p className="text-blue-100 text-lg opacity-90">Controle de dízimos, ofertas e despesas.</p>
             </div>
-             {/* Botões do Header */}
              <div className="hidden md:flex gap-3">
                 <button onClick={() => window.print()} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition">
                     <Printer size={18}/> Imprimir
@@ -249,7 +271,7 @@ export default function FinancialPage() {
               </div>
           </div>
 
-          {/* CARDS (AGORA REAGEM AO FILTRO) */}
+          {/* CARDS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 print:grid-cols-3 print:gap-2">
              <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xl shadow-blue-900/5 flex flex-col justify-between min-h-[100px]">
                 <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1 tracking-wider"><TrendingUp size={14} className="text-green-500"/> Entradas ({filteredTransactions.filter(t => t.type === 'income').length})</p>
@@ -265,7 +287,7 @@ export default function FinancialPage() {
              </div>
           </div>
 
-          {/* GRÁFICO (SÓ SE TIVER DADOS NO PERÍODO) */}
+          {/* GRÁFICO */}
           {(totalIncome > 0 || totalExpense > 0) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden animate-in fade-in zoom-in-95">
                 <div className="text-center md:text-left mb-4 md:mb-0">
@@ -289,13 +311,12 @@ export default function FinancialPage() {
             </div>
           )}
 
-          {/* EXTRATO ESTILO TIMELINE */}
+          {/* EXTRATO */}
           <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-blue-900/5 overflow-hidden p-6 print:shadow-none print:border-0">
               <div className="flex justify-between items-center mb-6">
                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                      <Filter size={14}/> Extrato Detalhado
                  </h3>
-                 {/* Filtro Tipo Rápido */}
                  <div className="flex bg-gray-100 rounded-lg p-1 print:hidden">
                      <button onClick={() => setFilterType('all')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${filterType === 'all' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}>Tudo</button>
                      <button onClick={() => setFilterType('income')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${filterType === 'income' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}>Ent</button>
@@ -306,8 +327,6 @@ export default function FinancialPage() {
               <div className="relative border-l-2 border-gray-100 ml-3 space-y-8 pb-4">
                   {filteredTransactions.length > 0 ? filteredTransactions.map((t, index) => (
                       <div key={t.id} className="relative pl-8 animate-in slide-in-from-bottom-2 fade-in duration-300" style={{animationDelay: `${Math.min(index * 50, 500)}ms`}}>
-                          
-                          {/* BOLINHA TIMELINE */}
                           <div className={`
                               absolute -left-[9px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm ring-1 ring-gray-100
                               ${t.type === 'income' ? 'bg-green-500' : 'bg-red-500'}
