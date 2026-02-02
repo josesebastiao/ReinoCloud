@@ -1,11 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"; // <--- 1. Import para redirecionar
 import { useChurch } from "../../contexts/ChurchContext";
 
-// --- CORREÇÃO DOS IMPORTS (SEPARADOS) ---
 import { memberService } from "../../services/memberService";
-import { Member } from "../../types/member"; // <--- Importando do lugar certo
-// ----------------------------------------
+import { Member } from "../../types/member"; 
 
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
@@ -13,9 +12,13 @@ import {
 } from "lucide-react";
 
 export default function ServicesPage() {
-  const { churchId, churchName, logoUrl } = useChurch(); 
+  const router = useRouter(); // <--- 2. Router
+  
+  // 3. Pegamos as permissões e o loading de autenticação
+  const { churchId, churchName, logoUrl, userRole, hasPermission, loading: authLoading } = useChurch(); 
+  
   const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Mudei para false inicial para não conflitar
   const [printing, setPrinting] = useState(false); 
   
   // Controle dos Modais
@@ -24,11 +27,24 @@ export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [obs, setObs] = useState(""); 
 
+  // 4. EFEITO DE SEGURANÇA (Igual nas outras páginas)
+  useEffect(() => {
+    if (!authLoading) {
+         if (userRole !== 'admin' && !hasPermission('secretary')) {
+            router.push('/');
+         }
+    }
+  }, [authLoading, userRole, hasPermission, router]);
+
   useEffect(() => {
     if (churchId) loadMembers();
   }, [churchId]);
 
   const loadMembers = async () => {
+    // 5. CORREÇÃO DO ERRO DE BUILD: Verifica se tem ID
+    if (!churchId) return;
+
+    setLoading(true);
     try {
       const list = await memberService.listByChurch(churchId);
       setMembers(list);
@@ -131,7 +147,11 @@ export default function ServicesPage() {
     setPrinting(false);
   };
 
-  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
+  // Loading da Autenticação
+  if (authLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
+
+  // Proteção visual (não mostra nada se não tiver permissão)
+  if (userRole !== 'admin' && !hasPermission('secretary')) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
@@ -184,7 +204,7 @@ export default function ServicesPage() {
                               <input type="text" placeholder="Buscar membro..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white transition outline-none focus:ring-2 ring-blue-100"/>
                           </div>
                           <div className="h-64 overflow-y-auto border rounded-xl p-2 custom-scrollbar bg-gray-50">
-                              {filteredMembers.map(m => (
+                              {loading ? <div className="p-4 text-center"><Loader2 className="animate-spin inline"/></div> : filteredMembers.map(m => (
                                   <div key={m.id} onClick={() => setSelectedMember(m)} className={`p-3 rounded-lg flex items-center gap-3 cursor-pointer transition mb-1 ${selectedMember?.id === m.id ? 'bg-blue-600 text-white shadow-lg' : 'hover:bg-white hover:shadow-sm text-gray-700'}`}>
                                       <div className={`p-2 rounded-full ${selectedMember?.id === m.id ? 'bg-white/20' : 'bg-gray-200'}`}><User size={16}/></div>
                                       <span className="font-bold text-sm">{m.fullName}</span>
