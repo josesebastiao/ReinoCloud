@@ -2,11 +2,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, ArrowLeft, LogIn } from "lucide-react";
 
 // Firebase
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"; // <--- ADICIONEI collection, query, where, getDocs
 import { auth, db } from "../../lib/firebase";
 
 // INTEGRADO AO CONTEXTO (IMPORTANTE)
@@ -14,7 +14,7 @@ import { useChurch } from "../../contexts/ChurchContext";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setChurchData } = useChurch(); // <--- Usamos o contexto para salvar dados
+  const { setChurchData } = useChurch(); 
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,22 +36,35 @@ export default function LoginPage() {
 
       // 1. SUPER ADMIN (BYPASS)
       if (user.email === "alfaministro1@gmail.com" || user.email === "alfaministro1@hotmail.com") {
-          // Salva no contexto e redireciona
           setChurchData("master_admin", "ReinoCloud HQ", "admin", "Super Admin", "", "AO");
           router.push("/");
           return;
       }
 
       // 2. BUSCA DADOS DO USUÁRIO NO BANCO
+      let userData = null;
+
+      // Tenta pelo ID (Padrão)
       const userDocRef = doc(db, "members", user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
-      if (!userDocSnap.exists()) {
-        // Se logou no Firebase mas não tem ficha de membro (Erro crítico)
-        throw new Error("Usuário sem cadastro no sistema.");
+      if (userDocSnap.exists()) {
+          userData = userDocSnap.data();
+      } else {
+          // --- CORREÇÃO PARA A NANI (PLANO B) ---
+          // Se não achou pelo ID, procura pelo E-MAIL
+          const q = query(collection(db, "members"), where("email", "==", email));
+          const querySnapshot = await getDocs(q);
+          
+          if (!querySnapshot.empty) {
+              userData = querySnapshot.docs[0].data();
+          }
       }
 
-      const userData = userDocSnap.data();
+      if (!userData) {
+        // Se não achou nem por ID nem por E-mail
+        throw new Error("Usuário sem cadastro no sistema.");
+      }
       
       // 3. BUSCA DADOS DA IGREJA (Nome, Logo, Moeda)
       let churchName = "Minha Igreja";
@@ -71,7 +84,7 @@ export default function LoginPage() {
           } catch (err) { console.warn("Erro ao buscar igreja:", err); }
       }
 
-      // 4. SALVA TUDO NO CONTEXTO (Isso resolve os bugs de F5 e Logo sumindo)
+      // 4. SALVA TUDO NO CONTEXTO
       setChurchData(
           userData.churchId || "", 
           churchName, 

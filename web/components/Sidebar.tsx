@@ -1,11 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation"; // <--- 1. Importamos useRouter
 import { 
   LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert 
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
-// ADICIONAMOS O AUTH AQUI PARA FAZER O LOGOUT DIRETO
 import { auth } from "../lib/firebase"; 
 
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
@@ -16,16 +15,20 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  // REMOVEMOS O signOutUser DAQUI
+  const router = useRouter(); // <--- 2. Iniciamos o roteador
+  
   const { user, userRole, hasPermission } = useChurch();
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
-  // FUNÇÃO DE SAIR AJUSTADA
+  // 3. FUNÇÃO DE SAIR CORRIGIDA
   const handleLogout = async () => {
       try {
-          await auth.signOut();
-          if (onNavigate) onNavigate();
+          await auth.signOut(); // Desloga do Firebase
+          
+          if (onNavigate) onNavigate(); // Fecha menu mobile se estiver aberto
+          
+          router.push("/login"); // <--- O PULO DO GATO: Manda para o login!
       } catch (error) {
           console.error("Erro ao sair:", error);
       }
@@ -90,7 +93,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </nav>
 
         <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-          {/* BOTÃO DE SAIR CORRIGIDO */}
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200 group">
             <LogOut size={20} className="group-hover:-translate-x-1 transition-transform"/>
             <span className="text-sm font-medium">Sair do Sistema</span>
