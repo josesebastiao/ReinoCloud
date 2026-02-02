@@ -22,9 +22,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen bg-gray-50">
         
-        {/* --- [1] BARRA DE STATUS FALSA (CSS PURO) --- */}
-        {/* Usamos h-12 (48px) fixo caso o env() falhe. Z-Index alto para ficar por cima de tudo. */}
-        <div className="md:hidden fixed top-0 left-0 right-0 z-[70] bg-[#0F172A] h-[env(safe-area-inset-top,48px)] min-h-[20px]" />
+        {/* ================================================= */}
+        {/* 1. BARRA DE STATUS ESCURA (FIXA NO TOPO)          */}
+        {/* ================================================= */}
+        {/* Cor: #0F172A (Azul Quase Preto) | Altura: 48px (h-12) */}
+        {/* Z-Index: 60 (Fica por cima de tudo) */}
+        <div className="md:hidden fixed top-0 left-0 right-0 h-12 bg-[#0F172A] z-[60]" />
 
         {/* SIDEBAR DESKTOP */}
         <aside className="hidden md:flex fixed top-0 left-0 h-screen w-64 z-50 shadow-xl">
@@ -33,12 +36,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
         {/* MENU MOBILE */}
         {isMobileMenuOpen && (
-             <div className="fixed inset-0 z-[60] md:hidden flex animate-in fade-in duration-200">
-                 <div className="relative w-72 h-full bg-[#0F172A] shadow-2xl animate-in slide-in-from-left duration-300">
+             <div className="fixed inset-0 z-[70] md:hidden flex animate-in fade-in duration-200">
+                 <div className="relative w-72 h-full bg-[#0F172A] shadow-2xl animate-in slide-in-from-left duration-300 pt-12">
                      <Sidebar onNavigate={() => setIsMobileMenuOpen(false)} /> 
                      <button 
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-slate-800/50 rounded-lg"
+                        className="absolute top-16 right-4 p-2 text-slate-400 hover:text-white bg-slate-800/50 rounded-lg"
                      >
                         <X size={20} />
                      </button>
@@ -50,9 +53,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {/* CONTEÚDO PRINCIPAL */}
         <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-gray-50 md:pl-64 transition-all">
         
-        {/* --- [2] HEADER MOBILE --- */}
-        {/* top-[env(...)] empurra ele para baixo da barra falsa */}
-        <header className="md:hidden fixed top-[env(safe-area-inset-top,48px)] left-0 right-0 h-16 bg-blue-600 border-b border-blue-500 px-4 flex items-center justify-between shadow-md z-30 text-white mt-[env(safe-area-inset-top,0px)]">
+        {/* ================================================= */}
+        {/* 2. CABEÇALHO DO APP (FIXO LOGO ABAIXO DA BARRA)   */}
+        {/* ================================================= */}
+        {/* Top: 3rem (48px - que é a altura da barra escura) */}
+        {/* Cor: Blue-600 (Azul Claro) */}
+        <header className="md:hidden fixed top-12 left-0 right-0 h-16 bg-blue-600 border-b border-blue-500 px-4 flex items-center justify-between shadow-md z-[50] text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
                 <button onClick={() => router.back()} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-full transition">
@@ -77,9 +83,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </div>
         </header>
 
-        {/* --- [3] ESPAÇAMENTO DO CONTEÚDO --- */}
-        {/* pt-32 garante espaço para Barra Status + Header */}
-        <div className="flex-1 pb-24 md:pb-0 pt-32 px-4 md:p-0 md:pt-0">
+        {/* ================================================= */}
+        {/* 3. CONTEÚDO DA PÁGINA (COM ESPAÇAMENTO CORRETO)   */}
+        {/* ================================================= */}
+        {/* Padding Top: 7rem (112px). Por que? */}
+        {/* 3rem (Barra Escura) + 4rem (Cabeçalho Azul) = 7rem */}
+        {/* Assim o conteúdo começa EXATAMENTE onde o cabeçalho termina */}
+        <div className="flex-1 pb-24 md:pb-0 pt-28 px-4 md:p-0 md:pt-0">
             <div className="md:hidden mb-4">
                 <InstallPWA />
             </div>
