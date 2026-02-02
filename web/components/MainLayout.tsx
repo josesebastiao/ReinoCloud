@@ -23,10 +23,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     <div className="flex min-h-screen bg-gray-50">
         
         {/* ================================================= */}
-        {/* 1. BARRA DE STATUS ESCURA (FIXA NO TOPO)          */}
+        {/* 1. BARRA DE STATUS (BATERIA) - FIXA E ESCURA      */}
         {/* ================================================= */}
-        {/* Cor: #0F172A (Azul Quase Preto) | Altura: 48px (h-12) */}
-        {/* Z-Index: 60 (Fica por cima de tudo) */}
         <div className="md:hidden fixed top-0 left-0 right-0 h-12 bg-[#0F172A] z-[60]" />
 
         {/* SIDEBAR DESKTOP */}
@@ -54,43 +52,42 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-gray-50 md:pl-64 transition-all">
         
         {/* ================================================= */}
-        {/* 2. CABEÇALHO DO APP (FIXO LOGO ABAIXO DA BARRA)   */}
+        {/* 2. CABEÇALHO (LOGO/MENU) - AGORA É ESCURO TAMBÉM  */}
         {/* ================================================= */}
-        {/* Top: 3rem (48px - que é a altura da barra escura) */}
-        {/* Cor: Blue-600 (Azul Claro) */}
-        <header className="md:hidden fixed top-12 left-0 right-0 h-16 bg-blue-600 border-b border-blue-500 px-4 flex items-center justify-between shadow-md z-[50] text-white">
+        {/* MUDANÇA: bg-[#0F172A] para igualar a barra de cima */}
+        <header className="md:hidden fixed top-12 left-0 right-0 h-16 bg-[#0F172A] px-4 flex items-center justify-between z-[50] text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
-                <button onClick={() => router.back()} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-full transition">
+                <button onClick={() => router.back()} className="p-2 -ml-2 text-slate-300 hover:bg-slate-800 rounded-full transition">
                     <ArrowLeft size={24} />
                 </button>
                 ) : (
-                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-lg">
+                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-slate-300 hover:bg-slate-800 rounded-lg">
                     <Menu size={24} />
                 </button>
                 )}
                 
                 <div className="flex items-center gap-2">
-                    {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 rounded-lg bg-blue-700 p-1"/>}
+                    {/* Ícone agora tem fundo escuro para combinar */}
+                    {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 object-contain"/>}
                     <span className="font-bold text-white text-lg tracking-tight">
                         {pathname === '/' ? 'ReinoCloud' : 'Voltar'}
                     </span>
                 </div>
             </div>
 
-            <div className="w-9 h-9 bg-blue-800 rounded-full flex items-center justify-center text-white font-bold text-sm border border-blue-400 shadow-sm">
+            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm border border-blue-500 shadow-sm">
                 {userRole ? userRole.slice(0,2).toUpperCase() : 'ME'}
             </div>
         </header>
 
         {/* ================================================= */}
-        {/* 3. CONTEÚDO DA PÁGINA (COM ESPAÇAMENTO CORRETO)   */}
+        {/* 3. CONTEÚDO (BANNER AZUL) - ROLA POR BAIXO        */}
         {/* ================================================= */}
-        {/* Padding Top: 7rem (112px). Por que? */}
-        {/* 3rem (Barra Escura) + 4rem (Cabeçalho Azul) = 7rem */}
-        {/* Assim o conteúdo começa EXATAMENTE onde o cabeçalho termina */}
-        <div className="flex-1 pb-24 md:pb-0 pt-28 px-4 md:p-0 md:pt-0">
-            <div className="md:hidden mb-4">
+        {/* O 'pt-28' empurra o início do conteúdo para baixo do bloco escuro */}
+        {/* O banner azul da Dashboard vai encostar perfeitamente nesse bloco */}
+        <div className="flex-1 pb-24 md:pb-0 pt-28 px-0 md:p-0 md:pt-0">
+            <div className="md:hidden mb-4 px-4">
                 <InstallPWA />
             </div>
             {children}

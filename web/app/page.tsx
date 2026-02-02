@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // <--- Importante
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useChurch } from "../contexts/ChurchContext";
 import { memberService } from "../services/memberService";
@@ -23,30 +23,20 @@ export default function Dashboard() {
   const [nextEvents, setNextEvents] = useState<any[]>([]);
 
   useEffect(() => {
-    // --- LÓGICA DE PROTEÇÃO (VACINA CONTRA LOOP) ---
     let isMounted = true;
-
     const checkAndLoad = async () => {
-        // 1. Se já tem ID no contexto, carrega
         if (churchId) {
             await loadDashboardData();
             return;
         }
-
-        // 2. Se não tem, verifica o localStorage diretamente (backup)
-        // Isso evita que a página fique girando se o contexto demorar
         const storedId = localStorage.getItem("churchId");
-        
         if (!storedId) {
-            // Se não tem nem no contexto nem no storage, manda pro login
             router.push("/login");
         } else {
-            // Se tem no storage mas o contexto ainda não pegou, aguarda um pouco
             if (isMounted) setLoading(true);
         }
     };
-
-    const timer = setTimeout(checkAndLoad, 800); // Espera o contexto carregar
+    const timer = setTimeout(checkAndLoad, 800);
     return () => { isMounted = false; clearTimeout(timer); };
   }, [churchId, router]);
 
@@ -80,7 +70,7 @@ export default function Dashboard() {
 
   const canSee = (allowedRoles: string[]) => {
       if (!userRole) return false;
-      if (userRole === 'admin') return true; // Pastor Admin vê tudo
+      if (userRole === 'admin') return true; 
       return allowedRoles.includes(userRole);
   };
 
@@ -89,8 +79,13 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* CABEÇALHO */}
-      <div className="bg-[#1D4ED8] pt-12 pb-24 px-6 md:px-10 rounded-b-[3rem] shadow-sm relative z-0">
+      {/* ================================================= */}
+      {/* CABEÇALHO FIXO (BANNER AZUL)                      */}
+      {/* ================================================= */}
+      {/* md:static: No PC ele é normal. */}
+      {/* sticky: No celular ele gruda. */}
+      {/* top-28: Gruda logo abaixo do Header Escuro (48px + 64px = 112px = 28 * 4) */}
+      <div className="bg-[#1D4ED8] pt-8 pb-16 px-6 md:px-10 shadow-lg relative z-40 md:static sticky top-28 md:top-0 md:rounded-b-[3rem]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
@@ -103,8 +98,8 @@ export default function Dashboard() {
                     </div>
                 )}
                 <div>
-                    <p className="text-blue-200 font-medium mb-1">Bem-vindo, {userName}</p>
-                    <h1 className="text-2xl md:text-4xl font-bold text-white tracking-tight leading-tight">{churchName}</h1>
+                    <p className="text-blue-200 font-medium mb-1 text-sm md:text-base">Bem-vindo, {userName}</p>
+                    <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight">{churchName}</h1>
                 </div>
             </div>
             
@@ -123,8 +118,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* CARDS */}
-      <div className="max-w-6xl mx-auto px-4 -mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+      {/* ================================================= */}
+      {/* CARDS (ROLAM POR BAIXO)                           */}
+      {/* ================================================= */}
+      {/* -mt-8: Sobe um pouco para pegar o visual sobreposto no início */}
+      <div className="max-w-6xl mx-auto px-4 -mt-8 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
