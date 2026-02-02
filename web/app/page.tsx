@@ -82,10 +82,12 @@ export default function Dashboard() {
       {/* ================================================= */}
       {/* CABEÇALHO FIXO (BANNER AZUL)                      */}
       {/* ================================================= */}
-      {/* md:static: No PC ele é normal. */}
-      {/* sticky: No celular ele gruda. */}
-      {/* top-28: Gruda logo abaixo do Header Escuro (48px + 64px = 112px = 28 * 4) */}
-      <div className="bg-[#1D4ED8] pt-8 pb-16 px-6 md:px-10 shadow-lg relative z-40 md:static sticky top-28 md:top-0 md:rounded-b-[3rem]">
+      {/* ALTERAÇÕES DE CSS AQUI: */}
+      {/* 1. -mt-28: Puxa o banner para cima para tapar o buraco branco. */}
+      {/* 2. pt-36: Adiciona espaço interno no topo para compensar a puxada. */}
+      {/* 3. pb-32: Aumenta o espaço embaixo para afastar os cards. */}
+      {/* 4. rounded-b-[3rem]: Arredonda as bordas também no mobile. */}
+      <div className="bg-[#1D4ED8] -mt-28 pt-36 pb-32 px-6 md:px-10 shadow-lg relative z-40 md:static sticky top-28 md:top-0 rounded-b-[3rem] md:rounded-b-[3rem]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
@@ -121,7 +123,6 @@ export default function Dashboard() {
       {/* ================================================= */}
       {/* CARDS (ROLAM POR BAIXO)                           */}
       {/* ================================================= */}
-      {/* -mt-8: Sobe um pouco para pegar o visual sobreposto no início */}
       <div className="max-w-6xl mx-auto px-4 -mt-8 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
