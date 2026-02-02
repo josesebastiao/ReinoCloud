@@ -22,6 +22,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen bg-gray-50">
         
+        {/* --- [1] BARRA DE STATUS FALSA (CSS PURO) --- */}
+        {/* Usamos h-12 (48px) fixo caso o env() falhe. Z-Index alto para ficar por cima de tudo. */}
+        <div className="md:hidden fixed top-0 left-0 right-0 z-[70] bg-[#0F172A] h-[env(safe-area-inset-top,48px)] min-h-[20px]" />
+
         {/* SIDEBAR DESKTOP */}
         <aside className="hidden md:flex fixed top-0 left-0 h-screen w-64 z-50 shadow-xl">
             <Sidebar />
@@ -46,10 +50,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {/* CONTEÚDO PRINCIPAL */}
         <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-gray-50 md:pl-64 transition-all">
         
-        {/* --- HEADER MOBILE --- */}
-        {/* REMOVEMOS 'safe-area-top' DAQUI. Ele agora é 'top-0' absoluto. */}
-        {/* Isso faz ele colar na barra escura da bateria, eliminando o branco. */}
-        <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-blue-600 border-b border-blue-500 px-4 flex items-center justify-between shadow-md z-30 text-white">
+        {/* --- [2] HEADER MOBILE --- */}
+        {/* top-[env(...)] empurra ele para baixo da barra falsa */}
+        <header className="md:hidden fixed top-[env(safe-area-inset-top,48px)] left-0 right-0 h-16 bg-blue-600 border-b border-blue-500 px-4 flex items-center justify-between shadow-md z-30 text-white mt-[env(safe-area-inset-top,0px)]">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
                 <button onClick={() => router.back()} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-full transition">
@@ -74,9 +77,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </div>
         </header>
 
-        {/* ÁREA DO CONTEÚDO */}
-        {/* O 'pt-20' garante que o conteúdo não fique escondido atrás do header */}
-        <div className="flex-1 pb-24 md:pb-0 pt-20 px-4 md:p-0">
+        {/* --- [3] ESPAÇAMENTO DO CONTEÚDO --- */}
+        {/* pt-32 garante espaço para Barra Status + Header */}
+        <div className="flex-1 pb-24 md:pb-0 pt-32 px-4 md:p-0 md:pt-0">
             <div className="md:hidden mb-4">
                 <InstallPWA />
             </div>

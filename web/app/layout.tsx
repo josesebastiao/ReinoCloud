@@ -4,28 +4,26 @@ import { ChurchProvider } from "../contexts/ChurchContext";
 import MainLayout from "../components/MainLayout";
 
 export const viewport: Viewport = {
-  themeColor: "#0F172A", // Azul Escuro (Barra de Status)
+  themeColor: "#0F172A", // Mantemos a cor escura como base
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  // viewportFit: cover REMOVIDO para garantir a barra separada
+  viewportFit: "cover", // <--- OBRIGATÓRIO: Permite desenhar atrás do notch/bateria
 };
 
 export const metadata: Metadata = {
   title: "ReinoCloud - Gestão para Igrejas",
   description: "Sistema de gestão financeira e membros para igrejas.",
-  // --- TRUQUE DO CACHE BUSTER (?v=2) ---
-  manifest: "/manifest.json?v=2", 
+  manifest: "/manifest.json",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.png",
     shortcut: "/icon.png",
   },
-  // --- FORÇAR IPHONE A OBEDECER ---
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default", // Tenta pegar a cor do tema
+    statusBarStyle: "black-translucent", // Permite o fundo escuro passar
     title: "ReinoCloud",
   },
 };
