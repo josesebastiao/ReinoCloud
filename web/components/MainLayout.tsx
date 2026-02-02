@@ -46,8 +46,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {/* CONTEÚDO PRINCIPAL */}
         <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-gray-50 md:pl-64 transition-all">
         
-        {/* HEADER MOBILE (FIXO E AZUL) */}
-        <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-blue-600 border-b border-blue-500 px-4 flex items-center justify-between shadow-md z-30 safe-area-top text-white">
+        {/* --- HEADER MOBILE --- */}
+        {/* REMOVEMOS 'safe-area-top' DAQUI. Ele agora é 'top-0' absoluto. */}
+        {/* Isso faz ele colar na barra escura da bateria, eliminando o branco. */}
+        <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-blue-600 border-b border-blue-500 px-4 flex items-center justify-between shadow-md z-30 text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
                 <button onClick={() => router.back()} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-full transition">
@@ -73,8 +75,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </header>
 
         {/* ÁREA DO CONTEÚDO */}
-        {/* Correção Desktop: removemos o padding (md:p-0) */}
-        {/* Correção Mobile: adicionamos pt-20 para não esconder atrás do menu */}
+        {/* O 'pt-20' garante que o conteúdo não fique escondido atrás do header */}
         <div className="flex-1 pb-24 md:pb-0 pt-20 px-4 md:p-0">
             <div className="md:hidden mb-4">
                 <InstallPWA />
@@ -82,7 +83,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             {children}
         </div>
 
-        {/* BARRA INFERIOR MOBILE */}
+        {/* BARRA INFERIOR */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-8 py-3 flex justify-between items-center z-40 safe-area-bottom shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
             <Link href="/" className={`flex flex-col items-center gap-1 transition ${pathname === '/' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
                 <Home size={24} strokeWidth={pathname === '/' ? 2.5 : 2} />

@@ -1,16 +1,16 @@
-import type { Metadata, Viewport } from "next"; // Adicionei Viewport aqui
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ChurchProvider } from "../contexts/ChurchContext";
 import MainLayout from "../components/MainLayout";
 
-// 1. CONFIGURAÇÃO DE VIEWPORT (Isso garante que o app cubra a tela toda no celular)
 export const viewport: Viewport = {
-  themeColor: "#2563EB", // <--- AQUI ESTÁ A MÁGICA! (Azul exato do header)
+  // MUDAMOS PARA UM AZUL ESCURO (Diferente do Header)
+  themeColor: "#172554", 
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: "cover", // <--- Isso faz o site entrar "atrás" do notch do iPhone
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
