@@ -82,10 +82,11 @@ export default function Dashboard() {
       {/* ================================================= */}
       {/* CABEÇALHO FIXO (BANNER AZUL)                      */}
       {/* ================================================= */}
-      {/* AJUSTE FINO REALIZADO: */}
-      {/* 1. pt-32: Reduzi um pouco o topo para subir o texto. */}
-      {/* 2. pb-24: Reduzi DRASTICAMENTE a parte de baixo (era 48). Agora o azul é mais curto. */}
-      <div className="bg-[#1D4ED8] -mt-28 pt-32 pb-24 px-6 md:px-10 shadow-lg relative z-40 md:static sticky top-28 md:top-0 rounded-b-[3rem]">
+      {/* MUDANÇAS CRÍTICAS: */}
+      {/* 1. pt-6 pb-20: Altura reduzida para não ficar gigante. */}
+      {/* 2. z-0: Coloca o banner no FUNDO. */}
+      {/* 3. sticky top-28: Ele fica fixo, mas atrás dos cards. */}
+      <div className="bg-[#1D4ED8] pt-6 pb-20 px-6 md:px-10 shadow-lg relative md:static sticky top-28 md:top-0 rounded-b-[2.5rem] z-0">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
@@ -119,11 +120,11 @@ export default function Dashboard() {
       </div>
 
       {/* ================================================= */}
-      {/* CARDS (ROLAM POR BAIXO)                           */}
+      {/* CARDS (SOBREPOSIÇÃO)                              */}
       {/* ================================================= */}
-      {/* AJUSTE FINO REALIZADO: */}
-      {/* -mt-12: Como diminuímos o banner azul, o card tem que subir menos (-12) para não atropelar o texto. */}
-      {/* Isso cria aquele efeito visual de "encaixe" perfeito da imagem de referência. */}
+      {/* MUDANÇAS CRÍTICAS: */}
+      {/* 1. z-10: Traz os cards para FRENTE. Eles vão rolar POR CIMA do banner. */}
+      {/* 2. -mt-12: Sobe os cards para "morder" o banner visualmente. */}
       <div className="max-w-6xl mx-auto px-4 -mt-12 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
