@@ -25,16 +25,9 @@ export default function Dashboard() {
   useEffect(() => {
     let isMounted = true;
     const checkAndLoad = async () => {
-        if (churchId) {
-            await loadDashboardData();
-            return;
-        }
+        if (churchId) { await loadDashboardData(); return; }
         const storedId = localStorage.getItem("churchId");
-        if (!storedId) {
-            router.push("/login");
-        } else {
-            if (isMounted) setLoading(true);
-        }
+        if (!storedId) { router.push("/login"); } else { if (isMounted) setLoading(true); }
     };
     const timer = setTimeout(checkAndLoad, 800);
     return () => { isMounted = false; clearTimeout(timer); };
@@ -48,24 +41,16 @@ export default function Dashboard() {
             memberService.listByChurch(churchId),
             financeService.listByChurch(churchId)
         ]);
-
         const activeCount = allMembers.filter(m => m.status === 'active').length;
         setStats({ active: activeCount, inactive: allMembers.length - activeCount, total: allMembers.length });
-
         const totalIncome = allTransactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + Number(curr.amount), 0);
         const totalExpense = allTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + Number(curr.amount), 0);
         setBalance(totalIncome - totalExpense);
-
         const today = new Date().toISOString().split('T')[0]; 
         const qEvents = query(collection(db, "events"), where("churchId", "==", churchId), where("date", ">=", today), orderBy("date", "asc"), limit(3));
         const eventSnap = await getDocs(qEvents);
         setNextEvents(eventSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
-    } catch (error) { 
-        console.error("Erro dashboard:", error);
-    } finally { 
-        setLoading(false); 
-    }
+    } catch (error) { console.error("Erro dashboard:", error); } finally { setLoading(false); }
   };
 
   const canSee = (allowedRoles: string[]) => {
@@ -80,12 +65,12 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
       {/* ================================================= */}
-      {/* 4. BANNER AZUL (CAMADA DO FUNDO)                  */}
+      {/* 2. BANNER AZUL (NÍVEL 2 - FIXO)                   */}
       {/* ================================================= */}
-      {/* Z-Index 0: Fica no fundo. */}
-      {/* sticky top-28: Fica fixo visualmente logo abaixo do Header. */}
-      {/* -mt-[1px]: Remove a linha branca entre o Header e o Banner. */}
-      <div className="bg-[#1D4ED8] -mt-[1px] pt-6 pb-20 px-6 md:px-10 shadow-lg relative md:static sticky top-28 md:top-0 rounded-b-[2.5rem] z-0">
+      {/* fixed: Garante que ele nunca saia do lugar. */}
+      {/* top-28: Começa EXATAMENTE onde termina o topo escuro. */}
+      {/* z-40: Fica na frente dos cards (z-10) mas atrás do menu (z-50). */}
+      <div className="md:static fixed top-28 left-0 right-0 bg-[#1D4ED8] pt-6 pb-24 px-6 md:px-10 shadow-lg rounded-b-[2.5rem] z-40 h-[220px]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
@@ -119,11 +104,11 @@ export default function Dashboard() {
       </div>
 
       {/* ================================================= */}
-      {/* 5. CARDS BRANCOS (CAMADA DO MEIO)                 */}
+      {/* 3. CARDS (NÍVEL 1 - CONTEÚDO QUE ROLA)            */}
       {/* ================================================= */}
-      {/* Z-Index 10: Fica na frente do Banner (0), mas atrás do Header (50). */}
-      {/* -mt-12: Sobe para criar o efeito de "mordida" no banner. */}
-      <div className="max-w-6xl mx-auto px-4 -mt-12 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+      {/* pt-[200px]: Empurra os cards para baixo para eles não ficarem escondidos pelo banner azul fixo inicialmente. */}
+      {/* z-10: Garante que eles rolem POR TRÁS do banner azul (z-40). */}
+      <div className="max-w-6xl mx-auto px-4 pt-[200px] md:pt-0 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
