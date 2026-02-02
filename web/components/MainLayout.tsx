@@ -22,9 +22,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="flex min-h-screen bg-gray-50">
         
-        {/* ================================================= */}
-        {/* 1. BARRA DE STATUS (BATERIA) - FIXA E ESCURA      */}
-        {/* ================================================= */}
+        {/* 1. BARRA DE STATUS (BATERIA) - FIXA E ESCURA */}
         <div className="md:hidden fixed top-0 left-0 right-0 h-12 bg-[#0F172A] z-[60]" />
 
         {/* SIDEBAR DESKTOP */}
@@ -51,43 +49,37 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         {/* CONTEÚDO PRINCIPAL */}
         <main className="flex-1 flex flex-col min-w-0 min-h-screen bg-gray-50 md:pl-64 transition-all">
         
-        {/* ================================================= */}
-        {/* 2. CABEÇALHO (LOGO/MENU) - AGORA É ESCURO TAMBÉM  */}
-        {/* ================================================= */}
-        {/* MUDANÇA: bg-[#0F172A] para igualar a barra de cima */}
-        <header className="md:hidden fixed top-12 left-0 right-0 h-16 bg-[#0F172A] px-4 flex items-center justify-between z-[50] text-white">
+        {/* 2. CABEÇALHO (LOGO/MENU) - AGORA É AZUL (#1D4ED8) */}
+        {/* Z-Index 50: Garante que os cards (Z-Index 10) passem POR BAIXO dele */}
+        <header className="md:hidden fixed top-12 left-0 right-0 h-16 bg-[#1D4ED8] px-4 flex items-center justify-between z-[50] text-white">
             <div className="flex items-center gap-3">
                 {pathname !== '/' ? (
-                <button onClick={() => router.back()} className="p-2 -ml-2 text-slate-300 hover:bg-slate-800 rounded-full transition">
+                <button onClick={() => router.back()} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-full transition">
                     <ArrowLeft size={24} />
                 </button>
                 ) : (
-                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-slate-300 hover:bg-slate-800 rounded-lg">
+                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-blue-100 hover:bg-blue-700 rounded-lg">
                     <Menu size={24} />
                 </button>
                 )}
                 
                 <div className="flex items-center gap-2">
-                    {/* Ícone agora tem fundo escuro para combinar */}
-                    {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 object-contain"/>}
+                    {pathname === '/' && <img src="/icon.svg" className="w-8 h-8 rounded-lg bg-blue-700/50 p-1"/>}
                     <span className="font-bold text-white text-lg tracking-tight">
                         {pathname === '/' ? 'ReinoCloud' : 'Voltar'}
                     </span>
                 </div>
             </div>
 
-            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm border border-blue-500 shadow-sm">
+            <div className="w-9 h-9 bg-blue-800/50 rounded-full flex items-center justify-center text-white font-bold text-sm border border-blue-400/30 shadow-sm">
                 {userRole ? userRole.slice(0,2).toUpperCase() : 'ME'}
             </div>
         </header>
 
-        {/* ================================================= */}
-        {/* 3. CONTEÚDO (BANNER AZUL) - ROLA POR BAIXO        */}
-        {/* ================================================= */}
-        {/* O 'pt-28' empurra o início do conteúdo para baixo do bloco escuro */}
-        {/* O banner azul da Dashboard vai encostar perfeitamente nesse bloco */}
+        {/* 3. ÁREA DE SCROLL */}
+        {/* pt-28: Empurra o início da página para baixo do cabeçalho fixo (48px + 64px = 112px) */}
         <div className="flex-1 pb-24 md:pb-0 pt-28 px-0 md:p-0 md:pt-0">
-            <div className="md:hidden mb-4 px-4">
+            <div className="md:hidden mb-4 px-4 hidden">
                 <InstallPWA />
             </div>
             {children}

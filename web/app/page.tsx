@@ -80,13 +80,12 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
       {/* ================================================= */}
-      {/* CABEÇALHO FIXO (BANNER AZUL)                      */}
+      {/* 4. BANNER AZUL (CAMADA DO FUNDO)                  */}
       {/* ================================================= */}
-      {/* MUDANÇAS CRÍTICAS: */}
-      {/* 1. pt-6 pb-20: Altura reduzida para não ficar gigante. */}
-      {/* 2. z-0: Coloca o banner no FUNDO. */}
-      {/* 3. sticky top-28: Ele fica fixo, mas atrás dos cards. */}
-      <div className="bg-[#1D4ED8] pt-6 pb-20 px-6 md:px-10 shadow-lg relative md:static sticky top-28 md:top-0 rounded-b-[2.5rem] z-0">
+      {/* Z-Index 0: Fica no fundo. */}
+      {/* sticky top-28: Fica fixo visualmente logo abaixo do Header. */}
+      {/* -mt-[1px]: Remove a linha branca entre o Header e o Banner. */}
+      <div className="bg-[#1D4ED8] -mt-[1px] pt-6 pb-20 px-6 md:px-10 shadow-lg relative md:static sticky top-28 md:top-0 rounded-b-[2.5rem] z-0">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
@@ -120,11 +119,10 @@ export default function Dashboard() {
       </div>
 
       {/* ================================================= */}
-      {/* CARDS (SOBREPOSIÇÃO)                              */}
+      {/* 5. CARDS BRANCOS (CAMADA DO MEIO)                 */}
       {/* ================================================= */}
-      {/* MUDANÇAS CRÍTICAS: */}
-      {/* 1. z-10: Traz os cards para FRENTE. Eles vão rolar POR CIMA do banner. */}
-      {/* 2. -mt-12: Sobe os cards para "morder" o banner visualmente. */}
+      {/* Z-Index 10: Fica na frente do Banner (0), mas atrás do Header (50). */}
+      {/* -mt-12: Sobe para criar o efeito de "mordida" no banner. */}
       <div className="max-w-6xl mx-auto px-4 -mt-12 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
