@@ -4,13 +4,12 @@ import { ChurchProvider } from "../contexts/ChurchContext";
 import MainLayout from "../components/MainLayout";
 
 export const viewport: Viewport = {
-  // MUDAMOS PARA UM AZUL ESCURO (Diferente do Header)
-  themeColor: "#172554", 
+  themeColor: "#0F172A", // <--- Tem que ser a mesma cor escura do manifest
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: "cover",
+  // REMOVA O 'viewportFit: cover' SE TIVER!
 };
 
 export const metadata: Metadata = {
