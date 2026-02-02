@@ -1,37 +1,36 @@
 export interface Member {
   id?: string;
-  churchId: string;
+  churchId: string | null;
   fullName: string;
-  
-  // Contato
   email?: string;
   phone?: string;
+  document?: string;     // CPF ou Identidade
+  birthDate?: string;    // Data de nascimento
+  baptismDate?: string;  // Data de batismo
+  photoUrl?: string;
   
-  // Pessoal
-  document?: string;
-  birthDate?: string;
-  gender?: string;
-  maritalStatus?: string; // <--- O erro no build acontece pela falta desta linha
-  photoUrl?: string;      // <--- Adicione esta também para garantir
+  gender: string | null;        // 'male' | 'female'
+  maritalStatus: string | null; // 'single', 'married', etc.
   
-  // Eclesiástico
-  baptismDate?: string;
-  role?: string;
-  status?: string;
-  entryDate?: string;
-  isTither?: boolean;
+  role: string;          // 'member', 'leader', 'secretary', 'treasurer', 'admin'
+  status: string;        // 'active', 'inactive'
   
-  // Grupos e Ministérios
-  ministries?: string[];
-  departments?: string[]; // Mantemos para compatibilidade
+  isTither?: boolean;    // É dizimista?
   
-  // Endereço Completo
+  // Endereço
   address?: {
-      street: string;
-      number: string;
-      neighborhood: string;
-      city: string;
-      state: string;
-      zipCode: string;
+    street: string;
+    number: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zipCode: string;
   };
+
+  ministries?: string[]; // IDs dos ministérios
+  
+  // --- [NOVO] Adicione esta linha aqui: ---
+  permissions?: string[]; // Lista de permissões extras (ex: ['financial', 'secretary'])
+  
+  createdAt?: string;
 }

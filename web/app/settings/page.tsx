@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useChurch } from "../../contexts/ChurchContext"; // <--- Contexto
+import { useChurch } from "../../contexts/ChurchContext"; 
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../../lib/firebase";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
-  // Pega as funções do contexto para atualizar a memória global
   const { churchId, setChurchData, userRole, userName } = useChurch(); 
   
   const [activeTab, setActiveTab] = useState<'general' | 'security'>('general');
@@ -26,7 +25,6 @@ export default function SettingsPage() {
   const [textRecommendation, setTextRecommendation] = useState("");
   const [textTransfer, setTextTransfer] = useState("");
 
-  // Estados de Senha
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -36,6 +34,7 @@ export default function SettingsPage() {
   }, [churchId]);
 
   const loadData = async () => {
+    if (!churchId) return; // Proteção extra
     try {
         const ref = doc(db, "churches", churchId);
         const snap = await getDoc(ref);
@@ -54,9 +53,16 @@ export default function SettingsPage() {
 
   const handleSaveGeneral = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // CORREÇÃO CRÍTICA 1: Se não tiver ID, para tudo.
+    // Isso resolve o erro do Firestore reclamando de ID nulo
+    if (!churchId) {
+        alert("Erro: ID da igreja não encontrado.");
+        return;
+    }
+
     setSaving(true);
     try {
-        // 1. Salva no Banco de Dados
         const ref = doc(db, "churches", churchId);
         await updateDoc(ref, {
             name,
@@ -68,15 +74,15 @@ export default function SettingsPage() {
             textTransfer
         });
 
-        // 2. ATUALIZA O CONTEXTO (IMPORTANTE)
-        // Isso faz a logo e a moeda atualizarem na hora e gravarem no localStorage
+        // CORREÇÃO CRÍTICA 2: Usamos || "" para garantir que nunca passamos nulo
+        // Isso resolve o erro vermelho do TypeScript
         setChurchData(
             churchId,
             name,
-            userRole,
-            userName,
-            logoUrl, // <--- Aqui vai a nova logo
-            currency // <--- Aqui vai a nova moeda
+            userRole || "", 
+            userName || "",
+            logoUrl, 
+            currency
         );
 
         alert("✅ Configurações salvas com sucesso!");
@@ -99,11 +105,9 @@ export default function SettingsPage() {
         const user = auth.currentUser;
         if (!user || !user.email) throw new Error("Usuário não autenticado");
 
-        // Reautenticar (Segurança)
         const credential = EmailAuthProvider.credential(user.email, currentPassword);
         await reauthenticateWithCredential(user, credential);
 
-        // Atualizar
         await updatePassword(user, newPassword);
         
         alert("✅ Senha alterada com sucesso!");
@@ -135,8 +139,6 @@ export default function SettingsPage() {
 
       <div className="max-w-4xl mx-auto px-4 md:px-0 -mt-16">
           <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-              
-              {/* TABS */}
               <div className="flex border-b border-gray-100">
                   <button onClick={() => setActiveTab('general')} className={`flex-1 py-4 font-bold text-sm flex justify-center items-center gap-2 transition ${activeTab === 'general' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-600'}`}>
                       <Building2 size={18}/> Dados da Igreja
@@ -149,7 +151,6 @@ export default function SettingsPage() {
               <div className="p-6 md:p-8">
                   {activeTab === 'general' && (
                     <form onSubmit={handleSaveGeneral} className="space-y-6 animate-in fade-in">
-                        {/* IDENTIDADE */}
                         <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Building2 size={14}/> Identidade</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -162,7 +163,6 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* FINANCEIRO */}
                         <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Globe size={14}/> Financeiro & Local</h3>
                             <div className="space-y-4">
@@ -184,7 +184,6 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* DOCUMENTOS */}
                         <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><FileText size={14}/> Textos Padrão (Cartas)</h3>
                             <div className="space-y-4">

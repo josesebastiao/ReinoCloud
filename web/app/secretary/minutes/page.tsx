@@ -1,14 +1,19 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useChurch } from "../../../contexts/ChurchContext"; // <--- 1. Importamos a segurança
 import { minuteService } from "../../../services/minuteService";
 import { churchService } from "../../../services/churchService";
 import { 
-  BookOpen, Plus, Search, Edit, Trash2, Printer, X, FileText, ArrowLeft 
+  BookOpen, Plus, Search, Edit, Trash2, Printer, X, FileText, ArrowLeft, Loader2 
 } from "lucide-react";
 
 export default function MinutesPage() {
   const router = useRouter();
+  
+  // 2. Pegamos as credenciais do usuário
+  const { userRole, hasPermission, loading: authLoading } = useChurch(); 
+  
   const [churchId, setChurchId] = useState("");
   const [churchName, setChurchName] = useState("Igreja");
   
@@ -24,7 +29,18 @@ export default function MinutesPage() {
   const [currentMinute, setCurrentMinute] = useState<any>(null);
   const [formData, setFormData] = useState({ title: "", date: "", content: "" });
 
+  // 3. VERIFICAÇÃO DE SEGURANÇA (O GUARDIÃO)
   useEffect(() => {
+    if (!authLoading) {
+        // Se NÃO é Pastor E NÃO tem permissão de secretaria... TCHAU!
+        if (userRole !== 'admin' && !hasPermission('secretary')) {
+            router.push('/'); 
+        }
+    }
+  }, [authLoading, userRole, hasPermission, router]);
+
+  useEffect(() => {
+    // Só carrega os dados se tiver o ID
     const id = localStorage.getItem("churchId");
     if (!id) { router.push("/login"); return; }
     setChurchId(id);
@@ -83,6 +99,12 @@ export default function MinutesPage() {
   };
 
   const filteredMinutes = minutes.filter(m => m.title.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  // 4. Bloqueia a tela enquanto verifica a permissão
+  if (authLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-indigo-600"/></div>;
+  
+  // Se não tiver permissão (e o useEffect ainda não redirecionou), não mostra nada para não piscar conteúdo proibido
+  if (userRole !== 'admin' && !hasPermission('secretary')) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 p-8 print:p-0 print:bg-white">
@@ -216,7 +238,7 @@ export default function MinutesPage() {
                         <p className="text-sm text-gray-500 mt-2">Data: {new Date(currentMinute.date).toLocaleDateString('pt-BR', { dateStyle: 'long' })}</p>
                     </div>
 
-                    {/* Conteúdo (Justificado e preservando parágrafos) */}
+                    {/* Conteúdo */}
                     <div className="text-justify text-lg leading-loose whitespace-pre-wrap indent-12 mb-16">
                         {currentMinute.content}
                     </div>

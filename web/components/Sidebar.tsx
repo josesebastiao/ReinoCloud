@@ -5,31 +5,42 @@ import {
   LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert 
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
+// ADICIONAMOS O AUTH AQUI PARA FAZER O LOGOUT DIRETO
+import { auth } from "../lib/firebase"; 
 
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
 
-// 1. ADICIONAMOS UMA PROPRIEDADE OPCIONAL
 interface SidebarProps {
     onNavigate?: () => void;
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  const { user, userRole, signOutUser } = useChurch();
+  // REMOVEMOS O signOutUser DAQUI
+  const { user, userRole, hasPermission } = useChurch();
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
-  const accessRules = {
-    dashboard: ['admin', 'pastor', 'treasurer', 'leader', 'secretary'],
-    secretary: ['admin', 'pastor', 'secretary'],
-    ministry:  ['admin', 'pastor', 'leader'], 
-    financial: ['admin', 'pastor', 'treasurer'], 
-    settings:  ['admin', 'pastor', 'treasurer'] 
+  // FUNÇÃO DE SAIR AJUSTADA
+  const handleLogout = async () => {
+      try {
+          await auth.signOut();
+          if (onNavigate) onNavigate();
+      } catch (error) {
+          console.error("Erro ao sair:", error);
+      }
   };
 
-  const canAccess = (module: keyof typeof accessRules) => {
-      if (!userRole) return false; 
-      return accessRules[module].includes(userRole);
+  const canAccess = (module: string) => {
+      if (userRole === 'admin') return true;
+
+      if (module === 'secretary') return hasPermission('secretary') || userRole === 'secretary';
+      if (module === 'financial') return hasPermission('financial') || userRole === 'treasurer';
+      if (module === 'ministry') return userRole === 'leader' || userRole === 'pastor';
+      if (module === 'settings') return userRole === 'treasurer' || userRole === 'admin';
+      if (module === 'dashboard') return true;
+
+      return false;
   };
 
   const userEmail = user?.email ? user.email.toLowerCase() : "";
@@ -59,7 +70,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
             <span className="truncate max-w-[150px]">
-                {isSuperAdmin ? 'SUPER ADMIN' : userRole === 'admin' ? 'PASTOR TITULAR' : userRole || 'Membro'}
+                {isSuperAdmin ? 'SUPER ADMIN' : userRole === 'admin' ? 'PASTOR TITULAR' : userRole === 'treasurer' ? 'TESOURARIA' : userRole === 'secretary' ? 'SECRETARIA' : 'MEMBRO / LÍDER'}
             </span>
           </div>
         </div>
@@ -69,7 +80,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             <Link 
                 key={item.href} 
                 href={item.href} 
-                onClick={onNavigate} // <--- 2. AQUI ESTÁ A MÁGICA: Fecha o menu ao clicar
+                onClick={onNavigate} 
                 className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group ${(item as any).special ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 mt-6" : pathname === item.href ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 font-bold translate-x-1" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}
             >
               <item.icon size={20} className={pathname === item.href ? "text-white" : (item as any).special ? "text-red-400" : "text-slate-500 group-hover:text-white transition-colors"} />
@@ -79,7 +90,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </nav>
 
         <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-          <button onClick={signOutUser} className="flex items-center gap-3 px-4 py-3 w-full text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200 group">
+          {/* BOTÃO DE SAIR CORRIGIDO */}
+          <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200 group">
             <LogOut size={20} className="group-hover:-translate-x-1 transition-transform"/>
             <span className="text-sm font-medium">Sair do Sistema</span>
           </button>

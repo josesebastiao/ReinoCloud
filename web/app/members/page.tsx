@@ -2,29 +2,28 @@
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
 
-// Imports Separados (Corrigidos)
+// Imports Separados
 import { memberService } from "../../services/memberService";
-import { ministryService } from "../../services/ministryService"; // <--- NOVO
+import { ministryService } from "../../services/ministryService";
 import { Member } from "../../types/member"; 
-import { Ministry } from "../../types/ministry"; // <--- NOVO
+import { Ministry } from "../../types/ministry";
 
 import { createSystemUser } from "../../services/adminAuthService";
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
-  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera 
+  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck 
 } from "lucide-react";
 
 export default function MembersPage() {
-  const { churchId, churchName, logoUrl } = useChurch(); 
+  const { churchId, churchName, logoUrl, userRole } = useChurch(); 
   
   const [members, setMembers] = useState<Member[]>([]);
-  const [ministryOptions, setMinistryOptions] = useState<Ministry[]>([]); // <--- Lista Dinâmica
+  const [ministryOptions, setMinistryOptions] = useState<Ministry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Modais
   const [showModal, setShowModal] = useState(false);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -34,14 +33,14 @@ export default function MembersPage() {
   const [newPassword, setNewPassword] = useState("");
   const [creatingAccess, setCreatingAccess] = useState(false);
 
-  // Formulário Principal
   const [formData, setFormData] = useState({
     fullName: "", email: "", phone: "", document: "", 
     birthDate: "", baptismDate: "", photoUrl: "", 
     gender: "male", maritalStatus: "single", 
     role: "member", status: "active", isTither: false,
     street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "",
-    selectedMinistries: [] as string[]
+    selectedMinistries: [] as string[],
+    permissions: [] as string[]
   });
 
   useEffect(() => {
@@ -51,9 +50,9 @@ export default function MembersPage() {
   }, [churchId]);
 
   const loadData = async () => {
+    if (!churchId) return;
     setLoading(true);
     try {
-      // Carrega Membros e Ministérios em paralelo
       const [membersList, ministriesList] = await Promise.all([
           memberService.listByChurch(churchId),
           ministryService.listByChurch(churchId)
@@ -71,7 +70,6 @@ export default function MembersPage() {
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Toggle Ministérios (Agora usa o ID do ministério, não o nome)
   const toggleMinistry = (ministryId: string) => {
       if (formData.selectedMinistries.includes(ministryId)) {
           setFormData({ ...formData, selectedMinistries: formData.selectedMinistries.filter(id => id !== ministryId) });
@@ -80,10 +78,12 @@ export default function MembersPage() {
       }
   };
 
-  // Ajuda a pegar o nome do ministério pelo ID na hora de imprimir
-  const getMinistryName = (id: string) => {
-      const min = ministryOptions.find(m => m.id === id);
-      return min ? min.name : "Desconhecido";
+  const togglePermission = (permission: string) => {
+      if (formData.permissions.includes(permission)) {
+          setFormData({ ...formData, permissions: formData.permissions.filter(p => p !== permission) });
+      } else {
+          setFormData({ ...formData, permissions: [...formData.permissions, permission] });
+      }
   };
 
   const handlePrintExecute = () => {
@@ -91,7 +91,8 @@ export default function MembersPage() {
     if (!printWindow) return;
     const today = new Date().toLocaleDateString('pt-BR');
     
-    const translateMarital = (st: string | undefined) => {
+    // CORREÇÃO AQUI: Aceita string, null ou undefined
+    const translateMarital = (st: string | null | undefined) => {
         if(st === 'married') return 'Casado(a)';
         if(st === 'divorced') return 'Divorciado(a)';
         if(st === 'widowed') return 'Viúvo(a)';
@@ -154,13 +155,14 @@ export default function MembersPage() {
         fullName: member.fullName, email: member.email || "", phone: member.phone || "",
         document: member.document || "", birthDate: member.birthDate || "", baptismDate: member.baptismDate || "",
         photoUrl: member.photoUrl || "", 
-        gender: (member.gender as string) || "male", 
-        maritalStatus: member.maritalStatus || "single", 
+        gender: member.gender || "male", // Correção simples para lidar com null
+        maritalStatus: member.maritalStatus || "single", // Correção simples para lidar com null
         role: member.role || "member", status: member.status || "active",
         isTither: member.isTither || false, 
         street: addr.street || "", number: addr.number || "", neighborhood: addr.neighborhood || "",
         city: addr.city || "", state: addr.state || "", zipCode: addr.zipCode || "",
-        selectedMinistries: member.ministries || []
+        selectedMinistries: member.ministries || [],
+        permissions: member.permissions || []
       });
     } else {
       setEditingId(null);
@@ -168,7 +170,8 @@ export default function MembersPage() {
         fullName: "", email: "", phone: "", document: "", birthDate: "", baptismDate: "", photoUrl: "",
         gender: "male", maritalStatus: "single", role: "member", status: "active", isTither: false,
         street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "",
-        selectedMinistries: []
+        selectedMinistries: [],
+        permissions: []
       });
     }
     setShowModal(true);
@@ -176,6 +179,7 @@ export default function MembersPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!churchId) return;
     setLoading(true);
     try {
       const payload: Member = {
@@ -184,7 +188,8 @@ export default function MembersPage() {
         photoUrl: formData.photoUrl, 
         gender: formData.gender, maritalStatus: formData.maritalStatus, 
         role: formData.role, status: formData.status, isTither: formData.isTither,
-        ministries: formData.selectedMinistries, // Salva IDs dos ministérios reais
+        ministries: formData.selectedMinistries, 
+        permissions: formData.permissions,
         address: { 
             street: formData.street, number: formData.number, neighborhood: formData.neighborhood, 
             city: formData.city, state: formData.state, zipCode: formData.zipCode 
@@ -193,7 +198,7 @@ export default function MembersPage() {
       if (editingId) await memberService.update(editingId, payload);
       else await memberService.create(payload);
       setShowModal(false); 
-      loadData(); // Recarrega tudo
+      loadData(); 
     } catch (error) { alert("Erro ao salvar."); } finally { setLoading(false); }
   };
 
@@ -205,7 +210,6 @@ export default function MembersPage() {
 
   return (
     <div className="p-4 md:p-8 min-h-screen bg-gray-50 pb-24">
-      {/* CABEÇALHO */}
       <div className="max-w-6xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
         <div><h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Users className="text-blue-600"/> Membros</h1><p className="text-sm text-gray-500">{members.length} membros cadastrados</p></div>
         <div className="flex gap-2 w-full md:w-auto">
@@ -214,10 +218,8 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* BUSCA */}
       <div className="max-w-6xl mx-auto mb-6 relative"><Search className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" placeholder="Buscar por nome..." className="w-full pl-10 p-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}/></div>
 
-      {/* TABELA */}
       <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -236,8 +238,8 @@ export default function MembersPage() {
                             <span className="font-bold text-gray-800">{member.fullName}</span>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-[10px] bg-gray-100 text-gray-500 px-2 rounded uppercase font-bold">{member.role === 'admin' ? 'Pastor' : member.role}</span>
-                                {member.maritalStatus === 'married' && <span className="text-[10px] bg-pink-50 text-pink-600 px-2 rounded font-bold">Casado(a)</span>}
-                                {member.isTither && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 rounded font-bold flex items-center gap-1"><HandCoins size={10}/> Dizimista</span>}
+                                {member.permissions?.includes('financial') && <span className="text-[9px] bg-green-100 text-green-700 px-1.5 rounded font-bold">Financeiro</span>}
+                                {member.permissions?.includes('secretary') && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 rounded font-bold">Secretaria</span>}
                             </div>
                         </div>
                     </div>
@@ -252,7 +254,6 @@ export default function MembersPage() {
         {totalPages > 1 && (<div className="p-4 border-t border-gray-100 flex justify-center gap-4 items-center"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={20}/></button><span className="text-sm font-bold text-gray-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={20}/></button></div>)}
       </div>
 
-      {/* --- MODAL DE IMPRESSÃO --- */}
       {showPrintModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95">
@@ -270,7 +271,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* --- MODAL 1: CADASTRO/EDIÇÃO (GIGANTE AGORA) --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
@@ -279,13 +279,45 @@ export default function MembersPage() {
                     <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-red-500 font-bold">FECHAR</button>
                 </div>
                 <form onSubmit={handleSave} className="p-6 space-y-6">
-                    
-                    {/* ... DADOS PESSOAIS E ECLESIÁSTICOS (IGUAIS AO ANTERIOR) ... */}
-                    {/* Vou manter essa parte igual, o foco é a seção de ministérios abaixo */}
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Link da Foto (URL)</label><div className="relative"><Camera className="absolute left-3 top-3 text-gray-400" size={16}/><input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white" placeholder="https://..." /></div></div><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label><input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Telefone</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Estado Civil</label><div className="relative"><Heart className="absolute left-3 top-3 text-pink-400" size={16}/><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white appearance-none"><option value="single">Solteiro(a)</option><option value="married">Casado(a)</option><option value="divorced">Divorciado(a)</option><option value="widowed">Viúvo(a)</option></select></div></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Nascimento</label><input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div></div></div>
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-[10px] font-bold text-gray-400 uppercase">Cargo</label><select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="member">Membro</option><option value="leader">Líder</option><option value="secretary">Secretaria</option><option value="treasurer">Tesouraria</option><option value="admin">Pastor</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-xl border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-50" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-bold text-gray-700">É Dizimista?</span></div></div></div></div>
+                    
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-[10px] font-bold text-gray-400 uppercase">Cargo</label><select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="member">Membro</option><option value="leader">Líder</option><option value="secretary">Secretaria</option><option value="treasurer">Tesouraria</option><option value="admin">Pastor (Admin)</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-xl border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-50" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-bold text-gray-700">É Dizimista?</span></div></div></div></div>
 
-                    {/* SEÇÃO 3: MINISTÉRIOS (AGORA DINÂMICO) */}
+                    {userRole === 'admin' && (
+                        <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 animate-in fade-in">
+                            <h3 className="text-xs font-bold text-purple-700 uppercase mb-3 flex items-center gap-2">
+                                <ShieldCheck size={14}/> Permissões de Acesso (Login)
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div 
+                                    onClick={() => togglePermission('secretary')}
+                                    className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${formData.permissions.includes('secretary') ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'}`}
+                                >
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.permissions.includes('secretary') ? 'bg-white' : 'bg-gray-100 border-gray-300'}`}>
+                                        {formData.permissions.includes('secretary') && <div className="w-3 h-3 bg-purple-600 rounded-sm" />}
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold uppercase">Secretaria</span>
+                                        <span className={`text-[10px] ${formData.permissions.includes('secretary') ? 'text-purple-200' : 'text-gray-400'}`}>Acessa e edita membros</span>
+                                    </div>
+                                </div>
+
+                                <div 
+                                    onClick={() => togglePermission('financial')}
+                                    className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${formData.permissions.includes('financial') ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'}`}
+                                >
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.permissions.includes('financial') ? 'bg-white' : 'bg-gray-100 border-gray-300'}`}>
+                                        {formData.permissions.includes('financial') && <div className="w-3 h-3 bg-purple-600 rounded-sm" />}
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold uppercase">Tesouraria</span>
+                                        <span className={`text-[10px] ${formData.permissions.includes('financial') ? 'text-purple-200' : 'text-gray-400'}`}>Acessa dízimos e ofertas</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                         <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Briefcase size={14}/> Ministérios & Departamentos</h3>
                         
@@ -298,7 +330,7 @@ export default function MembersPage() {
                                 {ministryOptions.map(dept => (
                                     <div 
                                         key={dept.id} 
-                                        onClick={() => toggleMinistry(dept.id!)} // Usa o ID, não o nome
+                                        onClick={() => toggleMinistry(dept.id!)}
                                         className={`p-2 rounded-lg border text-xs font-bold cursor-pointer transition flex items-center gap-2 ${formData.selectedMinistries.includes(dept.id!) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'}`}
                                     >
                                         <div className={`w-3 h-3 rounded-full border ${formData.selectedMinistries.includes(dept.id!) ? 'bg-white border-white' : 'bg-transparent border-gray-300'}`}></div>
@@ -309,7 +341,6 @@ export default function MembersPage() {
                         )}
                     </div>
 
-                    {/* SEÇÃO 4: ENDEREÇO */}
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><MapPin size={14}/> Endereço</h3><div className="grid grid-cols-2 gap-4"><div className="col-span-2"><input placeholder="Rua / Avenida" value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><input placeholder="Cidade" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><input placeholder="Estado/Província" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div></div></div>
 
                     <div className="flex justify-end pt-4 gap-3">
@@ -321,7 +352,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL 2: SENHA */}
       {showAccessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
