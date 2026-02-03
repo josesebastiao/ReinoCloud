@@ -8,7 +8,7 @@ import { Transaction } from "../../types/finance";
 import { Member } from "../../types/member";
 import { 
   TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, 
-  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2 
+  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2, Edit 
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
@@ -16,18 +16,17 @@ export default function FinancialPage() {
   const router = useRouter();
   
   // 1. Contexto e Segurança
-  const { formatMoney, churchName, userRole, hasPermission, loading: authLoading } = useChurch();
+  const { formatMoney, churchName, logoUrl, userRole, hasPermission, loading: authLoading } = useChurch();
   
   const [churchId, setChurchId] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [members, setMembers] = useState<Member[]>([]); 
   const [loading, setLoading] = useState(false);
-  const [dataLoading, setDataLoading] = useState(true); // Novo loading para dados
+  const [dataLoading, setDataLoading] = useState(true);
 
-  // 2. Trava de Segurança (O porteiro da Tesouraria)
+  // 2. Trava de Segurança
   useEffect(() => {
     if (!authLoading) {
-        // Se NÃO é Pastor (Admin) E NÃO tem permissão financeira... TCHAU!
         if (userRole !== 'admin' && !hasPermission('financial') && userRole !== 'treasurer') {
             router.push('/'); 
         }
@@ -44,7 +43,9 @@ export default function FinancialPage() {
   const [startDate, setStartDate] = useState(firstDay);
   const [endDate, setEndDate] = useState(lastDay);
   
+  // MODAL E EDIÇÃO
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null); // ID do lançamento em edição
   
   const [newTrans, setNewTrans] = useState({
     amount: "", 
@@ -61,16 +62,13 @@ export default function FinancialPage() {
   // 3. Carregar Dados Seguro
   useEffect(() => {
     const idSalvo = localStorage.getItem("churchId");
-    
-    // Se não tem ID ou não tem permissão (ainda carregando), não busca nada
     if (!idSalvo) {
         if (!authLoading) router.push("/login");
         return; 
     }
-
     setChurchId(idSalvo);
     carregarDados(idSalvo);
-  }, [authLoading, router]); // Adicionado dependências
+  }, [authLoading, router]);
 
   const carregarDados = async (id: string) => {
     setDataLoading(true);
@@ -115,6 +113,30 @@ export default function FinancialPage() {
       }
   };
 
+  // --- ABRIR MODAL (NOVO OU EDIÇÃO) ---
+  const handleOpenModal = (trans?: Transaction) => {
+      if (trans) {
+          // Modo Edição
+          setEditingId(trans.id || null);
+          setNewTrans({
+              amount: trans.amount.toString(),
+              type: trans.type,
+              date: trans.date,
+              category: trans.category || "Outros",
+              memberId: trans.memberId || "",
+              description: trans.description || ""
+          });
+      } else {
+          // Modo Novo
+          setEditingId(null);
+          setNewTrans({ 
+            amount: "", type: "income", date: new Date().toISOString().split('T')[0], 
+            category: "Dízimo", memberId: "", description: "" 
+          });
+      }
+      setIsModalOpen(true);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -150,24 +172,28 @@ export default function FinancialPage() {
       };
 
       if (!navigator.onLine) {
-         financeService.create(payload);
-         alert("Salvo no dispositivo! Será enviado quando a internet voltar.");
+         // Lógica Offline (Simplificada)
+         if (editingId) {
+             alert("Edição não disponível offline.");
+         } else {
+             financeService.create(payload);
+             alert("Salvo no dispositivo! Será enviado quando a internet voltar.");
+         }
          setIsModalOpen(false);
          setLoading(false);
-         setNewTrans({ 
-           amount: "", type: "income", date: new Date().toISOString().split('T')[0], 
-           category: "Dízimo", memberId: "", description: "" 
-         });
          setTimeout(() => carregarDados(churchId), 500);
          return; 
       }
 
-      await financeService.create(payload);
+      if (editingId) {
+          // ATUALIZAR EXISTENTE
+          await financeService.update(editingId, payload);
+      } else {
+          // CRIAR NOVO
+          await financeService.create(payload);
+      }
+
       setIsModalOpen(false);
-      setNewTrans({ 
-          amount: "", type: "income", date: new Date().toISOString().split('T')[0], 
-          category: "Dízimo", memberId: "", description: "" 
-      });
       carregarDados(churchId);
 
     } catch (error) { 
@@ -179,7 +205,7 @@ export default function FinancialPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if(confirm("Excluir este lançamento?")) {
+    if(confirm("Excluir este lançamento permanentemente?")) {
       if (!navigator.onLine) {
           financeService.delete(id);
           alert("Exclusão agendada (Offline).");
@@ -189,6 +215,89 @@ export default function FinancialPage() {
           carregarDados(churchId);
       }
     }
+  };
+
+  // --- FUNÇÃO PARA CONVERTER IMAGEM EM BASE64 (PARA IMPRESSÃO) ---
+  const toDataURL = async (url: string) => {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) { return ""; }
+  };
+
+  // --- FUNÇÃO DE IMPRESSÃO PROFISSIONAL ---
+  const handlePrint = async () => {
+      let finalLogo = "";
+      if (logoUrl) finalLogo = await toDataURL(logoUrl);
+
+      const printWindow = window.open('', '', 'width=900,height=600');
+      if (!printWindow) return;
+
+      const rows = filteredTransactions.map(t => `
+        <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 8px;">${new Date(t.date).toLocaleDateString('pt-BR')}</td>
+            <td style="padding: 8px;">
+                <strong>${t.description}</strong><br/>
+                <span style="font-size: 10px; color: #666;">${t.category}</span>
+            </td>
+            <td style="padding: 8px; text-align: right; color: ${t.type === 'income' ? 'green' : 'red'}; font-weight: bold;">
+                ${t.type === 'income' ? '+' : '-'} ${formatMoney(t.amount)}
+            </td>
+        </tr>
+      `).join('');
+
+      const html = `
+        <html>
+            <head>
+                <title>Relatório Financeiro</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+                    .logo { height: 60px; margin-bottom: 10px; }
+                    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                    th { text-align: left; background: #f9fafb; padding: 8px; }
+                    .summary { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; }
+                    .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; flex: 1; text-align: center; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
+                    <h1 style="margin:0; font-size: 20px; text-transform: uppercase;">${churchName}</h1>
+                    <p style="margin:5px 0; font-size: 12px; color: #666;">Relatório Financeiro • ${startDate ? new Date(startDate).toLocaleDateString() : 'Início'} até ${endDate ? new Date(endDate).toLocaleDateString() : 'Hoje'}</p>
+                </div>
+
+                <div class="summary">
+                    <div class="card" style="background: #f0fdf4; border-color: #bbf7d0;">
+                        <span style="font-size: 10px; color: green; font-weight: bold;">ENTRADAS</span><br/>
+                        <strong style="font-size: 18px; color: green;">${formatMoney(totalIncome)}</strong>
+                    </div>
+                    <div class="card" style="background: #fef2f2; border-color: #fecaca;">
+                        <span style="font-size: 10px; color: red; font-weight: bold;">SAÍDAS</span><br/>
+                        <strong style="font-size: 18px; color: red;">${formatMoney(totalExpense)}</strong>
+                    </div>
+                    <div class="card" style="background: #f8fafc; border-color: #e2e8f0;">
+                        <span style="font-size: 10px; color: #475569; font-weight: bold;">SALDO</span><br/>
+                        <strong style="font-size: 18px; color: ${balance >= 0 ? '#333' : 'red'};">${formatMoney(balance)}</strong>
+                    </div>
+                </div>
+
+                <table>
+                    <thead><tr><th>Data</th><th>Descrição</th><th style="text-align: right;">Valor</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <script>setTimeout(() => window.print(), 500);</script>
+            </body>
+        </html>
+      `;
+      
+      printWindow.document.write(html);
+      printWindow.document.close();
   };
 
   const chartData = [
@@ -216,10 +325,10 @@ export default function FinancialPage() {
                 <p className="text-blue-100 text-lg opacity-90">Controle de dízimos, ofertas e despesas.</p>
             </div>
              <div className="hidden md:flex gap-3">
-                <button onClick={() => window.print()} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition">
+                <button onClick={handlePrint} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition">
                     <Printer size={18}/> Imprimir
                 </button>
-                <button onClick={() => setIsModalOpen(true)} className="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg transition">
+                <button onClick={() => handleOpenModal()} className="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg transition">
                     <PlusCircle size={18} /> Novo Lançamento
                 </button>
             </div>
@@ -228,10 +337,10 @@ export default function FinancialPage() {
       
       {/* Botões Mobile */}
       <div className="md:hidden px-4 -mt-6 mb-6 flex gap-2 relative z-20 print:hidden">
-            <button onClick={() => setIsModalOpen(true)} className="flex-1 bg-white text-blue-600 py-3 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 border border-blue-100">
+            <button onClick={() => handleOpenModal()} className="flex-1 bg-white text-blue-600 py-3 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 border border-blue-100">
                 <PlusCircle size={20}/> Novo
             </button>
-            <button onClick={() => window.print()} className="bg-white text-gray-600 px-4 py-3 rounded-xl font-bold shadow-lg flex justify-center items-center border border-gray-100">
+            <button onClick={handlePrint} className="bg-white text-gray-600 px-4 py-3 rounded-xl font-bold shadow-lg flex justify-center items-center border border-gray-100">
                 <Printer size={20}/>
             </button>
       </div>
@@ -345,14 +454,19 @@ export default function FinancialPage() {
                                   )}
                               </div>
 
-                              <div className="flex items-center justify-between md:justify-end gap-4 mt-2 md:mt-0">
+                              <div className="flex items-center justify-between md:justify-end gap-3 mt-2 md:mt-0">
                                   <span className={`text-lg font-black ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                       {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
                                   </span>
                                   
-                                  <button onClick={() => handleDelete(t.id!)} className="p-2 text-gray-300 hover:text-red-500 transition hover:bg-red-50 rounded-full print:hidden opacity-0 group-hover:opacity-100">
-                                      <Trash2 size={16}/>
-                                  </button>
+                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                      <button onClick={() => handleOpenModal(t)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg print:hidden">
+                                          <Edit size={16}/>
+                                      </button>
+                                      <button onClick={() => handleDelete(t.id!)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg print:hidden">
+                                          <Trash2 size={16}/>
+                                      </button>
+                                  </div>
                               </div>
                           </div>
                       </div>
@@ -366,12 +480,12 @@ export default function FinancialPage() {
           </div>
       </div>
 
-      {/* --- MODAL NOVO LANÇAMENTO --- */}
+      {/* --- MODAL NOVO/EDITAR LANÇAMENTO --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm print:hidden animate-in fade-in">
            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
               <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-xl font-bold text-gray-800">Novo Lançamento</h2>
+                  <h2 className="text-xl font-bold text-gray-800">{editingId ? 'Editar Lançamento' : 'Novo Lançamento'}</h2>
                   <button onClick={() => setIsModalOpen(false)} className="bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition"><X size={18} className="text-gray-500"/></button>
               </div>
               
@@ -389,7 +503,7 @@ export default function FinancialPage() {
                   {newTrans.type === 'income' && newTrans.category === 'Dízimo' && (
                       <div className="animate-in fade-in slide-in-from-top-2">
                           <label className="text-xs font-bold text-blue-600 uppercase flex items-center gap-1 ml-1"><User size={12}/> Selecione o Irmão(ã)</label>
-                          <select value={newTrans.memberId} onChange={e => setNewTrans({...newTrans, memberId: e.target.value})} className="w-full p-3 border border-blue-200 rounded-xl bg-blue-50 mt-1 outline-none focus:ring-2 ring-blue-100" required>
+                          <select value={newTrans.memberId} onChange={e => setNewTrans({...newTrans, memberId: e.target.value})} className="w-full p-3 border border-blue-200 rounded-xl bg-blue-50 mt-1 outline-none focus:ring-2 ring-blue-100" required={!editingId}>
                               <option value="">-- Selecione na lista --</option>
                               {members.map(m => (<option key={m.id} value={m.id}>{m.fullName}</option>))}
                           </select>

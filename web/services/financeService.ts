@@ -1,6 +1,6 @@
 import { db } from "../lib/firebase";
 import { 
-  collection, addDoc, getDocs, query, where, deleteDoc, doc 
+  collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc // <--- Importamos o updateDoc
 } from "firebase/firestore";
 import { Transaction } from "../types/finance";
 
@@ -19,16 +19,22 @@ export const financeService = {
     }
   },
 
-  // Criar (Aqui estava o erro: agora ele aceita o objeto Transaction direto)
+  // Criar
   create: async (data: Transaction) => {
     await addDoc(collection(db, COLLECTION), {
       ...data,
-      createdAt: new Date()
+      createdAt: new Date().toISOString() // Garante formato padrão de data
     });
   },
 
   // Deletar
   delete: async (id: string) => {
     await deleteDoc(doc(db, COLLECTION, id));
+  },
+
+  // --- ATUALIZAR (A FUNÇÃO QUE FALTAVA) ---
+  update: async (id: string, data: any) => {
+    const docRef = doc(db, COLLECTION, id);
+    await updateDoc(docRef, data);
   }
 };
