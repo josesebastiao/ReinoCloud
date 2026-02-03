@@ -2,21 +2,17 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation"; 
 import { useChurch } from "../../contexts/ChurchContext";
-
 import { memberService } from "../../services/memberService";
 import { Member } from "../../types/member"; 
-
 import { 
   Users, BarChart3, Cake, HandCoins, HeartHandshake, AlertCircle, Sparkles, 
-  PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2, ArrowLeft
+  PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2, ArrowLeft, X, Phone, Mail, MapPin, User
 } from "lucide-react";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function ReportsPage() {
   const router = useRouter();
-  
-  // 1. Pegamos a segurança e o ID do contexto
   const { churchId, userRole, hasPermission, loading: authLoading } = useChurch();
   
   const [loadingData, setLoadingData] = useState(true);
@@ -32,17 +28,17 @@ export default function ReportsPage() {
   const [needsVisit, setNeedsVisit] = useState<Member[]>([]); 
   const [ageData, setAgeData] = useState<any[]>([]);
 
-  // 2. Efeito de Segurança (O Guardião)
+  // Modal Ver Ficha
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
   useEffect(() => {
     if (!authLoading) {
-        // Se NÃO é Pastor E NÃO tem permissão de secretaria... TCHAU!
         if (userRole !== 'admin' && !hasPermission('secretary')) {
             router.push('/'); 
         }
     }
   }, [authLoading, userRole, hasPermission, router]);
 
-  // 3. Efeito de Carregamento de Dados
   useEffect(() => {
     if (churchId) {
         calculateStats();
@@ -60,7 +56,6 @@ export default function ReportsPage() {
   };
 
   const calculateStats = async () => {
-    // CORREÇÃO CRÍTICA: Se não tiver ID, para tudo. Remove o erro de build.
     if (!churchId) return;
 
     try {
@@ -75,7 +70,6 @@ export default function ReportsPage() {
         const females = members.filter(m => m.gender === 'female').length;
         setGenderStats({ male: males, female: females });
 
-        // Gráfico Idade
         let k = 0, y = 0, a = 0, s = 0;
         activeMembers.forEach(m => {
             const age = getAge(m.birthDate || ""); 
@@ -93,7 +87,6 @@ export default function ReportsPage() {
         
         setAgeData(chartData);
 
-        // Aniversariantes
         const currentMonth = new Date().getMonth();
         const bdays = members.filter(m => {
             if(!m.birthDate) return false;
@@ -107,7 +100,6 @@ export default function ReportsPage() {
         });
         setBirthdays(bdays);
 
-        // Pastoral
         const visitList = activeMembers.sort(() => 0.5 - Math.random()).slice(0, 3);
         setNeedsVisit(visitList);
 
@@ -120,10 +112,8 @@ export default function ReportsPage() {
 
   const currentMonthName = new Date().toLocaleString('pt-BR', { month: 'long' });
 
-  // Loading geral da autenticação ou dos dados
   if (authLoading || (loadingData && !totalMembers)) return <div className="flex justify-center p-10 min-h-screen items-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // Se não tem permissão, não mostra nada (evita piscar tela proibida)
   if (userRole !== 'admin' && !hasPermission('secretary')) return null;
 
   return (
@@ -163,7 +153,7 @@ export default function ReportsPage() {
                   <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100"><div className="flex justify-between text-xs font-bold text-blue-700 mb-2"><span>Meta Semanal</span><span>2/5 Visitas</span></div><div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden"><div className="bg-blue-600 h-2 rounded-full w-[40%] transition-all duration-1000"></div></div></div>
                   <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1"><AlertCircle size={12}/> Sugestão de Visita (Aleatório)</h4>
                   <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
-                      {needsVisit.map(m => (<div key={m.id} className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100 rounded-xl hover:bg-white hover:shadow-sm transition"><div><p className="font-bold text-sm text-gray-700 truncate max-w-[120px]">{m.fullName}</p><p className="text-[10px] text-gray-400">Status: {m.status === 'active' ? 'Ativo' : 'Inativo'}</p></div><button className="text-[10px] bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:text-blue-600 hover:border-blue-200 transition">Ver Ficha</button></div>))}
+                      {needsVisit.map(m => (<div key={m.id} className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100 rounded-xl hover:bg-white hover:shadow-sm transition"><div><p className="font-bold text-sm text-gray-700 truncate max-w-[120px]">{m.fullName}</p><p className="text-[10px] text-gray-400">Status: {m.status === 'active' ? 'Ativo' : 'Inativo'}</p></div><button onClick={() => setSelectedMember(m)} className="text-[10px] bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:text-blue-600 hover:border-blue-200 transition">Ver Ficha</button></div>))}
                   </div>
               </div>
 
@@ -174,6 +164,40 @@ export default function ReportsPage() {
               </div>
           </div>
       </div>
+
+      {/* MODAL VER FICHA */}
+      {selectedMember && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95">
+                <div className="bg-blue-600 p-6 text-center relative">
+                    <button onClick={() => setSelectedMember(null)} className="absolute top-4 right-4 text-white/70 hover:text-white"><X size={20}/></button>
+                    <div className="w-20 h-20 bg-white rounded-full mx-auto mb-3 flex items-center justify-center border-4 border-blue-400">
+                        {selectedMember.photoUrl ? <img src={selectedMember.photoUrl} className="w-full h-full rounded-full object-cover"/> : <User className="text-blue-300" size={40}/>}
+                    </div>
+                    <h3 className="text-xl font-bold text-white">{selectedMember.fullName}</h3>
+                    <p className="text-blue-100 text-sm uppercase font-bold tracking-wider">{selectedMember.role === 'admin' ? 'Pastor' : 'Membro'}</p>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div className="flex items-center gap-3 text-gray-600">
+                        <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Phone size={16}/></div>
+                        <div><p className="text-xs text-gray-400 font-bold uppercase">Telefone</p><p className="font-medium text-sm">{selectedMember.phone || "Não informado"}</p></div>
+                    </div>
+                    <div className="flex items-center gap-3 text-gray-600">
+                        <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><Mail size={16}/></div>
+                        <div><p className="text-xs text-gray-400 font-bold uppercase">E-mail</p><p className="font-medium text-sm truncate max-w-[200px]">{selectedMember.email || "Não informado"}</p></div>
+                    </div>
+                    <div className="flex items-center gap-3 text-gray-600">
+                        <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center"><MapPin size={16}/></div>
+                        <div><p className="text-xs text-gray-400 font-bold uppercase">Endereço</p><p className="font-medium text-sm">{selectedMember.address?.street || "Não informado"}</p></div>
+                    </div>
+                    <button onClick={() => router.push('/members')} className="w-full py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition text-sm">
+                        Ver Cadastro Completo
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 }
