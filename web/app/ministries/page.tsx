@@ -8,7 +8,7 @@ import { Ministry } from "../../types/ministry";
 import { Member } from "../../types/member";
 import { 
   Users, Plus, Pencil, Trash2, Music, Heart, BookOpen, 
-  Mic2, X, Search, UserPlus, UserMinus, ShieldCheck 
+  Mic2, X, Search, UserPlus, UserMinus, ShieldCheck, Star 
 } from "lucide-react";
 
 export default function Ministries() {
@@ -20,7 +20,7 @@ export default function Ministries() {
   const [allMembers, setAllMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Modal CRIAR/EDITAR Ministério
+  // Modal CRIAR/EDITAR
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -32,7 +32,6 @@ export default function Ministries() {
   const [searchMember, setSearchMember] = useState("");
 
   useEffect(() => {
-    // Tenta pegar do localStorage ou espera o Contexto (optei por manter sua lógica original)
     const idSalvo = localStorage.getItem("churchId");
     if (!idSalvo) {
       router.push("/login");
@@ -76,11 +75,33 @@ export default function Ministries() {
   const handleRemoveMemberFromMinistry = async (member: Member) => {
     if (!selectedMinistry) return;
 
+    // Se ele era o líder, removemos a liderança também
+    if (selectedMinistry.leaderId === member.id) {
+        await ministryService.update(selectedMinistry.id!, { leaderId: null });
+        setSelectedMinistry({...selectedMinistry, leaderId: undefined});
+    }
+
     const currentMinistries = member.ministries || [];
     const newMinistries = currentMinistries.filter(id => id !== selectedMinistry.id);
 
     await memberService.update(member.id!, { ministries: newMinistries });
     carregarDados(churchId);
+  };
+
+  // --- NOVA FUNÇÃO: DEFINIR LÍDER ---
+  const handleSetLeader = async (memberId: string) => {
+      if (!selectedMinistry) return;
+      
+      // Se clicar no atual líder, remove a liderança (toggle)
+      const newLeaderId = selectedMinistry.leaderId === memberId ? null : memberId;
+
+      await ministryService.update(selectedMinistry.id!, { leaderId: newLeaderId });
+      
+      // Atualiza localmente para ver o efeito na hora
+      setSelectedMinistry({ ...selectedMinistry, leaderId: newLeaderId || undefined });
+      
+      // Atualiza a lista geral
+      setMinistries(prev => prev.map(m => m.id === selectedMinistry.id ? { ...m, leaderId: newLeaderId || undefined } : m));
   };
 
   const abrirModal = (ministry?: Ministry) => {
@@ -141,7 +162,7 @@ export default function Ministries() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* --- CABEÇALHO AZUL PADRONIZADO --- */}
+      {/* CABEÇALHO */}
       <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-6xl mx-auto flex justify-between items-end">
             <div>
@@ -150,17 +171,15 @@ export default function Ministries() {
                 </h1>
                 <p className="text-blue-100 text-lg opacity-90">Gestão de departamentos e lideranças.</p>
             </div>
-            {/* Botão Flutuante no Topo (Opcional, mas útil) */}
             <button onClick={() => abrirModal()} className="hidden md:flex bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl font-bold transition items-center gap-2">
                 <Plus size={20} /> Nova Equipe
             </button>
         </div>
       </div>
 
-      {/* --- CONTEÚDO FLUTUANTE --- */}
+      {/* CONTEÚDO */}
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16 relative z-10">
           
-          {/* Botão Mobile (Só aparece em telas pequenas) */}
           <button onClick={() => abrirModal()} className="md:hidden w-full mb-6 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2">
              <Plus size={20}/> Criar Nova Equipe
           </button>
@@ -169,7 +188,6 @@ export default function Ministries() {
             {ministries.map((m, index) => (
               <div key={m.id} className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition duration-300 group relative flex flex-col">
                 
-                {/* Botões de Ação (Aparecem no Hover) */}
                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => abrirModal(m)} className="p-2 text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition"><Pencil size={16} /></button>
                   <button onClick={() => handleExcluir(m.id!)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 rounded-lg transition"><Trash2 size={16} /></button>
@@ -179,13 +197,25 @@ export default function Ministries() {
                   {getRandomIcon(index)}
                 </div>
                 
-                {/* Título Linkável */}
                 <Link href={`/ministries/${m.id}`} className="hover:text-blue-600 transition cursor-pointer block">
-                    <h3 className="text-xl font-bold text-gray-800 mb-1">{m.name}</h3>
+                    <h3 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
+                        {m.name}
+                        {m.leaderId && <Star size={14} className="text-yellow-500 fill-yellow-500"/>}
+                    </h3>
                 </Link>
 
                 <p className="text-sm text-gray-500 line-clamp-2 min-h-[40px] mb-4 leading-relaxed">{m.description || "Sem descrição."}</p>
                 
+                {/* Mostra quem é o líder no card */}
+                {m.leaderId && (
+                    <div className="mb-4 flex items-center gap-2 bg-yellow-50 p-2 rounded-lg border border-yellow-100">
+                        <Star size={12} className="text-yellow-600 fill-yellow-600"/>
+                        <span className="text-xs font-bold text-yellow-700 truncate">
+                            Líder: {allMembers.find(mem => mem.id === m.leaderId)?.fullName || "Desconhecido"}
+                        </span>
+                    </div>
+                )}
+
                 <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
                   <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{countMembers(m.id!)} Membros</span>
                   
@@ -199,7 +229,6 @@ export default function Ministries() {
               </div>
             ))}
             
-            {/* Card de "Adicionar Novo" (Vazio) */}
             {ministries.length === 0 && (
                 <div onClick={() => abrirModal()} className="border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center p-10 cursor-pointer hover:border-blue-300 hover:bg-blue-50/50 transition text-gray-400 hover:text-blue-500">
                     <Plus size={40} className="mb-2 opacity-50"/>
@@ -232,12 +261,11 @@ export default function Ministries() {
         </div>
       )}
 
-      {/* --- MODAL 2: GERENCIAR EQUIPE --- */}
+      {/* --- MODAL 2: GERENCIAR EQUIPE (COM LÍDER) --- */}
       {isTeamModalOpen && selectedMinistry && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl h-[650px] flex flex-col overflow-hidden animate-in zoom-in-95">
             
-            {/* Topo do Modal */}
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <div>
                 <h2 className="text-xl font-bold text-gray-800">Gerenciar Equipe</h2>
@@ -250,6 +278,11 @@ export default function Ministries() {
               {/* Esquerda: Lista Atual */}
               <div className="flex-1 p-6 overflow-y-auto border-r border-gray-100 bg-white custom-scrollbar">
                 <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Membros Atuais ({membersInTeam.length})</h3>
+                
+                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 mb-4 text-xs text-yellow-800">
+                    💡 Clique na <strong>Estrela</strong> para definir o Líder do Ministério.
+                </div>
+
                 {membersInTeam.length === 0 && (
                     <div className="text-center py-10 opacity-50">
                         <Users size={40} className="mx-auto mb-2 text-gray-300"/>
@@ -259,11 +292,26 @@ export default function Ministries() {
                 
                 <div className="space-y-2">
                   {membersInTeam.map(member => (
-                    <div key={member.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl group hover:bg-red-50 transition border border-transparent hover:border-red-100">
-                      <span className="text-sm font-bold text-gray-700">{member.fullName}</span>
+                    <div key={member.id} className={`flex justify-between items-center p-3 rounded-xl transition border ${selectedMinistry.leaderId === member.id ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-transparent hover:border-gray-200'}`}>
+                      <div className="flex items-center gap-3">
+                          {/* BOTÃO ESTRELA (LÍDER) */}
+                          <button 
+                            onClick={() => handleSetLeader(member.id!)}
+                            className={`p-1 rounded hover:bg-black/5 transition ${selectedMinistry.leaderId === member.id ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
+                            title="Definir como Líder"
+                          >
+                              <Star size={18} fill={selectedMinistry.leaderId === member.id ? "currentColor" : "none"} />
+                          </button>
+                          
+                          <div>
+                              <span className={`text-sm font-bold ${selectedMinistry.leaderId === member.id ? 'text-yellow-800' : 'text-gray-700'}`}>{member.fullName}</span>
+                              {selectedMinistry.leaderId === member.id && <p className="text-[10px] text-yellow-600 font-bold uppercase">Líder</p>}
+                          </div>
+                      </div>
+
                       <button 
                         onClick={() => handleRemoveMemberFromMinistry(member)}
-                        className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition p-1 bg-white rounded-lg shadow-sm"
+                        className="text-gray-400 hover:text-red-600 p-2 bg-white rounded-lg shadow-sm hover:shadow transition"
                         title="Remover da equipe"
                       >
                         <UserMinus size={16} />

@@ -3,6 +3,5 @@ export interface Ministry {
   name: string;
   description?: string;
   churchId: string;
-  leaderId?: string; // Futuramente vamos vincular quem é o líder
-  createdAt?: any;
+  leaderId?: string | null; // <--- ADICIONE ESTA LINHA
 }
