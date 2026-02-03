@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation"; // <--- 1. Importamos useRouter
+import { usePathname, useRouter } from "next/navigation"; 
 import { 
-  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert 
+  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone 
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
 import { auth } from "../lib/firebase"; 
@@ -15,20 +15,17 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter(); // <--- 2. Iniciamos o roteador
+  const router = useRouter(); 
   
   const { user, userRole, hasPermission } = useChurch();
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
-  // 3. FUNÇÃO DE SAIR CORRIGIDA
   const handleLogout = async () => {
       try {
-          await auth.signOut(); // Desloga do Firebase
-          
-          if (onNavigate) onNavigate(); // Fecha menu mobile se estiver aberto
-          
-          router.push("/login"); // <--- O PULO DO GATO: Manda para o login!
+          await auth.signOut();
+          if (onNavigate) onNavigate(); 
+          router.push("/login");
       } catch (error) {
           console.error("Erro ao sair:", error);
       }
@@ -40,6 +37,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       if (module === 'secretary') return hasPermission('secretary') || userRole === 'secretary';
       if (module === 'financial') return hasPermission('financial') || userRole === 'treasurer';
       if (module === 'ministry') return userRole === 'leader' || userRole === 'pastor';
+      if (module === 'posts') return userRole === 'leader' || userRole === 'secretary' || hasPermission('secretary'); // Líderes e Secretária podem postar
       if (module === 'settings') return userRole === 'treasurer' || userRole === 'admin';
       if (module === 'dashboard') return true;
 
@@ -51,6 +49,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const menuItems = [
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Início", href: "/" }] : []),
+    ...(canAccess('posts')     ? [{ icon: Megaphone, label: "Mural de Avisos", href: "/posts" }] : []), // NOVO ITEM
     ...(canAccess('secretary') ? [{ icon: FolderOpen, label: "Secretaria", href: "/secretary" }] : []),
     ...(canAccess('ministry')  ? [{ icon: Music, label: "Departamentos", href: "/ministries" }] : []),
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
