@@ -218,11 +218,11 @@ export default function LoginPage() {
                     </button>
                 </form>
                 <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-                    <p className="text-xs text-gray-500 mb-3">Sua igreja ainda não tem conta?</p>
-                    <Link href="/register" className="inline-block px-6 py-2 rounded-full border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-50 transition">
-                        Ative sua igreja
-                    </Link>
-                </div>
+    <p className="text-xs text-gray-500 mb-3">É membro e ainda não tem senha?</p>
+    <Link href="/register" className="inline-block px-6 py-2 rounded-full border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-50 transition">
+        Ativar meu Acesso
+    </Link>
+</div>
               </>
           )}
 

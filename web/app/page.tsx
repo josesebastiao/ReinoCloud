@@ -7,6 +7,7 @@ import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { db } from "../lib/firebase";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { MemberDashboard } from "../components/MemberDashboard"; // <--- NOVO IMPORT
 import { 
   Users, Calendar, TrendingUp, ArrowRight, 
   Clock, Loader2, AlertCircle, Eye, EyeOff, Building2 
@@ -14,7 +15,7 @@ import {
 
 export default function Dashboard() {
   const router = useRouter();
-  const { churchId, churchName, userName, userRole, formatMoney, logoUrl } = useChurch();
+  const { churchId, churchName, userName, userRole, formatMoney, logoUrl, loading: authLoading } = useChurch();
   
   const [loading, setLoading] = useState(true);
   const [showBalance, setShowBalance] = useState(false);
@@ -25,13 +26,30 @@ export default function Dashboard() {
   useEffect(() => {
     let isMounted = true;
     const checkAndLoad = async () => {
-        if (churchId) { await loadDashboardData(); return; }
-        const storedId = localStorage.getItem("churchId");
-        if (!storedId) { router.push("/login"); } else { if (isMounted) setLoading(true); }
+        // Se ainda está carregando a autenticação, espera
+        if (authLoading) return;
+
+        // Se não tem usuário logado, vai pro login
+        if (!churchId) { 
+            const storedId = localStorage.getItem("churchId");
+            if (!storedId) { 
+                router.push("/login"); 
+                return;
+            }
+        }
+
+        // Se for MEMBRO COMUM, não carrega dados financeiros (segurança)
+        if (userRole === 'member') {
+            setLoading(false);
+            return;
+        }
+
+        await loadDashboardData();
     };
-    const timer = setTimeout(checkAndLoad, 800);
-    return () => { isMounted = false; clearTimeout(timer); };
-  }, [churchId, router]);
+    
+    checkAndLoad();
+    return () => { isMounted = false; };
+  }, [churchId, router, userRole, authLoading]);
 
   const loadDashboardData = async () => {
     if(!churchId) return;
@@ -43,9 +61,16 @@ export default function Dashboard() {
         ]);
         const activeCount = allMembers.filter(m => m.status === 'active').length;
         setStats({ active: activeCount, inactive: allMembers.length - activeCount, total: allMembers.length });
-        const totalIncome = allTransactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + Number(curr.amount), 0);
-        const totalExpense = allTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + Number(curr.amount), 0);
-        setBalance(totalIncome - totalExpense);
+        
+        // Só calcula financeiro se tiver permissão (evita erro)
+        let bal = 0;
+        if (userRole === 'admin' || userRole === 'treasurer') {
+            const totalIncome = allTransactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + Number(curr.amount), 0);
+            const totalExpense = allTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => acc + Number(curr.amount), 0);
+            bal = totalIncome - totalExpense;
+        }
+        setBalance(bal);
+
         const today = new Date().toISOString().split('T')[0]; 
         const qEvents = query(collection(db, "events"), where("churchId", "==", churchId), where("date", ">=", today), orderBy("date", "asc"), limit(3));
         const eventSnap = await getDocs(qEvents);
@@ -59,16 +84,20 @@ export default function Dashboard() {
       return allowedRoles.includes(userRole);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={40}/></div>;
+  if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={40}/></div>;
 
+  // --- O GRANDE DESVIO: APP DO MEMBRO ---
+  if (userRole === 'member') {
+      return <MemberDashboard />;
+  }
+
+  // --- DASHBOARD DO PASTOR / ADMIN ---
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
       {/* ================================================= */}
       {/* 2. BANNER AZUL (NÍVEL 2 - FIXO)                   */}
       {/* ================================================= */}
-      {/* AJUSTE FINO: h-[180px] (Era 220px). Ficou mais curto/elegante. */}
-      {/* pb-10: Reduzi o padding de baixo para acompanhar a altura menor. */}
       <div className="md:static fixed top-28 left-0 right-0 bg-[#1D4ED8] pt-6 pb-10 px-6 md:px-10 shadow-lg rounded-b-[2.5rem] z-40 h-[180px]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
@@ -105,8 +134,6 @@ export default function Dashboard() {
       {/* ================================================= */}
       {/* 3. CARDS (NÍVEL 1 - CONTEÚDO QUE ROLA)            */}
       {/* ================================================= */}
-      {/* AJUSTE FINO: pt-[165px] (Era 200px). */}
-      {/* Como diminuímos o banner, subimos os cards para manter o encaixe perfeito. */}
       <div className="max-w-6xl mx-auto px-4 pt-[165px] md:pt-0 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
