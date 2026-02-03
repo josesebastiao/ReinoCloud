@@ -2,14 +2,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, ArrowLeft, LogIn } from "lucide-react";
+import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, ArrowLeft, LogIn, Building2, ChevronRight } from "lucide-react";
 
 // Firebase
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore"; // <--- ADICIONEI collection, query, where, getDocs
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 
-// INTEGRADO AO CONTEXTO (IMPORTANTE)
+// INTEGRADO AO CONTEXTO
 import { useChurch } from "../../contexts/ChurchContext";
 
 export default function LoginPage() {
@@ -36,7 +36,8 @@ export default function LoginPage() {
 
       // 1. SUPER ADMIN (BYPASS)
       if (user.email === "alfaministro1@gmail.com" || user.email === "alfaministro1@hotmail.com") {
-          setChurchData("master_admin", "ReinoCloud HQ", "admin", "Super Admin", "", "AO");
+          // CORREÇÃO: Adicionado "" para signatureUrl
+          setChurchData("master_admin", "ReinoCloud HQ", "admin", "Super Admin", "", "", "AO");
           router.push("/");
           return;
       }
@@ -51,7 +52,6 @@ export default function LoginPage() {
       if (userDocSnap.exists()) {
           userData = userDocSnap.data();
       } else {
-          // --- CORREÇÃO PARA A NANI (PLANO B) ---
           // Se não achou pelo ID, procura pelo E-MAIL
           const q = query(collection(db, "members"), where("email", "==", email));
           const querySnapshot = await getDocs(q);
@@ -61,14 +61,36 @@ export default function LoginPage() {
           }
       }
 
+      // Se não achou em members, verifica se é ADMIN (Igreja) na coleção churches
       if (!userData) {
-        // Se não achou nem por ID nem por E-mail
+          const churchDocRef = doc(db, "churches", user.uid);
+          const churchDocSnap = await getDoc(churchDocRef);
+          
+          if (churchDocSnap.exists()) {
+              const data = churchDocSnap.data();
+              // CORREÇÃO: Adicionado data.signatureUrl
+              setChurchData(
+                  user.uid, 
+                  data.name, 
+                  'admin', 
+                  data.ownerName || "Pastor", 
+                  data.logoUrl || "", 
+                  data.signatureUrl || "", // <--- NOVO ARGUMENTO
+                  data.currency || "AO"
+              );
+              router.push("/");
+              return;
+          }
+      }
+
+      if (!userData) {
         throw new Error("Usuário sem cadastro no sistema.");
       }
       
-      // 3. BUSCA DADOS DA IGREJA (Nome, Logo, Moeda)
+      // 3. BUSCA DADOS DA IGREJA (Nome, Logo, Moeda, Assinatura)
       let churchName = "Minha Igreja";
       let churchLogo = "";
+      let churchSignature = ""; // Novo
       let churchCurrency = "AO";
 
       if (userData.churchId) {
@@ -79,22 +101,24 @@ export default function LoginPage() {
                 const cData = churchDocSnap.data();
                 churchName = cData.name;
                 churchLogo = cData.logoUrl || "";
+                churchSignature = cData.signatureUrl || ""; // Novo
                 churchCurrency = cData.currency || "AO";
             }
           } catch (err) { console.warn("Erro ao buscar igreja:", err); }
       }
 
       // 4. SALVA TUDO NO CONTEXTO
+      // CORREÇÃO: Adicionado churchSignature
       setChurchData(
           userData.churchId || "", 
           churchName, 
           userData.role || "member", 
           userData.fullName || "Usuário", 
           churchLogo, 
+          churchSignature, // <--- NOVO ARGUMENTO
           churchCurrency
       );
 
-      // Redireciona
       router.push("/");
 
     } catch (err: any) {
@@ -133,7 +157,10 @@ export default function LoginPage() {
       
       {/* CABEÇALHO */}
       <header className="w-full p-6 md:p-8 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500">
-         <img src="/icon.svg" alt="ReinoCloud Logo" className="w-12 h-12 object-contain" /> 
+         {/* Se não tiver o ícone local, usa um fallback */}
+         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+            <Building2 size={20} />
+         </div>
          <div>
             <h1 className="text-xl md:text-2xl font-bold text-blue-900 tracking-tight leading-none">ReinoCloud</h1>
             <p className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Gestão Eclesiástica</p>
@@ -218,11 +245,11 @@ export default function LoginPage() {
                     </button>
                 </form>
                 <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-    <p className="text-xs text-gray-500 mb-3">É membro e ainda não tem senha?</p>
-    <Link href="/register" className="inline-block px-6 py-2 rounded-full border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-50 transition">
-        Ativar meu Acesso
-    </Link>
-</div>
+                    <p className="text-xs text-gray-500 mb-3">É membro e ainda não tem senha?</p>
+                    <Link href="/register" className="inline-block px-6 py-2 rounded-full border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-50 transition">
+                        Ativar meu Acesso
+                    </Link>
+                </div>
               </>
           )}
 
