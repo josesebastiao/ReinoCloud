@@ -1,33 +1,48 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // <--- 1. Import para redirecionar
+import { useRouter } from "next/navigation";
 import { useChurch } from "../../contexts/ChurchContext";
-
 import { memberService } from "../../services/memberService";
 import { Member } from "../../types/member"; 
 
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
-  User, X, Building2, Loader2, ShieldCheck 
+  User, X, Building2, Loader2, ShieldCheck, CalendarRange, Plus, Trash2 
 } from "lucide-react";
 
+// Tipo para as linhas da escala (Baseado nos seus PDFs)
+interface ScaleRow {
+    date: string;
+    event: string; // "Culto de Domingo", "Sexta Jovem"
+    leader: string; // Dirigente
+    preacher: string; // Pregador
+    music: string; // Grupo / Coral
+    obs: string; // Texto base ou Observação
+}
+
 export default function ServicesPage() {
-  const router = useRouter(); // <--- 2. Router
-  
-  // 3. Pegamos as permissões e o loading de autenticação
+  const router = useRouter();
   const { churchId, churchName, logoUrl, userRole, hasPermission, loading: authLoading } = useChurch(); 
   
   const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(false); // Mudei para false inicial para não conflitar
+  const [loading, setLoading] = useState(false);
   const [printing, setPrinting] = useState(false); 
   
   // Controle dos Modais
-  const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | 'scale' | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [search, setSearch] = useState("");
   const [obs, setObs] = useState(""); 
 
-  // 4. EFEITO DE SEGURANÇA (Igual nas outras páginas)
+  // ESTADO DA ESCALA
+  const [scaleData, setScaleData] = useState({
+      title: `ESCALA DE ${new Date().toLocaleString('pt-BR', { month: 'long' }).toUpperCase()} / ${new Date().getFullYear()}`,
+      theme: "",
+      text: "",
+      rows: [] as ScaleRow[]
+  });
+
+  // EFEITO DE SEGURANÇA
   useEffect(() => {
     if (!authLoading) {
          if (userRole !== 'admin' && !hasPermission('secretary')) {
@@ -41,9 +56,7 @@ export default function ServicesPage() {
   }, [churchId]);
 
   const loadMembers = async () => {
-    // 5. CORREÇÃO DO ERRO DE BUILD: Verifica se tem ID
     if (!churchId) return;
-
     setLoading(true);
     try {
       const list = await memberService.listByChurch(churchId);
@@ -52,6 +65,27 @@ export default function ServicesPage() {
   };
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
+
+  // --- FUNÇÕES DA ESCALA ---
+  const addScaleRow = () => {
+      // Adiciona uma linha em branco para o Pastor preencher
+      const newRow: ScaleRow = { 
+          date: "", event: "", leader: "", preacher: "", music: "", obs: "" 
+      };
+      setScaleData({ ...scaleData, rows: [...scaleData.rows, newRow] });
+  };
+
+  const removeScaleRow = (index: number) => {
+      const newRows = [...scaleData.rows];
+      newRows.splice(index, 1);
+      setScaleData({ ...scaleData, rows: newRows });
+  };
+
+  const updateScaleRow = (index: number, field: keyof ScaleRow, value: string) => {
+      const newRows = [...scaleData.rows];
+      newRows[index] = { ...newRows[index], [field]: value };
+      setScaleData({ ...scaleData, rows: newRows });
+  };
 
   // --- FUNÇÃO CONVERTER URL PARA BASE64 ---
   const toDataURL = async (url: string) => {
@@ -71,7 +105,6 @@ export default function ServicesPage() {
 
   // --- IMPRESSÃO ---
   const handlePrint = async () => {
-    if (!selectedMember) return;
     setPrinting(true); 
 
     let finalLogo = "";
@@ -79,7 +112,7 @@ export default function ServicesPage() {
         finalLogo = await toDataURL(logoUrl);
     }
 
-    const printWindow = window.open('', '', 'width=800,height=600');
+    const printWindow = window.open('', '', 'width=1100,height=700');
     if (!printWindow) {
         setPrinting(false);
         alert("Permita pop-ups para imprimir!");
@@ -88,33 +121,70 @@ export default function ServicesPage() {
 
     const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    const htmlContent = `
-      <html>
-        <head>
-          <title>Documento - ${churchName}</title>
-          <style>
-            body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; }
-            .header { margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-            .logo { max-width: 120px; max-height: 120px; object-fit: contain; margin-bottom: 15px; display: block; margin-left: auto; margin-right: auto; }
-            .title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin: 10px 0; }
-            .content { font-size: 18px; line-height: 1.8; text-align: justify; margin: 40px 0; }
-            .footer { margin-top: 80px; display: flex; justify-content: space-around; }
-            .signature { border-top: 1px solid #000; padding-top: 10px; width: 40%; font-weight: bold; }
-            .meta { font-size: 12px; color: #999; margin-top: 50px; }
+    // HTML BASE
+    let docContent = "";
+
+    if (selectedDoc === 'scale') {
+        // GERAR HTML DA ESCALA (FORMATO PDF ANEXADO)
+        const rowsHtml = scaleData.rows.map(row => {
+            // Formata data se possível
+            let dateDisplay = row.date;
+            try {
+                if(row.date.includes('-')) {
+                    const d = new Date(row.date);
+                    // Ex: 01/02
+                    dateDisplay = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}`;
+                }
+            } catch(e){}
+
+            return `
+            <tr>
+                <td style="font-weight:bold; color: #000; text-align: center;">${dateDisplay}</td>
+                <td>${row.event}</td>
+                <td>${row.leader}</td>
+                <td>${row.music}</td>
+                <td>${row.preacher}</td>
+                <td style="font-size: 11px; color: #444;">${row.obs}</td>
+            </tr>`;
+        }).join('');
+
+        docContent = `
+            <h2 style="margin: 0; text-transform: uppercase; font-size: 24px; font-weight: 900;">${churchName}</h2>
+            <h3 style="margin: 5px 0 20px 0; text-transform: uppercase; font-size: 18px; border-bottom: 2px solid #000; display: inline-block; padding-bottom: 5px;">${scaleData.title}</h3>
             
-            @media print {
-                @page { margin: 2cm; }
-                body { padding: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
-            <div class="title">${churchName}</div>
-            <div style="font-size: 14px; color: #666;">Departamento de Secretaria</div>
-          </div>
-          
+            <div style="margin: 0 0 20px 0; text-align: left; font-size: 14px;">
+                ${scaleData.theme ? `<p style="margin: 5px 0;"><strong>TEMA DO MÊS:</strong> ${scaleData.theme}</p>` : ''}
+                ${scaleData.text ? `<p style="margin: 5px 0;"><strong>TEXTO BASE:</strong> <em>${scaleData.text}</em></p>` : ''}
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="padding: 8px; border: 1px solid #000; width: 80px;">DATA</th>
+                        <th style="padding: 8px; border: 1px solid #000;">CULTO</th>
+                        <th style="padding: 8px; border: 1px solid #000;">DIRIGENTE</th>
+                        <th style="padding: 8px; border: 1px solid #000;">LOUVOR</th>
+                        <th style="padding: 8px; border: 1px solid #000;">PREGADOR</th>
+                        <th style="padding: 8px; border: 1px solid #000;">OBS / TEXTO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+
+            <div style="margin-top: 40px; font-size: 12px; color: #000; text-align: left;">
+                <p style="font-weight: bold; text-decoration: underline;">Observações Importantes:</p>
+                <ul style="margin-top: 5px;">
+                    <li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li>
+                    <li>Não é permitida a troca de escala sem autorização prévia.</li>
+                </ul>
+            </div>
+        `;
+    } else {
+        // GERAR HTML DAS CARTAS
+        if (!selectedMember) return;
+        docContent = `
           <h2>${selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : 'CARTA DE TRANSFERÊNCIA'}</h2>
           
           <div class="content">
@@ -127,10 +197,40 @@ export default function ServicesPage() {
             ${obs ? `<p><strong>Observação:</strong> ${obs}</p>` : ''}
             <p>Sem mais para o momento, subscrevemo-nos em Cristo.</p>
           </div>
+        `;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Documento - ${churchName}</title>
+          <style>
+            body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; color: #000; }
+            .header { margin-bottom: 20px; padding-bottom: 10px; }
+            .logo { max-width: 100px; max-height: 100px; object-fit: contain; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto; }
+            .content { font-size: 18px; line-height: 1.6; text-align: justify; margin: 40px 0; }
+            .footer { margin-top: 60px; display: flex; justify-content: space-around; }
+            .signature { border-top: 1px solid #000; padding-top: 5px; width: 40%; font-weight: bold; }
+            .meta { font-size: 10px; color: #999; margin-top: 40px; text-align: center; }
+            
+            table td, table th { border: 1px solid #000; padding: 6px; font-size: 13px; text-align: left; vertical-align: top; }
+            
+            @media print {
+                @page { margin: 1cm; size: A4; }
+                body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
+          </div>
           
-          <p style="text-align: right; margin-top: 40px;">${today}</p>
+          ${docContent}
           
-          <div class="footer"><div class="signature">Pastor Responsável</div><div class="signature">Secretaria</div></div>
+          ${selectedDoc !== 'scale' ? `<p style="text-align: right; margin-top: 40px;">${today}</p>` : ''}
+          
+          <div class="footer"><div class="signature">Pastor / Responsável</div><div class="signature">Secretaria</div></div>
           <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
           
           <script>
@@ -147,56 +247,59 @@ export default function ServicesPage() {
     setPrinting(false);
   };
 
-  // Loading da Autenticação
   if (authLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // Proteção visual (não mostra nada se não tiver permissão)
   if (userRole !== 'admin' && !hasPermission('secretary')) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* CABEÇALHO */}
+      {/* LISTA DE MEMBROS (AUTOCOMPLETE) */}
+      <datalist id="members-list">
+          {members.map(m => <option key={m.id} value={m.fullName} />)}
+      </datalist>
+
       <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-6xl mx-auto">
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
               <FileText className="text-blue-300"/> Serviços & Documentos
             </h1>
-            <p className="text-blue-100 text-lg opacity-90">Emissão de cartas e certificados oficiais.</p>
+            <p className="text-blue-100 text-lg opacity-90">Emissão de cartas, certificados e escalas oficiais.</p>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16">
           
           {/* SELEÇÃO DE TIPO */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div onClick={() => { setSelectedDoc('recommendation'); setSelectedMember(null); }} className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'recommendation' ? 'border-blue-500 ring-4 ring-blue-50' : 'border-transparent hover:border-blue-200'}`}>
                   <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4"><FileBadge size={28}/></div>
-                  <h3 className="text-xl font-bold text-gray-800">Carta de Recomendação</h3>
-                  <p className="text-sm text-gray-500 mt-2">Para membros que vão visitar outras igrejas.</p>
+                  <h3 className="text-lg font-bold text-gray-800">Recomendação</h3>
+                  <p className="text-xs text-gray-500 mt-2">Para membros visitantes.</p>
               </div>
               <div onClick={() => { setSelectedDoc('transfer'); setSelectedMember(null); }} className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'transfer' ? 'border-orange-500 ring-4 ring-orange-50' : 'border-transparent hover:border-orange-200'}`}>
                   <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-4"><ArrowRightLeft size={28}/></div>
-                  <h3 className="text-xl font-bold text-gray-800">Carta de Transferência</h3>
-                  <p className="text-sm text-gray-500 mt-2">Para mudança definitiva de congregação.</p>
+                  <h3 className="text-lg font-bold text-gray-800">Transferência</h3>
+                  <p className="text-xs text-gray-500 mt-2">Mudança definitiva.</p>
+              </div>
+              <div onClick={() => { setSelectedDoc('scale'); }} className={`bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 transition ${selectedDoc === 'scale' ? 'border-green-500 ring-4 ring-green-50' : 'border-transparent hover:border-green-200'}`}>
+                  <div className="w-14 h-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-4"><CalendarRange size={28}/></div>
+                  <h3 className="text-lg font-bold text-gray-800">Criar Escala</h3>
+                  <p className="text-xs text-gray-500 mt-2">Cultos, pregadores e louvor.</p>
               </div>
           </div>
 
-          {/* ÁREA DE EMISSÃO */}
-          {selectedDoc && (
+          {/* ÁREA DE EMISSÃO: CARTAS */}
+          {(selectedDoc === 'recommendation' || selectedDoc === 'transfer') && (
               <div className="bg-white rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
                   <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-100">
                       <h2 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
-                          {selectedDoc === 'recommendation' ? <FileBadge className="text-blue-500"/> : <ArrowRightLeft className="text-orange-500"/>}
-                          Emitir {selectedDoc === 'recommendation' ? 'Recomendação' : 'Transferência'}
+                          <FileBadge className="text-blue-500"/> Emitir Carta
                       </h2>
-                      <button onClick={() => setSelectedDoc(null)} className="text-gray-500 hover:text-red-500 font-bold text-sm bg-gray-100 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-1 transition">
-                          <X size={16}/> FECHAR
-                      </button>
+                      <button onClick={() => setSelectedDoc(null)} className="text-gray-500 hover:text-red-500 font-bold text-sm bg-gray-100 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-1 transition"><X size={16}/> FECHAR</button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* LADO ESQUERDO: BUSCA */}
                       <div className={`${selectedMember ? 'hidden md:block' : 'block'}`}>
                           <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Selecione o Membro</label>
                           <div className="relative mb-4">
@@ -213,60 +316,86 @@ export default function ServicesPage() {
                           </div>
                       </div>
 
-                      {/* LADO DIREITO: PREVIEW */}
                       <div className={`flex flex-col h-full ${!selectedMember ? 'hidden md:flex' : 'flex'}`}>
                           <label className="text-xs font-bold text-gray-400 uppercase mb-2 flex justify-between items-center">
                               <span>Pré-visualização</span>
-                              {selectedMember && (
-                                  <button onClick={() => setSelectedMember(null)} className="md:hidden text-blue-600 font-bold flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-lg text-xs">
-                                      ← Trocar Membro
-                                  </button>
-                              )}
+                              {selectedMember && <button onClick={() => setSelectedMember(null)} className="md:hidden text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-lg text-xs">← Voltar</button>}
                           </label>
-                          
                           <div className="flex-1 bg-gray-100 rounded-xl p-4 md:p-6 border border-gray-200 flex flex-col items-center">
                               {selectedMember ? (
                                   <div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200">
-                                      
-                                      <div className="flex justify-center mb-3">
-                                          {logoUrl ? (
-                                              <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" />
-                                          ) : (
-                                              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-400"><Building2 size={32}/></div>
-                                          )}
-                                      </div>
-                                      
+                                      <div className="flex justify-center mb-3">{logoUrl ? <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" /> : <Building2 size={32} className="text-gray-400"/>}</div>
                                       <h3 className="text-sm font-bold text-gray-800 uppercase border-b pb-2 mb-3">{churchName}</h3>
-                                      
-                                      <div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">
-                                          {selectedMember.fullName}
-                                      </div>
-                                      
-                                      <textarea 
-                                        placeholder="Observação extra..." 
-                                        value={obs}
-                                        onChange={e => setObs(e.target.value)}
-                                        className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300"
-                                        rows={3}
-                                      />
-
-                                      <button 
-                                        onClick={handlePrint} 
-                                        disabled={printing}
-                                        className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-wait"
-                                      >
-                                          {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} 
-                                          {printing ? "Gerando..." : "Imprimir"}
+                                      <div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">{selectedMember.fullName}</div>
+                                      <textarea placeholder="Observação extra..." value={obs} onChange={e => setObs(e.target.value)} className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300" rows={3}/>
+                                      <button onClick={handlePrint} disabled={printing} className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-wait">
+                                          {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} {printing ? "Gerando..." : "Imprimir"}
                                       </button>
                                   </div>
-                              ) : (
-                                  <div className="text-center py-20 text-gray-400">
-                                      <ShieldCheck size={40} className="mx-auto mb-2 opacity-20"/>
-                                      <p className="text-sm">Selecione um membro para visualizar.</p>
-                                  </div>
-                              )}
+                              ) : (<div className="text-center py-20 text-gray-400"><ShieldCheck size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Selecione um membro.</p></div>)}
                           </div>
                       </div>
+                  </div>
+              </div>
+          )}
+
+          {/* ÁREA DE EMISSÃO: ESCALAS (NOVO) */}
+          {selectedDoc === 'scale' && (
+              <div className="bg-white rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-100">
+                      <h2 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
+                          <CalendarRange className="text-green-600"/> Gerador de Escala
+                      </h2>
+                      <div className="flex gap-2">
+                          <button onClick={handlePrint} disabled={printing} className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold shadow hover:bg-green-700 transition flex items-center gap-2">
+                              {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} Imprimir PDF
+                          </button>
+                          <button onClick={() => setSelectedDoc(null)} className="text-gray-500 hover:text-red-500 font-bold text-sm bg-gray-100 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-1 transition"><X size={16}/></button>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6">
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div><label className="text-xs font-bold text-gray-500 uppercase">Título da Escala</label><input type="text" value={scaleData.title} onChange={e => setScaleData({...scaleData, title: e.target.value})} className="w-full p-2 border rounded-lg mt-1" /></div>
+                          <div><label className="text-xs font-bold text-gray-500 uppercase">Tema do Mês</label><input type="text" value={scaleData.theme} onChange={e => setScaleData({...scaleData, theme: e.target.value})} placeholder="Ex: Mês da Mordomia" className="w-full p-2 border rounded-lg mt-1" /></div>
+                          <div><label className="text-xs font-bold text-gray-500 uppercase">Texto Base</label><input type="text" value={scaleData.text} onChange={e => setScaleData({...scaleData, text: e.target.value})} placeholder="Ex: Salmos 23" className="w-full p-2 border rounded-lg mt-1" /></div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse min-w-[800px]">
+                              <thead>
+                                  <tr className="bg-gray-100 text-gray-600 text-xs uppercase">
+                                      <th className="p-3 rounded-tl-lg">Data</th>
+                                      <th className="p-3">Culto / Evento</th>
+                                      <th className="p-3">Dirigente</th>
+                                      <th className="p-3">Pregador</th>
+                                      <th className="p-3">Louvor / Coral</th>
+                                      <th className="p-3">Obs / Texto</th>
+                                      <th className="p-3 rounded-tr-lg w-10"></th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                  {scaleData.rows.map((row, idx) => (
+                                      <tr key={idx} className="group hover:bg-gray-50">
+                                          <td className="p-2"><input type="date" value={row.date} onChange={e => updateScaleRow(idx, 'date', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td>
+                                          <td className="p-2"><input type="text" value={row.event} onChange={e => updateScaleRow(idx, 'event', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" placeholder="Ex: Culto Domingo"/></td>
+                                          
+                                          {/* CAMPOS COM AUTO-COMPLETE (list="members-list") */}
+                                          <td className="p-2"><input type="text" list="members-list" value={row.leader} onChange={e => updateScaleRow(idx, 'leader', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" placeholder="Nome..."/></td>
+                                          <td className="p-2"><input type="text" list="members-list" value={row.preacher} onChange={e => updateScaleRow(idx, 'preacher', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" placeholder="Nome..."/></td>
+                                          
+                                          <td className="p-2"><input type="text" value={row.music} onChange={e => updateScaleRow(idx, 'music', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" placeholder="Grupo..."/></td>
+                                          <td className="p-2"><input type="text" value={row.obs} onChange={e => updateScaleRow(idx, 'obs', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td>
+                                          <td className="p-2 text-center"><button onClick={() => removeScaleRow(idx)} className="text-gray-300 hover:text-red-500 transition"><Trash2 size={16}/></button></td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+
+                      <button onClick={addScaleRow} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition flex items-center justify-center gap-2">
+                          <Plus size={20}/> Adicionar Linha na Escala
+                      </button>
                   </div>
               </div>
           )}
