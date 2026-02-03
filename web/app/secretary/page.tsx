@@ -1,32 +1,72 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useChurch } from "../../contexts/ChurchContext"; 
+import { documentService, ChurchDoc } from "../../services/documentService";
 import { 
   Users, Calendar, Book, BarChart3, 
-  FileText, ArrowRight, ShieldCheck, Lock, FolderOpen 
+  FileText, ArrowRight, ShieldCheck, Lock, FolderOpen, 
+  Link as LinkIcon, Save, X, Trash2, Plus, Loader2
 } from "lucide-react";
 
-// TIPO PARA DOCUMENTOS DO ARQUIVO DIGITAL
-interface ChurchDoc {
-  id: string;
-  name: string;
-  link: string;
-  type: 'pdf' | 'img' | 'other';
-  date: string;
-}
-
 export default function SecretaryPage() {
-  const { userRole, hasPermission } = useChurch();
+  const { userRole, hasPermission, churchId } = useChurch();
   
-  // Estado para o Modal de Documentos (Futuro)
+  // ESTADOS DO ARQUIVO DIGITAL
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
-  
-  // Dados Mockados para Exemplo (depois virão do Firebase)
-  const [documents, setDocuments] = useState<ChurchDoc[]>([
-      { id: '1', name: 'Estatuto da Igreja.pdf', link: '#', type: 'pdf', date: new Date().toISOString() },
-      { id: '2', name: 'Ata de Fundação.pdf', link: '#', type: 'pdf', date: new Date().toISOString() }
-  ]);
+  const [isAddingDoc, setIsAddingDoc] = useState(false); // Alterna entre Lista e Formulário
+  const [documents, setDocuments] = useState<ChurchDoc[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [savingDoc, setSavingDoc] = useState(false);
+
+  // FORMULÁRIO NOVO DOC
+  const [newDocData, setNewDocData] = useState({ name: "", link: "" });
+
+  // Carregar documentos ao abrir a página (ou quando o churchId mudar)
+  useEffect(() => {
+    if (churchId && hasPermission('secretary')) {
+        loadDocuments();
+    }
+  }, [churchId]);
+
+  const loadDocuments = async () => {
+      if(!churchId) return;
+      setLoadingDocs(true);
+      const docs = await documentService.listByChurch(churchId);
+      setDocuments(docs);
+      setLoadingDocs(false);
+  };
+
+  const handleSaveDoc = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if(!churchId) return;
+      
+      setSavingDoc(true);
+      try {
+          await documentService.create({
+              churchId,
+              name: newDocData.name,
+              link: newDocData.link,
+              date: new Date().toISOString()
+          });
+          
+          // Limpa e recarrega
+          setNewDocData({ name: "", link: "" });
+          setIsAddingDoc(false);
+          await loadDocuments();
+      } catch (error) {
+          alert("Erro ao salvar arquivo.");
+      } finally {
+          setSavingDoc(false);
+      }
+  };
+
+  const handleDeleteDoc = async (id: string) => {
+      if(confirm("Tem certeza que deseja remover este arquivo da lista?")) {
+          await documentService.delete(id);
+          loadDocuments();
+      }
+  };
 
   const modules = [
     {
@@ -79,7 +119,6 @@ export default function SecretaryPage() {
       link: "/services",
       show: hasPermission('secretary')
     },
-    // NOVO MÓDULO: ARQUIVO DIGITAL
     {
       title: "Arquivo Digital",
       desc: "Documentos e contratos na nuvem",
@@ -87,7 +126,7 @@ export default function SecretaryPage() {
       color: "text-red-600",
       bg: "bg-red-50",
       border: "hover:border-red-300",
-      link: "#", // Por enquanto sem link, abre modal depois
+      link: "#", 
       action: () => setIsDocModalOpen(true),
       show: hasPermission('secretary')
     }
@@ -119,12 +158,8 @@ export default function SecretaryPage() {
         {visibleModules.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {visibleModules.map((mod, index) => (
-                    <div 
-                        key={index} 
-                        onClick={mod.action ? mod.action : undefined} 
-                    >
+                    <div key={index} onClick={mod.action ? mod.action : undefined}>
                         {mod.action ? (
-                            // Botão com Ação (Arquivo Digital)
                             <div className={`cursor-pointer bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-start gap-4 transition duration-300 group ${mod.border} hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden h-full`}>
                                 <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${mod.bg} ${mod.color} shadow-inner`}>
                                     {mod.icon}
@@ -138,7 +173,6 @@ export default function SecretaryPage() {
                                 </div>
                             </div>
                         ) : (
-                            // Link Normal
                             <Link href={mod.link} className={`bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-start gap-4 transition duration-300 group ${mod.border} hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden h-full`}>
                                 <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${mod.bg} ${mod.color} shadow-inner`}>
                                     {mod.icon}
@@ -174,40 +208,88 @@ export default function SecretaryPage() {
 
       </div>
 
-      {/* MODAL ARQUIVO DIGITAL (Exemplo Visual) */}
+      {/* --- MODAL ARQUIVO DIGITAL (FUNCIONAL) --- */}
       {isDocModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 animate-in zoom-in-95">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><FolderOpen className="text-red-600"/> Arquivo Digital</h2>
-                    <button onClick={() => setIsDocModalOpen(false)} className="text-gray-400 hover:text-red-500 font-bold">FECHAR</button>
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <FolderOpen className="text-red-600"/> Arquivo Digital
+                    </h2>
+                    <button onClick={() => { setIsDocModalOpen(false); setIsAddingDoc(false); }} className="text-gray-400 hover:text-red-500 font-bold text-sm bg-gray-50 px-3 py-1 rounded-lg">FECHAR</button>
                 </div>
                 
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6 text-sm text-blue-700">
-                    💡 <strong>Dica SaaS:</strong> Para não lotar o sistema, armazene os arquivos pesados (PDFs grandes, vídeos) no Google Drive da igreja e cadastre apenas o link aqui.
-                </div>
-
-                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {documents.map(doc => (
-                        <div key={doc.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 transition group">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-red-100 text-red-600 p-2.5 rounded-lg"><FileText size={20}/></div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-800">{doc.name}</p>
-                                    <p className="text-[10px] text-gray-400">{new Date(doc.date).toLocaleDateString()}</p>
-                                </div>
-                            </div>
-                            <a href={doc.link} target="_blank" className="text-xs font-bold text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition">
-                                Abrir ↗
-                            </a>
+                {isAddingDoc ? (
+                    // --- MODO ADICIONAR ---
+                    <form onSubmit={handleSaveDoc} className="space-y-4 animate-in slide-in-from-right-4">
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 mb-2">
+                            <h3 className="text-sm font-bold text-red-700 mb-1">Novo Documento</h3>
+                            <p className="text-xs text-red-500">Cole o link do Google Drive, Dropbox ou OneDrive.</p>
                         </div>
-                    ))}
-                    {documents.length === 0 && <p className="text-center text-gray-400 py-4">Nenhum arquivo cadastrado.</p>}
-                </div>
+                        
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase">Nome do Documento</label>
+                            <input required type="text" value={newDocData.name} onChange={e => setNewDocData({...newDocData, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 ring-red-100" placeholder="Ex: Contrato de Aluguel 2026"/>
+                        </div>
+                        
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase">Link (URL)</label>
+                            <div className="relative mt-1">
+                                <LinkIcon className="absolute left-3 top-3 text-gray-400" size={18}/>
+                                <input required type="url" value={newDocData.link} onChange={e => setNewDocData({...newDocData, link: e.target.value})} className="w-full pl-10 p-3 border rounded-xl outline-none focus:ring-2 ring-red-100" placeholder="https://drive.google.com/..."/>
+                            </div>
+                        </div>
 
-                <button className="w-full mt-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition flex justify-center items-center gap-2">
-                    + Adicionar Novo Arquivo
-                </button>
+                        <div className="flex gap-2 pt-2">
+                            <button type="button" onClick={() => setIsAddingDoc(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition">Cancelar</button>
+                            <button type="submit" disabled={savingDoc} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition flex justify-center items-center gap-2">
+                                {savingDoc ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} Salvar
+                            </button>
+                        </div>
+                    </form>
+                ) : (
+                    // --- MODO LISTA ---
+                    <>
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6 text-sm text-blue-700">
+                            💡 <strong>Dica SaaS:</strong> Para não lotar o sistema, armazene arquivos pesados no Google Drive da igreja e cadastre apenas o link aqui.
+                        </div>
+
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar min-h-[150px]">
+                            {loadingDocs ? (
+                                <div className="text-center py-8 text-gray-400"><Loader2 className="animate-spin inline mr-2"/> Carregando arquivos...</div>
+                            ) : documents.length === 0 ? (
+                                <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                    <FolderOpen size={32} className="mx-auto mb-2 opacity-20"/>
+                                    <p className="text-xs">Nenhum arquivo cadastrado.</p>
+                                </div>
+                            ) : (
+                                documents.map(doc => (
+                                    <div key={doc.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 transition group">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="bg-red-100 text-red-600 p-2.5 rounded-lg shrink-0"><FileText size={20}/></div>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-bold text-gray-800 truncate">{doc.name}</p>
+                                                <p className="text-[10px] text-gray-400">{new Date(doc.date).toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <a href={doc.link} target="_blank" className="text-xs font-bold text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition">
+                                                Abrir ↗
+                                            </a>
+                                            <button onClick={() => handleDeleteDoc(doc.id!)} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition opacity-0 group-hover:opacity-100">
+                                                <Trash2 size={16}/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <button onClick={() => setIsAddingDoc(true)} className="w-full mt-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition flex justify-center items-center gap-2">
+                            <Plus size={20}/> Adicionar Novo Arquivo
+                        </button>
+                    </>
+                )}
             </div>
         </div>
       )}
