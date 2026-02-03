@@ -6,7 +6,7 @@ import { db, auth } from "../../lib/firebase";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { 
   Building2, Globe, FileText, Save, Loader2, Lock, ShieldCheck, 
-  ImageIcon, AlertTriangle, Settings 
+  ImageIcon, AlertTriangle, Settings, PenTool 
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -22,6 +22,7 @@ export default function SettingsPage() {
   const [city, setCity] = useState("");
   const [currency, setCurrency] = useState("AO");
   const [logoUrl, setLogoUrl] = useState("");
+  const [signatureUrl, setSignatureUrl] = useState(""); // <--- NOVO CAMPO
   const [textRecommendation, setTextRecommendation] = useState("");
   const [textTransfer, setTextTransfer] = useState("");
 
@@ -34,7 +35,7 @@ export default function SettingsPage() {
   }, [churchId]);
 
   const loadData = async () => {
-    if (!churchId) return; // Proteção extra
+    if (!churchId) return; 
     try {
         const ref = doc(db, "churches", churchId);
         const snap = await getDoc(ref);
@@ -45,6 +46,7 @@ export default function SettingsPage() {
             setCity(d.city || "");
             setCurrency(d.currency || "AO");
             setLogoUrl(d.logoUrl || "");
+            setSignatureUrl(d.signatureUrl || ""); // <--- Carrega assinatura
             setTextRecommendation(d.textRecommendation || "");
             setTextTransfer(d.textTransfer || "");
         }
@@ -53,9 +55,6 @@ export default function SettingsPage() {
 
   const handleSaveGeneral = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // CORREÇÃO CRÍTICA 1: Se não tiver ID, para tudo.
-    // Isso resolve o erro do Firestore reclamando de ID nulo
     if (!churchId) {
         alert("Erro: ID da igreja não encontrado.");
         return;
@@ -70,12 +69,12 @@ export default function SettingsPage() {
             city,
             currency,
             logoUrl,
+            signatureUrl, // <--- Salva assinatura
             textRecommendation,
             textTransfer
         });
 
-        // CORREÇÃO CRÍTICA 2: Usamos || "" para garantir que nunca passamos nulo
-        // Isso resolve o erro vermelho do TypeScript
+        // Atualiza contexto
         setChurchData(
             churchId,
             name,
@@ -164,7 +163,7 @@ export default function SettingsPage() {
                         </div>
 
                         <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Globe size={14}/> Financeiro & Local</h3>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Globe size={14}/> Financeiro & Visual</h3>
                             <div className="space-y-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Moeda do Sistema</label>
@@ -177,9 +176,17 @@ export default function SettingsPage() {
                                         </button>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Link da Logo (URL)</label>
-                                    <div className="relative"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="https://..." /></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Link da Logo (URL)</label>
+                                        <div className="relative"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="https://..." /></div>
+                                        {logoUrl && <div className="mt-2 text-center"><img src={logoUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/></div>}
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Assinatura Digital (URL)</label>
+                                        <div className="relative"><PenTool className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={signatureUrl} onChange={e => setSignatureUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="Link da imagem PNG..." /></div>
+                                        {signatureUrl && <div className="mt-2 text-center"><img src={signatureUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/></div>}
+                                    </div>
                                 </div>
                             </div>
                         </div>
