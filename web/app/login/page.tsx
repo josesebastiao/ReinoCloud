@@ -2,14 +2,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, ArrowLeft, LogIn, Building2, ChevronRight } from "lucide-react";
+import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, ArrowLeft, LogIn } from "lucide-react";
 
 // Firebase
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 
-// INTEGRADO AO CONTEXTO
+// INTEGRADO AO CONTEXTO (IMPORTANTE)
 import { useChurch } from "../../contexts/ChurchContext";
 
 export default function LoginPage() {
@@ -36,7 +36,7 @@ export default function LoginPage() {
 
       // 1. SUPER ADMIN (BYPASS)
       if (user.email === "alfaministro1@gmail.com" || user.email === "alfaministro1@hotmail.com") {
-          // CORREÇÃO: Adicionado "" para signatureUrl
+          // CORREÇÃO: Adicionei "" para a assinatura (7º argumento)
           setChurchData("master_admin", "ReinoCloud HQ", "admin", "Super Admin", "", "", "AO");
           router.push("/");
           return;
@@ -61,21 +61,21 @@ export default function LoginPage() {
           }
       }
 
-      // Se não achou em members, verifica se é ADMIN (Igreja) na coleção churches
+      // 2.1 Se não achou em members, verifica se é ADMIN (Igreja) na coleção churches
       if (!userData) {
           const churchDocRef = doc(db, "churches", user.uid);
           const churchDocSnap = await getDoc(churchDocRef);
           
           if (churchDocSnap.exists()) {
               const data = churchDocSnap.data();
-              // CORREÇÃO: Adicionado data.signatureUrl
+              // CORREÇÃO: Passando assinatura do Admin
               setChurchData(
                   user.uid, 
                   data.name, 
                   'admin', 
                   data.ownerName || "Pastor", 
                   data.logoUrl || "", 
-                  data.signatureUrl || "", // <--- NOVO ARGUMENTO
+                  data.signatureUrl || "", // <--- Assinatura aqui
                   data.currency || "AO"
               );
               router.push("/");
@@ -90,7 +90,7 @@ export default function LoginPage() {
       // 3. BUSCA DADOS DA IGREJA (Nome, Logo, Moeda, Assinatura)
       let churchName = "Minha Igreja";
       let churchLogo = "";
-      let churchSignature = ""; // Novo
+      let churchSignature = ""; // Variável nova
       let churchCurrency = "AO";
 
       if (userData.churchId) {
@@ -101,24 +101,25 @@ export default function LoginPage() {
                 const cData = churchDocSnap.data();
                 churchName = cData.name;
                 churchLogo = cData.logoUrl || "";
-                churchSignature = cData.signatureUrl || ""; // Novo
+                churchSignature = cData.signatureUrl || ""; // Pega do banco
                 churchCurrency = cData.currency || "AO";
             }
           } catch (err) { console.warn("Erro ao buscar igreja:", err); }
       }
 
       // 4. SALVA TUDO NO CONTEXTO
-      // CORREÇÃO: Adicionado churchSignature
+      // CORREÇÃO: Adicionei churchSignature na chamada
       setChurchData(
           userData.churchId || "", 
           churchName, 
           userData.role || "member", 
           userData.fullName || "Usuário", 
           churchLogo, 
-          churchSignature, // <--- NOVO ARGUMENTO
+          churchSignature, // <--- Aqui estava faltando!
           churchCurrency
       );
 
+      // Redireciona
       router.push("/");
 
     } catch (err: any) {
@@ -157,10 +158,7 @@ export default function LoginPage() {
       
       {/* CABEÇALHO */}
       <header className="w-full p-6 md:p-8 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500">
-         {/* Se não tiver o ícone local, usa um fallback */}
-         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-            <Building2 size={20} />
-         </div>
+         <img src="/icon.svg" alt="ReinoCloud Logo" className="w-12 h-12 object-contain" /> 
          <div>
             <h1 className="text-xl md:text-2xl font-bold text-blue-900 tracking-tight leading-none">ReinoCloud</h1>
             <p className="text-[10px] uppercase tracking-widest text-blue-400 font-bold">Gestão Eclesiástica</p>
