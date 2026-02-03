@@ -22,12 +22,12 @@ export default function MembersPage() {
   const itemsPerPage = 10;
 
   // MODAIS
-  const [showModal, setShowModal] = useState(false); // Modal de Edição/Criação
-  const [showViewModal, setShowViewModal] = useState(false); // Modal de Visualização Rápida
+  const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   
-  const [viewMember, setViewMember] = useState<Member | null>(null); // Membro sendo visualizado
+  const [viewMember, setViewMember] = useState<Member | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedMemberForAccess, setSelectedMemberForAccess] = useState<Member | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -66,6 +66,18 @@ export default function MembersPage() {
     }
   };
 
+  // --- FUNÇÃO AUXILIAR DE TRADUÇÃO ---
+  const translateRole = (role: string | undefined) => {
+      switch (role) {
+          case 'admin': return 'Pastor Titular';
+          case 'deacon': return 'Diácono(a)';
+          case 'leader': return 'Líder';
+          case 'secretary': return 'Secretaria';
+          case 'treasurer': return 'Tesouraria';
+          default: return 'Membro';
+      }
+  };
+
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -78,7 +90,7 @@ export default function MembersPage() {
   };
 
   const handleOpenEdit = (member?: Member) => {
-    setShowViewModal(false); // Fecha o de visualização se estiver aberto
+    setShowViewModal(false);
     if (member) {
       setEditingId(member.id || null);
       let addr: any = member.address || {};
@@ -162,7 +174,7 @@ export default function MembersPage() {
         <tr style="border-bottom: 1px solid #eee;">
             <td style="padding: 8px;">${index + 1}</td>
             <td style="padding: 8px;"><strong>${m.fullName}</strong></td>
-            <td style="padding: 8px;">${m.role === 'admin' ? 'Pastor' : m.role}</td>
+            <td style="padding: 8px;">${translateRole(m.role)}</td>
             <td style="padding: 8px;">${m.phone || '-'}</td>
             <td style="padding: 8px;">${m.status === 'active' ? 'Ativo' : 'Inativo'}</td>
         </tr>
@@ -213,7 +225,9 @@ export default function MembersPage() {
                         <div className="flex flex-col">
                             <span className="font-bold text-gray-800">{member.fullName}</span>
                             <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[10px] bg-gray-100 text-gray-500 px-2 rounded uppercase font-bold">{member.role === 'admin' ? 'Pastor' : member.role}</span>
+                                <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                                    {translateRole(member.role)}
+                                </span>
                                 {member.permissions?.includes('financial') && <span className="text-[9px] bg-green-100 text-green-700 px-1.5 rounded font-bold">Financeiro</span>}
                                 {member.permissions?.includes('secretary') && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 rounded font-bold">Secretaria</span>}
                             </div>
@@ -243,7 +257,7 @@ export default function MembersPage() {
                         {viewMember.photoUrl ? <img src={viewMember.photoUrl} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
-                    <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{viewMember.role === 'admin' ? 'Pastor Titular' : viewMember.role === 'leader' ? 'Líder' : 'Membro'}</p>
+                    <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
                 </div>
 
                 <div className="p-6 space-y-5">
@@ -294,7 +308,19 @@ export default function MembersPage() {
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Link da Foto (URL)</label><div className="relative"><Camera className="absolute left-3 top-3 text-gray-400" size={16}/><input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white" placeholder="https://..." /></div></div><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label><input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Telefone</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Sexo</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="male">Masculino</option><option value="female">Feminino</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Estado Civil</label><div className="relative"><Heart className="absolute left-3 top-3 text-pink-400" size={16}/><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white appearance-none"><option value="single">Solteiro(a)</option><option value="married">Casado(a)</option><option value="divorced">Divorciado(a)</option><option value="widowed">Viúvo(a)</option></select></div></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Nascimento</label><input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div></div></div>
                     
                     {/* DADOS ECLESIÁSTICOS */}
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label className="text-[10px] font-bold text-gray-400 uppercase">Cargo</label><select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="member">Membro</option><option value="leader">Líder</option><option value="secretary">Secretaria</option><option value="treasurer">Tesouraria</option><option value="admin">Pastor (Admin)</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-xl border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-50" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-bold text-gray-700">É Dizimista?</span></div></div></div></div>
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase">Cargo</label>
+                            <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 border rounded-xl bg-white">
+                                <option value="member">Membro</option>
+                                <option value="deacon">Diácono</option>
+                                <option value="leader">Líder</option>
+                                <option value="secretary">Secretaria</option>
+                                <option value="treasurer">Tesouraria</option>
+                                <option value="admin">Pastor (Admin)</option>
+                            </select>
+                        </div>
+                        <div><label className="text-[10px] font-bold text-gray-400 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-xl border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-50" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-bold text-gray-700">É Dizimista?</span></div></div></div></div>
 
                     {userRole === 'admin' && (
                         <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 animate-in fade-in">
