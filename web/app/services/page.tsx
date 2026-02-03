@@ -3,12 +3,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useChurch } from "../../contexts/ChurchContext";
 import { memberService } from "../../services/memberService";
-import { generalScaleService } from "../../services/generalScaleService"; // <--- NOVO SERVIÇO
+import { generalScaleService } from "../../services/generalScaleService";
 import { Member } from "../../types/member"; 
 
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
-  User, X, Building2, Loader2, ShieldCheck, CalendarRange, Plus, Trash2, Save, Clock, ChevronRight
+  User, X, Building2, Loader2, ShieldCheck, CalendarRange, Plus, Trash2, Save, Clock 
 } from "lucide-react";
 
 // Tipo para as linhas da escala
@@ -38,7 +38,7 @@ export default function ServicesPage() {
   const [search, setSearch] = useState("");
   const [obs, setObs] = useState(""); 
 
-  // ESTADO DA ESCALA ATUAL
+  // ESTADO DA ESCALA
   const [scaleData, setScaleData] = useState({
       title: `ESCALA DE ${new Date().toLocaleString('pt-BR', { month: 'long' }).toUpperCase()} / ${new Date().getFullYear()}`,
       theme: "",
@@ -55,7 +55,7 @@ export default function ServicesPage() {
     }
   }, [authLoading, userRole, hasPermission, router]);
 
-  // Carregar Membros e Histórico
+  // Carregar Dados
   useEffect(() => {
     if (churchId) {
         loadMembers();
@@ -63,12 +63,8 @@ export default function ServicesPage() {
     }
   }, [churchId, selectedDoc]);
 
-// ... dentro do componente ServicesPage ...
-
   const loadMembers = async () => {
-    // ADICIONE ESTA LINHA: Se não tiver ID, para tudo e o erro some.
-    if (!churchId) return; 
-
+    if (!churchId) return;
     setLoading(true);
     try {
       const list = await memberService.listByChurch(churchId);
@@ -77,43 +73,30 @@ export default function ServicesPage() {
   };
 
   const loadHistory = async () => {
-      // ADICIONE ESTA LINHA AQUI TAMBÉM
       if (!churchId) return;
-
-      // Agora o TypeScript sabe que churchId é uma string segura
       const history = await generalScaleService.listByChurch(churchId);
       setSavedScales(history);
   };
+
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
   // --- FUNÇÕES DA ESCALA ---
   const handleSaveScale = async () => {
       if(!churchId) return;
       if(scaleData.rows.length === 0) return alert("Adicione pelo menos uma linha na escala.");
-      
       setSaving(true);
       try {
-          await generalScaleService.create({
-              churchId,
-              ...scaleData
-          });
+          await generalScaleService.create({ churchId, ...scaleData });
           alert("Escala salva no histórico!");
-          loadHistory(); // Recarrega a lista
-      } catch (error) {
-          console.error(error);
-          alert("Erro ao salvar.");
-      } finally {
-          setSaving(false);
-      }
+          loadHistory(); 
+      } catch (error) { console.error(error); alert("Erro ao salvar."); } 
+      finally { setSaving(false); }
   };
 
   const loadFromHistory = (scale: any) => {
       if(confirm("Carregar esta escala? Os dados atuais serão substituídos.")) {
           setScaleData({
-              title: scale.title,
-              theme: scale.theme,
-              text: scale.text,
-              rows: scale.rows
+              title: scale.title, theme: scale.theme, text: scale.text, rows: scale.rows
           });
       }
   };
@@ -155,6 +138,7 @@ export default function ServicesPage() {
     } catch (e) { return ""; }
   };
 
+  // --- IMPRESSÃO (CORRIGIDA) ---
   const handlePrint = async () => {
     setPrinting(true); 
     let finalLogo = "";
@@ -163,28 +147,64 @@ export default function ServicesPage() {
     const printWindow = window.open('', '', 'width=1100,height=700');
     if (!printWindow) { setPrinting(false); return alert("Permita pop-ups!"); }
 
-    const rowsHtml = scaleData.rows.map(row => {
-        let dateDisplay = row.date;
-        try {
-            if(row.date.includes('-')) {
-                const d = new Date(row.date);
-                dateDisplay = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}`;
-            }
-        } catch(e){}
-        return `<tr><td style="font-weight:bold;text-align:center;">${dateDisplay}</td><td>${row.event}</td><td>${row.leader}</td><td>${row.music}</td><td>${row.preacher}</td><td style="font-size:11px;color:#444;">${row.obs}</td></tr>`;
-    }).join('');
+    let docContent = "";
+    const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    if (selectedDoc === 'scale') {
+        // --- GERAR ESCALA ---
+        const rowsHtml = scaleData.rows.map(row => {
+            let dateDisplay = row.date;
+            try {
+                if(row.date.includes('-')) {
+                    const d = new Date(row.date);
+                    dateDisplay = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth()+1).toString().padStart(2, '0')}`;
+                }
+            } catch(e){}
+            return `<tr><td style="font-weight:bold;text-align:center;">${dateDisplay}</td><td>${row.event}</td><td>${row.leader}</td><td>${row.music}</td><td>${row.preacher}</td><td style="font-size:11px;color:#444;">${row.obs}</td></tr>`;
+        }).join('');
+
+        docContent = `
+            <div class="header">${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}<h2 style="margin:0;text-transform:uppercase;font-size:24px;font-weight:900;">${churchName}</h2><h3 style="margin:5px 0 20px 0;text-transform:uppercase;font-size:18px;border-bottom:2px solid #000;display:inline-block;padding-bottom:5px;">${scaleData.title}</h3></div>
+            <div style="margin:0 0 20px 0;text-align:left;font-size:14px;">${scaleData.theme ? `<p style="margin:5px 0;"><strong>TEMA DO MÊS:</strong> ${scaleData.theme}</p>` : ''}${scaleData.text ? `<p style="margin:5px 0;"><strong>TEXTO BASE:</strong> <em>${scaleData.text}</em></p>` : ''}</div>
+            <table><thead><tr><th style="width:80px;">DATA</th><th>CULTO</th><th>DIRIGENTE</th><th>LOUVOR</th><th>PREGADOR</th><th>OBS / TEXTO</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+            <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
+        `;
+    } else {
+        // --- GERAR CARTA (Recomendação ou Transferência) ---
+        if (!selectedMember) return;
+        docContent = `
+          <div class="header">
+            ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
+            <div style="font-size: 22px; font-weight: bold; text-transform: uppercase;">${churchName}</div>
+          </div>
+          
+          <h2 style="text-transform: uppercase; margin-top: 40px; text-decoration: underline;">${selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : 'CARTA DE TRANSFERÊNCIA'}</h2>
+          
+          <div class="content">
+            <p>
+              Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) 
+              <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão, 
+              não constando nada, até a presente data, que desabone sua conduta cristã.
+            </p>
+            ${selectedDoc === 'transfer' ? `<p>Solicitamos que o(a) mesmo(a) seja recebido(a) como membro dessa amada igreja, cessando assim suas responsabilidades conosco.</p>` : ''}
+            ${obs ? `<p><strong>Observação:</strong> ${obs}</p>` : ''}
+            <p>Sem mais para o momento, subscrevemo-nos em Cristo.</p>
+          </div>
+          
+          <p style="text-align: right; margin-top: 60px;">${today}</p>
+        `;
+    }
 
     const htmlContent = `
-      <html><head><title>Escala - ${churchName}</title><style>body{font-family:'Times New Roman',serif;padding:40px;text-align:center;color:#000}.header{margin-bottom:20px;padding-bottom:10px}.logo{max-width:100px;max-height:100px;object-fit:contain;margin:0 auto 10px}.footer{margin-top:60px;display:flex;justify-content:space-around}.signature{border-top:1px solid #000;padding-top:5px;width:40%;font-weight:bold}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px;text-align:left;vertical-align:top}th{background:#f0f0f0}@media print{@page{margin:1cm;size:A4}body{padding:0}}</style></head>
+      <html><head><title>Documento - ${churchName}</title><style>body{font-family:'Times New Roman',serif;padding:40px;text-align:center;color:#000}.header{margin-bottom:20px;padding-bottom:10px}.logo{max-width:100px;max-height:100px;object-fit:contain;margin:0 auto 10px}.content{font-size:18px;line-height:1.6;text-align:justify;margin:40px 0}.footer{margin-top:60px;display:flex;justify-content:space-around}.signature{border-top:1px solid #000;padding-top:5px;width:40%;font-weight:bold}.meta{font-size:10px;color:#999;margin-top:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px;text-align:left;vertical-align:top}th{background:#f0f0f0}@media print{@page{margin:1cm;size:A4}body{padding:0}}</style></head>
       <body>
-        <div class="header">${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}<h2 style="margin:0;text-transform:uppercase;font-size:24px;font-weight:900;">${churchName}</h2><h3 style="margin:5px 0 20px 0;text-transform:uppercase;font-size:18px;border-bottom:2px solid #000;display:inline-block;padding-bottom:5px;">${scaleData.title}</h3></div>
-        <div style="margin:0 0 20px 0;text-align:left;font-size:14px;">${scaleData.theme ? `<p style="margin:5px 0;"><strong>TEMA DO MÊS:</strong> ${scaleData.theme}</p>` : ''}${scaleData.text ? `<p style="margin:5px 0;"><strong>TEXTO BASE:</strong> <em>${scaleData.text}</em></p>` : ''}</div>
-        <table><thead><tr><th style="width:80px;">DATA</th><th>CULTO</th><th>DIRIGENTE</th><th>LOUVOR</th><th>PREGADOR</th><th>OBS / TEXTO</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-        <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
+        ${docContent}
         <div class="footer"><div class="signature">Pastor / Responsável</div><div class="signature">Secretaria</div></div>
+        <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
         <script>setTimeout(function(){window.print();},500);</script>
       </body></html>
     `;
+    
     printWindow.document.write(htmlContent);
     printWindow.document.close();
     setPrinting(false);
@@ -219,73 +239,35 @@ export default function ServicesPage() {
                 </div>
 
                 {selectedDoc === 'scale' ? (
+                    // --- MODO ESCALA ---
                     <div className="flex flex-col lg:flex-row h-[800px]">
-                        {/* SIDEBAR HISTÓRICO */}
                         <div className="w-full lg:w-72 bg-gray-50 border-r border-gray-100 flex flex-col">
-                            <div className="p-4 border-b border-gray-100 font-bold text-xs text-gray-400 uppercase flex items-center gap-2">
-                                <Clock size={14}/> Histórico de Escalas
-                            </div>
+                            <div className="p-4 border-b border-gray-100 font-bold text-xs text-gray-400 uppercase flex items-center gap-2"><Clock size={14}/> Histórico de Escalas</div>
                             <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                                {savedScales.length === 0 ? (
-                                    <p className="text-xs text-gray-400 text-center py-4">Nenhuma escala salva.</p>
-                                ) : (
-                                    savedScales.map(scale => (
-                                        <div key={scale.id} onClick={() => loadFromHistory(scale)} className="group p-3 rounded-xl hover:bg-white hover:shadow-sm cursor-pointer border border-transparent hover:border-gray-200 transition">
-                                            <div className="flex justify-between items-start">
-                                                <h4 className="text-sm font-bold text-gray-700 line-clamp-2">{scale.title}</h4>
-                                                <button onClick={(e) => deleteFromHistory(e, scale.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={14}/></button>
-                                            </div>
-                                            <p className="text-[10px] text-gray-400 mt-1">{new Date(scale.createdAt).toLocaleDateString('pt-BR')}</p>
-                                        </div>
-                                    ))
-                                )}
+                                {savedScales.length === 0 ? (<p className="text-xs text-gray-400 text-center py-4">Nenhuma escala salva.</p>) : (savedScales.map(scale => (<div key={scale.id} onClick={() => loadFromHistory(scale)} className="group p-3 rounded-xl hover:bg-white hover:shadow-sm cursor-pointer border border-transparent hover:border-gray-200 transition"><div className="flex justify-between items-start"><h4 className="text-sm font-bold text-gray-700 line-clamp-2">{scale.title}</h4><button onClick={(e) => deleteFromHistory(e, scale.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={14}/></button></div><p className="text-[10px] text-gray-400 mt-1">{new Date(scale.createdAt).toLocaleDateString('pt-BR')}</p></div>)))}
                             </div>
                         </div>
-
-                        {/* EDITOR DA ESCALA */}
                         <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
                             <div className="flex justify-end gap-2 mb-6">
-                                <button onClick={handleSaveScale} disabled={saving} className="bg-white border border-green-200 text-green-700 hover:bg-green-50 px-4 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-2">
-                                    {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} Salvar
-                                </button>
-                                <button onClick={handlePrint} disabled={printing} className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold shadow hover:bg-green-700 transition flex items-center gap-2">
-                                    {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} Imprimir PDF
-                                </button>
+                                <button onClick={handleSaveScale} disabled={saving} className="bg-white border border-green-200 text-green-700 hover:bg-green-50 px-4 py-2 rounded-xl font-bold shadow-sm transition flex items-center gap-2">{saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} Salvar</button>
+                                <button onClick={handlePrint} disabled={printing} className="bg-green-600 text-white px-4 py-2 rounded-xl font-bold shadow hover:bg-green-700 transition flex items-center gap-2">{printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} Imprimir PDF</button>
                             </div>
-
                             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                 <div><label className="text-xs font-bold text-gray-500 uppercase">Título</label><input type="text" value={scaleData.title} onChange={e => setScaleData({...scaleData, title: e.target.value})} className="w-full p-2 border rounded-lg mt-1" /></div>
                                 <div><label className="text-xs font-bold text-gray-500 uppercase">Tema</label><input type="text" value={scaleData.theme} onChange={e => setScaleData({...scaleData, theme: e.target.value})} className="w-full p-2 border rounded-lg mt-1" /></div>
                                 <div><label className="text-xs font-bold text-gray-500 uppercase">Texto Base</label><input type="text" value={scaleData.text} onChange={e => setScaleData({...scaleData, text: e.target.value})} className="w-full p-2 border rounded-lg mt-1" /></div>
                             </div>
-
                             <div className="overflow-x-auto rounded-xl border border-gray-200">
                                 <table className="w-full text-left border-collapse min-w-[800px]">
-                                    <thead>
-                                        <tr className="bg-gray-100 text-gray-600 text-xs uppercase">
-                                            <th className="p-3 border-b">Data</th><th className="p-3 border-b">Evento</th><th className="p-3 border-b">Dirigente</th><th className="p-3 border-b">Pregador</th><th className="p-3 border-b">Louvor</th><th className="p-3 border-b">Obs</th><th className="p-3 border-b w-10"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {scaleData.rows.map((row, idx) => (
-                                            <tr key={idx} className="group hover:bg-gray-50">
-                                                <td className="p-2"><input type="date" value={row.date} onChange={e => updateScaleRow(idx, 'date', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td>
-                                                <td className="p-2"><input type="text" value={row.event} onChange={e => updateScaleRow(idx, 'event', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td>
-                                                <td className="p-2"><input type="text" list="members-list" value={row.leader} onChange={e => updateScaleRow(idx, 'leader', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td>
-                                                <td className="p-2"><input type="text" list="members-list" value={row.preacher} onChange={e => updateScaleRow(idx, 'preacher', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td>
-                                                <td className="p-2"><input type="text" value={row.music} onChange={e => updateScaleRow(idx, 'music', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td>
-                                                <td className="p-2"><input type="text" value={row.obs} onChange={e => updateScaleRow(idx, 'obs', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td>
-                                                <td className="p-2 text-center"><button onClick={() => removeScaleRow(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
+                                    <thead><tr className="bg-gray-100 text-gray-600 text-xs uppercase"><th className="p-3 border-b">Data</th><th className="p-3 border-b">Evento</th><th className="p-3 border-b">Dirigente</th><th className="p-3 border-b">Pregador</th><th className="p-3 border-b">Louvor</th><th className="p-3 border-b">Obs</th><th className="p-3 border-b w-10"></th></tr></thead>
+                                    <tbody className="divide-y divide-gray-100">{scaleData.rows.map((row, idx) => (<tr key={idx} className="group hover:bg-gray-50"><td className="p-2"><input type="date" value={row.date} onChange={e => updateScaleRow(idx, 'date', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td><td className="p-2"><input type="text" value={row.event} onChange={e => updateScaleRow(idx, 'event', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td><td className="p-2"><input type="text" list="members-list" value={row.leader} onChange={e => updateScaleRow(idx, 'leader', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td><td className="p-2"><input type="text" list="members-list" value={row.preacher} onChange={e => updateScaleRow(idx, 'preacher', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td><td className="p-2"><input type="text" value={row.music} onChange={e => updateScaleRow(idx, 'music', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td><td className="p-2"><input type="text" value={row.obs} onChange={e => updateScaleRow(idx, 'obs', e.target.value)} className="w-full p-2 border rounded bg-transparent focus:bg-white" /></td><td className="p-2 text-center"><button onClick={() => removeScaleRow(idx)} className="text-gray-300 hover:text-red-500"><Trash2 size={16}/></button></td></tr>))}</tbody>
                                 </table>
                             </div>
                             <button onClick={addScaleRow} className="w-full py-3 mt-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition flex items-center justify-center gap-2"><Plus size={20}/> Adicionar Linha</button>
                         </div>
                     </div>
                 ) : (
-                    // CARTAS (SEM MUDANÇAS, SÓ RECOLAPSEI PRA CABER)
+                    // --- MODO CARTA ---
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
                         <div className={`${selectedMember ? 'hidden md:block' : 'block'}`}>
                             <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Selecione o Membro</label>
@@ -295,7 +277,7 @@ export default function ServicesPage() {
                         <div className={`flex flex-col h-full ${!selectedMember ? 'hidden md:flex' : 'flex'}`}>
                             <label className="text-xs font-bold text-gray-400 uppercase mb-2 flex justify-between items-center"><span>Pré-visualização</span>{selectedMember && <button onClick={() => setSelectedMember(null)} className="md:hidden text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-lg text-xs">← Voltar</button>}</label>
                             <div className="flex-1 bg-gray-100 rounded-xl p-4 md:p-6 border border-gray-200 flex flex-col items-center">
-                                {selectedMember ? (<div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200"><div className="flex justify-center mb-3">{logoUrl ? <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" /> : <Building2 size={32} className="text-gray-400"/>}</div><h3 className="text-sm font-bold text-gray-800 uppercase border-b pb-2 mb-3">{churchName}</h3><div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">{selectedMember.fullName}</div><textarea placeholder="Observação extra..." value={obs} onChange={e => setObs(e.target.value)} className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300" rows={3}/><button onClick={handlePrint} disabled={printing} className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-wait">{printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} {printing ? "Gerando..." : "Imprimir"}</button></div>) : (<div className="text-center py-20 text-gray-400"><ShieldCheck size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Selecione um membro.</p></div>)}
+                                {selectedMember ? (<div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200"><div className="flex justify-center mb-3">{logoUrl ? <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" /> : <Building2 size={32} className="text-gray-400"/>}</div><h3 className="text-sm font-bold text-gray-800 uppercase border-b pb-2 mb-3">{churchName}</h3><div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">{selectedMember.fullName}</div><textarea placeholder="Observação extra (ex: mudou-se para Lisboa)" value={obs} onChange={e => setObs(e.target.value)} className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300" rows={3}/><button onClick={handlePrint} disabled={printing} className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-wait">{printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} {printing ? "Gerando..." : "Imprimir"}</button></div>) : (<div className="text-center py-20 text-gray-400"><ShieldCheck size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Selecione um membro.</p></div>)}
                             </div>
                         </div>
                     </div>
