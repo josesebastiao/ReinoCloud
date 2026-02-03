@@ -13,10 +13,11 @@ interface ChurchContextData {
   userName: string | null;
   loading: boolean;
   logoUrl: string | null;
+  signatureUrl: string | null; // <--- NOVO
   currency: string;
   formatMoney: (value: number) => string;
-  // AJUSTE: Agora aceitamos "string | null" para parar o erro no Settings
-  setChurchData: (id: string | null, name: string | null, role: string | null, userName: string | null, logoUrl: string | null, currency: string) => void;
+  // Atualizei para receber signature
+  setChurchData: (id: string | null, name: string | null, role: string | null, userName: string | null, logoUrl: string | null, signatureUrl: string | null, currency: string) => void;
   hasPermission: (permission: string) => boolean; 
 }
 
@@ -30,6 +31,7 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
   const [userPermissions, setUserPermissions] = useState<string[]>([]); 
   const [userName, setUserName] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null); // <--- NOVO
   const [currency, setCurrency] = useState("AO");
   const [loading, setLoading] = useState(true);
 
@@ -38,13 +40,13 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     return userPermissions.includes(permission);
   };
 
-  // AJUSTE: Aceitamos nulos e só salvamos no localStorage se tiver valor
-  const setChurchData = (id: string | null, name: string | null, role: string | null, uName: string | null, logo: string | null, curr: string) => {
+  const setChurchData = (id: string | null, name: string | null, role: string | null, uName: string | null, logo: string | null, signature: string | null, curr: string) => {
     setChurchId(id);
     setChurchName(name);
     setUserRole(role);
     setUserName(uName);
     setLogoUrl(logo);
+    setSignatureUrl(signature); // <--- NOVO
     setCurrency(curr);
     
     if (id) localStorage.setItem("churchId", id);
@@ -52,6 +54,7 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     if (role) localStorage.setItem("userRole", role);
     if (uName) localStorage.setItem("userName", uName);
     if (logo) localStorage.setItem("churchLogo", logo);
+    if (signature) localStorage.setItem("churchSignature", signature); // <--- NOVO
     if (curr) localStorage.setItem("churchCurrency", curr);
   };
 
@@ -67,25 +70,27 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
             setUserRole(localStorage.getItem("userRole"));
             setUserName(localStorage.getItem("userName"));
             setLogoUrl(localStorage.getItem("churchLogo"));
+            setSignatureUrl(localStorage.getItem("churchSignature")); // <--- NOVO
             setCurrency(localStorage.getItem("churchCurrency") || "AO");
         }
 
         try {
-            const userDocRef = doc(db, "members", currentUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
+            // Tenta buscar como membro primeiro (comum)
+            const q = query(collection(db, "members"), where("email", "==", currentUser.email));
+            const querySnapshot = await getDocs(q);
             
-            if (userDocSnap.exists()) {
-                const data = userDocSnap.data();
-                setUserPermissions(data.permissions || []); 
-                if (data.role) setUserRole(data.role); 
-                if (data.currency) setCurrency(data.currency);
+            if (!querySnapshot.empty) {
+                const data = querySnapshot.docs[0].data();
+                setUserPermissions(data.permissions || []);
+                if (data.role) setUserRole(data.role);
             } else {
-                const q = query(collection(db, "members"), where("email", "==", currentUser.email));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const data = querySnapshot.docs[0].data();
-                    setUserPermissions(data.permissions || []);
-                    if (data.role) setUserRole(data.role);
+                // Se não achou em members, pode ser o Admin (dono da igreja) na coleção churches
+                const churchDocRef = doc(db, "churches", currentUser.uid);
+                const churchDocSnap = await getDoc(churchDocRef);
+                if (churchDocSnap.exists()) {
+                    const data = churchDocSnap.data();
+                    // Admin tem tudo liberado, mas carregamos dados globais se precisar
+                    setSignatureUrl(data.signatureUrl); // <--- Carrega do banco se for admin
                 }
             }
         } catch (error) {
@@ -98,6 +103,8 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
         setUserRole(null);
         setUserPermissions([]);
         setUserName(null);
+        setLogoUrl(null);
+        setSignatureUrl(null); // <--- NOVO
         localStorage.clear();
       }
       setLoading(false);
@@ -115,8 +122,8 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ChurchContext.Provider value={{ 
-        user, churchId, churchName, userRole, userName, loading, logoUrl, currency,
-        formatMoney, setChurchData, userPermissions, hasPermission
+        user, churchId, churchName, userRole, userName, loading, logoUrl, signatureUrl, // <--- NOVO
+        currency, formatMoney, setChurchData, userPermissions, hasPermission // userPermissions estava faltando no return value, adicionei
     }}>
       {children}
     </ChurchContext.Provider>

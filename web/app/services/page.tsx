@@ -23,7 +23,7 @@ interface ScaleRow {
 
 export default function ServicesPage() {
   const router = useRouter();
-  const { churchId, churchName, logoUrl, userRole, hasPermission, loading: authLoading } = useChurch(); 
+  const { churchId, churchName, logoUrl, signatureUrl, userRole, hasPermission, loading: authLoading } = useChurch(); 
   
   const [members, setMembers] = useState<Member[]>([]);
   const [savedScales, setSavedScales] = useState<any[]>([]); // Histórico
@@ -138,11 +138,16 @@ export default function ServicesPage() {
     } catch (e) { return ""; }
   };
 
-  // --- IMPRESSÃO (CORRIGIDA) ---
+  // --- IMPRESSÃO ---
   const handlePrint = async () => {
     setPrinting(true); 
+    
+    // Converter imagens para Base64
     let finalLogo = "";
     if (logoUrl) finalLogo = await toDataURL(logoUrl);
+    
+    let finalSignature = "";
+    if (signatureUrl) finalSignature = await toDataURL(signatureUrl);
 
     const printWindow = window.open('', '', 'width=1100,height=700');
     if (!printWindow) { setPrinting(false); return alert("Permita pop-ups!"); }
@@ -170,7 +175,7 @@ export default function ServicesPage() {
             <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
         `;
     } else {
-        // --- GERAR CARTA (Recomendação ou Transferência) ---
+        // --- GERAR CARTA ---
         if (!selectedMember) return;
         docContent = `
           <div class="header">
@@ -196,13 +201,66 @@ export default function ServicesPage() {
     }
 
     const htmlContent = `
-      <html><head><title>Documento - ${churchName}</title><style>body{font-family:'Times New Roman',serif;padding:40px;text-align:center;color:#000}.header{margin-bottom:20px;padding-bottom:10px}.logo{max-width:100px;max-height:100px;object-fit:contain;margin:0 auto 10px}.content{font-size:18px;line-height:1.6;text-align:justify;margin:40px 0}.footer{margin-top:60px;display:flex;justify-content:space-around}.signature{border-top:1px solid #000;padding-top:5px;width:40%;font-weight:bold}.meta{font-size:10px;color:#999;margin-top:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px;text-align:left;vertical-align:top}th{background:#f0f0f0}@media print{@page{margin:1cm;size:A4}body{padding:0}}</style></head>
-      <body>
-        ${docContent}
-        <div class="footer"><div class="signature">Pastor / Responsável</div><div class="signature">Secretaria</div></div>
-        <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
-        <script>setTimeout(function(){window.print();},500);</script>
-      </body></html>
+      <html>
+        <head>
+          <title>Documento - ${churchName}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; color: #000; margin: 0; }
+            .header { margin-bottom: 20px; padding-bottom: 10px; }
+            .logo { max-width: 100px; max-height: 100px; object-fit: contain; margin: 0 auto 10px; display: block; }
+            .content { font-size: 18px; line-height: 1.6; text-align: justify; margin: 40px 0; }
+            .footer { margin-top: 60px; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px; }
+            .signature { width: 40%; min-width: 150px; font-weight: bold; position: relative; }
+            .meta { font-size: 10px; color: #999; margin-top: 40px; text-align: center; }
+            
+            /* Assinatura Digital */
+            .signature-img { height: 60px; display: block; margin: 0 auto -15px auto; position: relative; z-index: 10; }
+            
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            td, th { border: 1px solid #000; padding: 6px; font-size: 13px; text-align: left; vertical-align: top; }
+            th { background: #f0f0f0; }
+
+            /* ESTILOS DO BOTÃO FLUTUANTE (SÓ NA TELA) */
+            @media print {
+               .no-print { display: none !important; }
+               @page { margin: 2cm; size: A4; }
+               body { padding: 0; }
+            }
+            .floating-btn {
+               position: fixed; top: 15px; left: 15px;
+               background: #000; color: #fff;
+               padding: 10px 20px; border-radius: 50px;
+               text-decoration: none; font-family: sans-serif; font-weight: bold;
+               box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+               z-index: 9999; font-size: 14px; border: none; cursor: pointer;
+            }
+          </style>
+        </head>
+        <body>
+          <button onclick="window.close()" class="floating-btn no-print">← Fechar</button>
+
+          ${docContent}
+          
+          <div class="footer">
+            <div class="signature">
+                ${finalSignature ? `<img src="${finalSignature}" class="signature-img" />` : ''}
+                <div style="border-top: 1px solid #000; padding-top: 5px;">Pastor / Responsável</div>
+            </div>
+            <div class="signature">
+                <div style="margin-top: 50px; border-top: 1px solid #000; padding-top: 5px;">Secretaria</div>
+            </div>
+          </div>
+
+          <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
+          
+          <script>
+             setTimeout(function() {
+                window.print();
+             }, 800);
+          </script>
+        </body>
+      </html>
     `;
     
     printWindow.document.write(htmlContent);

@@ -81,6 +81,7 @@ export default function SettingsPage() {
             userRole || "", 
             userName || "",
             logoUrl, 
+            signatureUrl, // <--- NOVO
             currency
         );
 
