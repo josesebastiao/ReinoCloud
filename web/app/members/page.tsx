@@ -8,7 +8,7 @@ import { Ministry } from "../../types/ministry";
 import { createSystemUser } from "../../services/adminAuthService";
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
-  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User 
+  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard 
 } from "lucide-react";
 
 export default function MembersPage() {
@@ -66,7 +66,6 @@ export default function MembersPage() {
     }
   };
 
-  // --- FUNÇÃO AUXILIAR DE TRADUÇÃO ---
   const translateRole = (role: string | undefined) => {
       switch (role) {
           case 'admin': return 'Pastor Titular';
@@ -192,6 +191,163 @@ export default function MembersPage() {
     printWindow.document.close();
   };
 
+  // --- NOVA FUNÇÃO: IMPRIMIR CARTEIRINHA ---
+  const handlePrintCard = (member: Member) => {
+    const printWindow = window.open('', '', 'width=900,height=600');
+    if (!printWindow) return;
+
+    // Converte URL para Base64 (Opcional, mas ajuda na impressão)
+    // Aqui usaremos as URLs diretas, mas garantiremos o CSS de background
+    
+    const html = `
+      <html>
+        <head>
+          <title>Carteirinha - ${member.fullName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
+            body { font-family: 'Inter', sans-serif; background: #f0f0f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .page-break { page-break-after: always; }
+            
+            /* Container para Frente e Verso */
+            .card-wrapper { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+            
+            /* Estilo Base do Cartão (Tamanho CR80: 85.6mm x 54mm) */
+            .card {
+              width: 324px; height: 204px; /* Pixels aproximados para impressão (scale) */
+              background: #fff;
+              border-radius: 12px;
+              position: relative;
+              overflow: hidden;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+              border: 1px solid #ddd;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            /* --- FRENTE --- */
+            .card.front {
+              background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+              color: white;
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              padding: 15px;
+            }
+            .card-bg-pattern {
+               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+               background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
+               opacity: 0.1; pointer-events: none;
+            }
+            .photo-area {
+               width: 80px; height: 80px;
+               background: #fff;
+               border-radius: 50%;
+               border: 3px solid rgba(255,255,255,0.5);
+               overflow: hidden;
+               flex-shrink: 0;
+               margin-right: 15px;
+               z-index: 10;
+            }
+            .photo-area img { width: 100%; height: 100%; object-fit: cover; }
+            .info-area { z-index: 10; flex: 1; }
+            .church-name { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; margin-bottom: 5px; }
+            .member-name { font-size: 16px; font-weight: 800; line-height: 1.2; margin-bottom: 5px; text-transform: uppercase; }
+            .member-role { 
+              display: inline-block; 
+              background: rgba(255,255,255,0.2); 
+              padding: 4px 8px; 
+              border-radius: 4px; 
+              font-size: 9px; 
+              font-weight: bold; 
+              text-transform: uppercase; 
+            }
+            .logo-corner { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; object-fit: contain; z-index: 10; opacity: 0.8; }
+
+            /* --- VERSO --- */
+            .card.back {
+              background: #fff;
+              color: #333;
+              padding: 20px;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              border: 1px solid #ccc;
+            }
+            .back-header { text-align: center; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
+            .back-header h3 { margin: 0; font-size: 12px; text-transform: uppercase; color: #1e3a8a; }
+            .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 9px; }
+            .data-item strong { display: block; color: #888; font-size: 7px; uppercase; }
+            .signature-area { text-align: center; margin-top: 10px; }
+            .signature-line { border-bottom: 1px solid #333; width: 80%; margin: 0 auto 5px auto; }
+            .signature-label { font-size: 8px; font-weight: bold; text-transform: uppercase; color: #555; }
+            .qr-placeholder { position: absolute; bottom: 10px; right: 10px; width: 40px; height: 40px; opacity: 0.5; }
+
+            @media print {
+              body { background: white; height: auto; display: block; }
+              .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; }
+              .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card-wrapper">
+            
+            <div class="card front">
+              <div class="card-bg-pattern"></div>
+              ${logoUrl ? `<img src="${logoUrl}" class="logo-corner" />` : ''}
+              
+              <div class="photo-area">
+                 ${member.photoUrl ? `<img src="${member.photoUrl}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
+              </div>
+              
+              <div class="info-area">
+                 <div class="church-name">${churchName}</div>
+                 <div class="member-name">${member.fullName}</div>
+                 <div class="member-role">${translateRole(member.role)}</div>
+              </div>
+            </div>
+
+            <div class="card back">
+               <div class="back-header">
+                 <h3>Dados do Membro</h3>
+               </div>
+               
+               <div class="data-grid">
+                  <div class="data-item">
+                    <strong>Admissão/Batismo</strong>
+                    <span>${member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : '---'}</span>
+                  </div>
+                  <div class="data-item">
+                    <strong>Nascimento</strong>
+                    <span>${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span>
+                  </div>
+                  <div class="data-item">
+                    <strong>Validade</strong>
+                    <span>Indeterminada</span>
+                  </div>
+               </div>
+
+               <div class="signature-area">
+                  <div style="height: 30px;"></div> <div class="signature-line"></div>
+                  <div class="signature-label">Pastor Presidente</div>
+               </div>
+               
+               <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" class="qr-placeholder" />
+            </div>
+
+          </div>
+          <script>
+             // Aguarda carregar imagens antes de imprimir
+             window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   if (loading && members.length === 0) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
@@ -244,7 +400,7 @@ export default function MembersPage() {
         {totalPages > 1 && (<div className="p-4 border-t border-gray-100 flex justify-center gap-4 items-center"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={20}/></button><span className="text-sm font-bold text-gray-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={20}/></button></div>)}
       </div>
 
-      {/* --- MODAL 1: VISUALIZAÇÃO RÁPIDA (BONITO) --- */}
+      {/* --- MODAL 1: VISUALIZAÇÃO RÁPIDA (COM CARTEIRINHA) --- */}
       {showViewModal && viewMember && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 relative">
@@ -258,6 +414,13 @@ export default function MembersPage() {
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
+                    
+                    {/* BOTÃO CARTEIRINHA */}
+                    <div className="absolute bottom-4 right-4 z-20">
+                         <button onClick={() => handlePrintCard(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-xs font-bold border border-white/30" title="Imprimir Carteirinha">
+                            <CreditCard size={16}/> Carteirinha
+                         </button>
+                    </div>
                 </div>
 
                 <div className="p-6 space-y-5">
@@ -281,7 +444,7 @@ export default function MembersPage() {
                             <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0"><Mail size={18}/></div>
                             <div><p className="text-xs text-gray-400 font-bold uppercase">E-mail</p><p className="font-medium text-gray-800 text-sm truncate max-w-[200px]">{viewMember.email || "—"}</p></div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition">
+                        <div className="flex items-center gap-3 p-3 hover:bg-orange-50 rounded-xl transition">
                             <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center shrink-0"><MapPin size={18}/></div>
                             <div><p className="text-xs text-gray-400 font-bold uppercase">Endereço</p><p className="font-medium text-gray-800 text-sm">{viewMember.address?.street || "—"}</p></div>
                         </div>
@@ -384,7 +547,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL IMPRESSÃO */}
+      {/* MODAL IMPRESSÃO LISTA */}
       {showPrintModal && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95">
