@@ -30,7 +30,7 @@ export function MemberDashboard() {
   const [showPrayer, setShowPrayer] = useState(false);
   
   // STORIES MODE
-  const [activeStory, setActiveStory] = useState<Post | null>(null); // Story aberto
+  const [activeStory, setActiveStory] = useState<Post | null>(null);
 
   useEffect(() => {
     if (churchId && user?.email) {
@@ -98,121 +98,154 @@ export function MemberDashboard() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // FILTROS TIPO "REDE SOCIAL"
+  // LÓGICA DE STORIES E FEED
   const todayStr = new Date().toISOString().split('T')[0];
-  
-  // 1. Stories: Pega a Palavra de HOJE (24h)
   const todayDevotional = posts.find(p => p.type === 'devotional' && p.date === todayStr);
   const hasNewStory = !!todayDevotional;
-
-  // 2. Feed: Avisos e Eventos (Timeline)
   const feed = posts.filter(p => p.type === 'notice' || p.type === 'event');
 
-  return (
-    <div className="min-h-screen bg-gray-100 pb-24 font-sans">
-      
-      {/* 1. CABEÇALHO COMPACTO (Instagram Style) */}
-      <div className="bg-white px-4 pt-4 pb-2 sticky top-0 z-30 shadow-sm flex justify-between items-center">
-          <div className="flex items-center gap-2">
-              {logoUrl ? <img src={logoUrl} className="w-8 h-8 rounded-full border border-gray-200 object-contain"/> : <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white"><Building2 size={16}/></div>}
-              <h1 className="font-bold text-gray-800 text-lg tracking-tight">{churchName}</h1>
-          </div>
-          <div className="flex gap-3">
-             <button onClick={handleLogout}><LogOut size={22} className="text-gray-600"/></button>
-          </div>
-      </div>
+  // LÓGICA DE NOTIFICAÇÃO (Simples: se tiver post nos últimos 2 dias)
+  const hasRecentPosts = posts.some(p => {
+      const postDate = new Date(p.date);
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+      return postDate > twoDaysAgo;
+  });
 
-      {/* 2. ÁREA DE STORIES (Carrossel Horizontal) */}
-      <div className="bg-white py-4 mb-2 overflow-x-auto scrollbar-hide border-b border-gray-100">
-          <div className="flex gap-4 px-4 min-w-max">
-              
-              {/* STORY: PALAVRA PASTORAL (Destaque) */}
-              <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => hasNewStory ? setActiveStory(todayDevotional!) : alert("Nenhuma palavra nova hoje.")}>
-                  <div className={`w-16 h-16 rounded-full p-[3px] ${hasNewStory ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600' : 'bg-gray-200'}`}>
-                      <div className="w-full h-full bg-white rounded-full p-1">
-                          <div className="w-full h-full bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
-                              <BookOpen size={24} className={hasNewStory ? "text-purple-600" : "text-gray-400"}/>
-                          </div>
-                      </div>
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+      
+      {/* 1. CABEÇALHO AZUL (Estilo Original + Sininho) */}
+      <div className="bg-blue-600 pt-8 pb-16 px-6 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+          
+          <div className="relative z-10">
+              {/* Linha Superior: Igreja + Ações */}
+              <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-2">
+                      {logoUrl ? (
+                          <img src={logoUrl} alt="Logo" className="w-8 h-8 object-contain bg-white/20 rounded-lg p-1 backdrop-blur-sm" />
+                      ) : (
+                          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white"><Building2 size={18}/></div>
+                      )}
+                      <h1 className="text-white font-bold text-sm opacity-90 tracking-wide">{churchName}</h1>
                   </div>
-                  <span className="text-[10px] font-medium text-gray-700">{hasNewStory ? 'Nova Palavra' : 'Palavra'}</span>
+                  
+                  <div className="flex items-center gap-3">
+                      {/* Sininho com Notificação */}
+                      <button className="bg-white/10 p-2 rounded-full text-white hover:bg-white/20 transition relative">
+                          <Bell size={20}/>
+                          {hasRecentPosts && (
+                              <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-blue-600 rounded-full"></span>
+                          )}
+                      </button>
+                      <button onClick={handleLogout} className="bg-white/10 p-2 rounded-full text-white hover:bg-white/20 transition">
+                          <LogOut size={20}/>
+                      </button>
+                  </div>
               </div>
 
-              {/* STORIES: ANIVERSARIANTES */}
-              {birthdays.map(m => (
-                  <div key={m.id} className="flex flex-col items-center gap-1">
-                      <div className="w-16 h-16 rounded-full p-[3px] bg-gradient-to-tr from-green-300 to-blue-500">
-                          <div className="w-full h-full bg-white rounded-full p-1">
-                              <img src={m.photoUrl || "https://ui-avatars.com/api/?name="+m.fullName} className="w-full h-full rounded-full object-cover"/>
-                          </div>
-                      </div>
-                      <span className="text-[10px] font-medium text-gray-700 truncate w-14 text-center">{m.fullName.split(' ')[0]}</span>
+              {/* Linha Inferior: Perfil do Usuário */}
+              <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full border-4 border-white/20 overflow-hidden bg-white/10 backdrop-blur-sm shadow-md">
+                      {memberData?.photoUrl ? (
+                          <img src={memberData.photoUrl} className="w-full h-full object-cover" />
+                      ) : (
+                          <div className="w-full h-full flex items-center justify-center text-white"><User size={32}/></div>
+                      )}
                   </div>
-              ))}
+                  <div>
+                      <p className="text-blue-200 text-xs font-bold uppercase tracking-wider mb-0.5">Bem-vindo(a)</p>
+                      <h2 className="text-2xl font-bold text-white">{getFirstName()}</h2>
+                  </div>
+              </div>
           </div>
       </div>
 
-      <div className="px-4 space-y-4">
+      <div className="px-4 -mt-8 relative z-20 space-y-6">
           
-          {/* 3. MENU RÁPIDO (Abaixo dos Stories) */}
+          {/* 2. ÁREA DE STORIES (Carrossel dentro de card branco) */}
+          <div className="bg-white py-4 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-4 px-4 min-w-max">
+                  {/* STORY: PALAVRA PASTORAL */}
+                  <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => hasNewStory ? setActiveStory(todayDevotional!) : alert("Nenhuma palavra nova hoje.")}>
+                      <div className={`w-14 h-14 rounded-full p-[2px] ${hasNewStory ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600' : 'bg-gray-200'}`}>
+                          <div className="w-full h-full bg-white rounded-full p-0.5">
+                              <div className="w-full h-full bg-gray-50 rounded-full flex items-center justify-center overflow-hidden">
+                                  <BookOpen size={20} className={hasNewStory ? "text-purple-600" : "text-gray-400"}/>
+                              </div>
+                          </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-gray-600">{hasNewStory ? 'Nova Palavra' : 'Palavra'}</span>
+                  </div>
+
+                  {/* STORIES: ANIVERSARIANTES */}
+                  {birthdays.map(m => (
+                      <div key={m.id} className="flex flex-col items-center gap-1">
+                          <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-green-300 to-blue-500">
+                              <div className="w-full h-full bg-white rounded-full p-0.5">
+                                  <img src={m.photoUrl || "https://ui-avatars.com/api/?name="+m.fullName} className="w-full h-full rounded-full object-cover"/>
+                              </div>
+                          </div>
+                          <span className="text-[10px] font-medium text-gray-600 truncate w-14 text-center">{m.fullName.split(' ')[0]}</span>
+                      </div>
+                  ))}
+              </div>
+          </div>
+
+          {/* 3. MENU DE AÇÕES RÁPIDAS (ATUALIZADO) */}
           <div className="grid grid-cols-3 gap-3">
-              <button onClick={() => setShowCard(true)} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center gap-2 active:scale-95 transition">
-                  <CreditCard size={24} className="text-blue-600"/>
-                  <span className="text-[10px] font-bold text-gray-600">Carteirinha</span>
+              <button onClick={() => setShowCard(true)} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition">
+                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><CreditCard size={20}/></div>
+                  <span className="text-[10px] font-bold text-gray-600 text-center">Cartão de Membro</span>
               </button>
-              <button onClick={() => setShowFinance(true)} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center gap-2 active:scale-95 transition">
-                  <DollarSign size={24} className="text-green-600"/>
-                  <span className="text-[10px] font-bold text-gray-600">Dízimos</span>
+              <button onClick={() => setShowFinance(true)} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition">
+                  <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center"><DollarSign size={20}/></div>
+                  <span className="text-[10px] font-bold text-gray-600 text-center">Meus Dízimos</span>
               </button>
-              <button onClick={() => setShowPrayer(true)} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center gap-2 active:scale-95 transition">
-                  <Heart size={24} className="text-purple-600"/>
-                  <span className="text-[10px] font-bold text-gray-600">Oração</span>
+              <button onClick={() => setShowPrayer(true)} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition">
+                  <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center"><Heart size={20}/></div>
+                  <span className="text-[10px] font-bold text-gray-600 text-center">Oração</span>
               </button>
           </div>
 
-          {/* 4. ALERTA DE ESCALA (Card de Notificação) */}
+          {/* 4. ALERTA DE ESCALA */}
           {myScales.length > 0 && (
-              <div className="bg-gradient-to-r from-orange-500 to-pink-500 rounded-2xl p-4 text-white shadow-lg flex items-center justify-between">
+              <div className="bg-gradient-to-r from-orange-500 to-pink-500 rounded-3xl p-5 text-white shadow-lg flex items-center justify-between relative overflow-hidden">
+                  <div className="absolute -right-6 -top-6 w-24 h-24 bg-white opacity-10 rounded-full"></div>
                   <div>
                       <p className="text-[10px] font-bold uppercase opacity-80 mb-1">Próxima Escala</p>
                       <h3 className="font-bold text-lg">{myScales[0].event}</h3>
-                      <p className="text-xs opacity-90">{new Date(myScales[0].date).toLocaleDateString('pt-BR')} • {myScales[0].obs}</p>
-                  </div>
-                  <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
-                      <Calendar size={24}/>
+                      <p className="text-xs opacity-90 mt-1 flex items-center gap-1"><Calendar size={12}/> {new Date(myScales[0].date).toLocaleDateString('pt-BR')} • {myScales[0].obs}</p>
                   </div>
               </div>
           )}
 
-          {/* 5. FEED INFINITO (Timeline) */}
-          <h2 className="font-bold text-gray-700 text-sm mt-4 mb-2">Mural da Igreja</h2>
+          {/* 5. FEED INFINITO */}
+          <h2 className="font-bold text-gray-700 text-sm mt-4 mb-2 flex items-center gap-2">
+              <Megaphone size={16} className="text-blue-600"/> Mural da Igreja
+          </h2>
           
           <div className="space-y-4">
               {feed.length === 0 ? (
-                  <div className="bg-white p-8 rounded-2xl text-center shadow-sm">
+                  <div className="bg-white p-8 rounded-2xl text-center shadow-sm border border-dashed border-gray-200">
                       <p className="text-gray-400 text-sm">Tudo tranquilo por aqui.</p>
                   </div>
               ) : (
                   feed.map(post => (
                       <div key={post.id} className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
-                          {/* Cabeçalho do Post */}
-                          <div className="p-4 flex items-center gap-3">
-                              {logoUrl ? <img src={logoUrl} className="w-10 h-10 rounded-full bg-gray-100 object-contain p-1"/> : <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600"><Building2 size={20}/></div>}
+                          <div className="p-4 flex items-center gap-3 border-b border-gray-50">
+                              {logoUrl ? <img src={logoUrl} className="w-10 h-10 rounded-full bg-gray-50 object-contain p-1 border border-gray-100"/> : <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600"><Building2 size={20}/></div>}
                               <div className="flex-1">
                                   <h3 className="font-bold text-sm text-gray-900">{churchName}</h3>
                                   <p className="text-[10px] text-gray-400">{new Date(post.date).toLocaleDateString('pt-BR')} • {post.type === 'event' ? 'Evento' : 'Comunicado'}</p>
                               </div>
-                              <button className="text-gray-400"><Megaphone size={16}/></button>
                           </div>
-
-                          {/* Conteúdo do Post */}
-                          <div className={`px-4 pb-4 ${post.type === 'event' ? 'bg-orange-50/30' : ''}`}>
+                          <div className={`px-5 py-4 ${post.type === 'event' ? 'bg-orange-50/30' : ''}`}>
                               <h4 className="font-bold text-gray-800 text-lg mb-2">{post.title}</h4>
                               <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{post.content}</p>
                           </div>
-
-                          {/* Rodapé do Post (Like fake visual) */}
-                          <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-4 text-gray-400">
+                          <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-4 text-gray-400 bg-gray-50/50">
                               <Heart size={20} className="hover:text-red-500 cursor-pointer transition"/>
                               <Send size={20} className="hover:text-blue-500 cursor-pointer transition"/>
                           </div>
@@ -225,32 +258,30 @@ export function MemberDashboard() {
 
       {/* --- MODAL VIEW STORY (PALAVRA PASTORAL) --- */}
       {activeStory && (
-          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-200">
-              {/* Barra de Progresso (Visual) */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-white/30">
+          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-300">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-800 z-50">
                   <div className="h-full bg-white w-full animate-[width_10s_linear]"></div>
               </div>
-
-              <button onClick={() => setActiveStory(null)} className="absolute top-4 right-4 text-white z-50"><X size={32}/></button>
-              
-              <div className="w-full max-w-md h-full md:h-[80vh] bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">
-                  <BookOpen size={48} className="mx-auto text-purple-300 mb-6"/>
-                  <h2 className="text-2xl font-bold mb-4">{activeStory.title}</h2>
-                  <div className="overflow-y-auto max-h-[60vh] custom-scrollbar">
-                      <p className="text-lg leading-relaxed opacity-90">{activeStory.content}</p>
+              <button onClick={() => setActiveStory(null)} className="absolute top-6 right-6 text-white z-50 bg-white/20 p-2 rounded-full"><X size={24}/></button>
+              <div className="w-full max-w-md h-full bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">
+                  <BookOpen size={48} className="mx-auto text-purple-300 mb-6 animate-bounce"/>
+                  <h2 className="text-2xl font-bold mb-6 leading-tight">{activeStory.title}</h2>
+                  <div className="overflow-y-auto max-h-[60vh] custom-scrollbar text-lg leading-relaxed opacity-90 text-justify">
+                      {activeStory.content}
                   </div>
-                  <p className="text-xs text-purple-300 mt-8 uppercase tracking-widest">Palavra do Dia • {new Date(activeStory.date).toLocaleDateString()}</p>
+                  <div className="mt-8 pt-4 border-t border-white/20">
+                      <p className="text-xs text-purple-300 uppercase tracking-widest">Palavra do Dia</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{new Date(activeStory.date).toLocaleDateString()}</p>
+                  </div>
               </div>
           </div>
       )}
 
-      {/* --- OUTROS MODAIS (IGUAIS AO ANTERIOR) --- */}
-      
       {/* 1. CARTEIRINHA DIGITAL */}
       {showCard && memberData && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-sm relative">
-                <button onClick={() => setShowCard(false)} className="absolute -top-10 right-0 text-white font-bold flex items-center gap-1 text-sm bg-white/20 px-3 py-1 rounded-full"><X size={14}/> Fechar</button>
+                <button onClick={() => setShowCard(false)} className="absolute -top-12 right-0 text-white font-bold flex items-center gap-1"><X/> Fechar</button>
                 <div className="bg-white rounded-2xl overflow-hidden shadow-2xl transform transition-all hover:scale-[1.02] duration-500">
                     <div className="bg-gradient-to-br from-blue-800 to-blue-900 p-6 text-white relative h-[180px] flex flex-col justify-between">
                         <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
@@ -292,14 +323,12 @@ export function MemberDashboard() {
                       <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><DollarSign className="text-green-600"/> Meus Dízimos</h2>
                       <button onClick={() => setShowFinance(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition"><X size={20}/></button>
                   </div>
-                  
                   <div className="bg-green-50 p-6 rounded-2xl mb-4 text-center border border-green-100">
                       <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">Total Contribuído</p>
                       <p className="text-4xl font-black text-green-700 tracking-tight">
                           {formatMoney(myContributions.reduce((acc, curr) => acc + Number(curr.amount), 0))}
                       </p>
                   </div>
-
                   <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                       {myContributions.length === 0 ? (
                           <div className="text-center py-12 text-gray-400">
