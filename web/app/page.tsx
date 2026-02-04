@@ -7,10 +7,10 @@ import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { db } from "../lib/firebase";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
-import { MemberDashboard } from "../components/MemberDashboard"; // <--- NOVO IMPORT
+import { MemberDashboard } from "../components/MemberDashboard"; 
 import { 
   Users, Calendar, TrendingUp, ArrowRight, 
-  Clock, Loader2, AlertCircle, Eye, EyeOff, Building2 
+  Clock, Loader2, AlertCircle, Eye, EyeOff, Building2, UserCheck, UserX 
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -26,10 +26,8 @@ export default function Dashboard() {
   useEffect(() => {
     let isMounted = true;
     const checkAndLoad = async () => {
-        // Se ainda está carregando a autenticação, espera
         if (authLoading) return;
 
-        // Se não tem usuário logado, vai pro login
         if (!churchId) { 
             const storedId = localStorage.getItem("churchId");
             if (!storedId) { 
@@ -38,7 +36,6 @@ export default function Dashboard() {
             }
         }
 
-        // Se for MEMBRO COMUM, não carrega dados financeiros (segurança)
         if (userRole === 'member') {
             setLoading(false);
             return;
@@ -62,7 +59,6 @@ export default function Dashboard() {
         const activeCount = allMembers.filter(m => m.status === 'active').length;
         setStats({ active: activeCount, inactive: allMembers.length - activeCount, total: allMembers.length });
         
-        // Só calcula financeiro se tiver permissão (evita erro)
         let bal = 0;
         if (userRole === 'admin' || userRole === 'treasurer') {
             const totalIncome = allTransactions.filter(t => t.type === 'income').reduce((acc, curr) => acc + Number(curr.amount), 0);
@@ -86,18 +82,14 @@ export default function Dashboard() {
 
   if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={40}/></div>;
 
-  // --- O GRANDE DESVIO: APP DO MEMBRO ---
   if (userRole === 'member') {
       return <MemberDashboard />;
   }
 
-  // --- DASHBOARD DO PASTOR / ADMIN ---
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* ================================================= */}
-      {/* 2. BANNER AZUL (NÍVEL 2 - FIXO)                   */}
-      {/* ================================================= */}
+      {/* BANNER AZUL */}
       <div className="md:static fixed top-28 left-0 right-0 bg-[#1D4ED8] pt-6 pb-10 px-6 md:px-10 shadow-lg rounded-b-[2.5rem] z-40 h-[180px]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
@@ -131,31 +123,38 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ================================================= */}
-      {/* 3. CARDS (NÍVEL 1 - CONTEÚDO QUE ROLA)            */}
-      {/* ================================================= */}
+      {/* CARDS */}
       <div className="max-w-6xl mx-auto px-4 pt-[165px] md:pt-0 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
-        {/* CARD MEMBRESIA */}
+        {/* CARD MEMBRESIA (AJUSTADO) */}
         {canSee(['secretary']) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
                     <div className="flex justify-between items-start mb-4">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Membresia</span>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Membresia Total</span>
                         <div className="bg-blue-50 text-blue-600 p-2 rounded-xl"><Users size={20}/></div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        <h2 className="text-5xl font-extrabold text-gray-800">{stats.active}</h2>
-                        <span className="text-sm font-bold text-gray-400">Ativos</span>
+                        <h2 className="text-5xl font-extrabold text-gray-800">{stats.total}</h2>
+                        <span className="text-sm font-bold text-gray-400">Membros</span>
                     </div>
                 </div>
+                
+                {/* Rodapé Fixo com Detalhes */}
                 <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                    {stats.inactive > 0 ? (
-                        <div className="flex items-center gap-2 text-xs font-bold text-red-50 bg-red-50 px-2 py-1 rounded-lg">
-                            <AlertCircle size={12}/> {stats.inactive} Inativos
+                    <div className="flex gap-3">
+                        <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg" title="Membros Ativos">
+                            <UserCheck size={12}/> {stats.active}
                         </div>
-                    ) : <span className="text-xs text-green-500 font-bold">100% Ativos</span>}
-                    <Link href="/members" className="text-blue-600 text-xs font-bold hover:underline">Ver Lista</Link>
+                        {stats.inactive > 0 && (
+                            <div className="flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-lg" title="Membros Inativos">
+                                <UserX size={12}/> {stats.inactive}
+                            </div>
+                        )}
+                    </div>
+                    <Link href="/members" className="text-blue-600 text-xs font-bold hover:underline flex items-center gap-1">
+                        Ver Lista <ArrowRight size={12}/>
+                    </Link>
                 </div>
             </div>
         )}

@@ -172,7 +172,6 @@ export default function FinancialPage() {
       };
 
       if (!navigator.onLine) {
-         // Lógica Offline (Simplificada)
          if (editingId) {
              alert("Edição não disponível offline.");
          } else {
@@ -186,10 +185,8 @@ export default function FinancialPage() {
       }
 
       if (editingId) {
-          // ATUALIZAR EXISTENTE
           await financeService.update(editingId, payload);
       } else {
-          // CRIAR NOVO
           await financeService.create(payload);
       }
 
@@ -217,7 +214,6 @@ export default function FinancialPage() {
     }
   };
 
-  // --- FUNÇÃO PARA CONVERTER IMAGEM EM BASE64 (PARA IMPRESSÃO) ---
   const toDataURL = async (url: string) => {
     try {
         const res = await fetch(url);
@@ -230,7 +226,6 @@ export default function FinancialPage() {
     } catch (e) { return ""; }
   };
 
-  // --- FUNÇÃO DE IMPRESSÃO PROFISSIONAL ---
   const handlePrint = async () => {
       let finalLogo = "";
       if (logoUrl) finalLogo = await toDataURL(logoUrl);
@@ -309,7 +304,6 @@ export default function FinancialPage() {
   // Loading Inicial
   if (authLoading || (dataLoading && transactions.length === 0)) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // Proteção Visual
   if (userRole !== 'admin' && !hasPermission('financial') && userRole !== 'treasurer') return null;
 
   return (
@@ -353,19 +347,15 @@ export default function FinancialPage() {
       {/* --- CONTEÚDO FLUTUANTE --- */}
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16 relative z-10 print:mt-0">
 
-          {/* BARRA DE FILTROS DE DATA (TIME MACHINE) */}
+          {/* BARRA DE FILTROS DE DATA */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 print:hidden">
               <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                  
-                  {/* Botões Rápidos */}
                   <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-1 scrollbar-hide">
                       <button onClick={() => setFilterPeriod('thisMonth')} className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold border transition ${startDate === firstDay ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>Este Mês</button>
                       <button onClick={() => setFilterPeriod('lastMonth')} className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 transition">Mês Passado</button>
                       <button onClick={() => setFilterPeriod('last7')} className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 transition">7 Dias</button>
                       <button onClick={() => setFilterPeriod('all')} className="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-50 border border-gray-200 text-gray-600 hover:bg-gray-100 transition">Tudo</button>
                   </div>
-
-                  {/* Seleção Manual */}
                   <div className="flex items-center gap-2 w-full md:w-auto">
                       <div className="relative flex-1">
                           <div className="absolute left-2 top-2 text-gray-400"><Calendar size={14}/></div>
@@ -396,7 +386,7 @@ export default function FinancialPage() {
              </div>
           </div>
 
-          {/* GRÁFICO */}
+          {/* GRÁFICO ESTILO ROSQUINHA (DONUT) */}
           {(totalIncome > 0 || totalExpense > 0) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden animate-in fade-in zoom-in-95">
                 <div className="text-center md:text-left mb-4 md:mb-0">
@@ -406,16 +396,26 @@ export default function FinancialPage() {
                     <p className="text-xs text-gray-400 mt-1">Proporção de Entradas vs Saídas</p>
                 </div>
                 
-                <div className="w-full h-48 md:h-40 md:w-64">
+                {/* ÁREA DO GRÁFICO COM OVERLAY */}
+                <div className="w-full h-48 md:h-40 md:w-64 relative">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                            <Pie data={chartData} innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
+                            {/* Aumentei os raios para caber o texto no meio */}
+                            <Pie data={chartData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
                                 {chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
                             </Pie>
                             <Tooltip formatter={(value: any) => formatMoney(Number(value))} contentStyle={{backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
                             <Legend verticalAlign="bottom" height={36} iconType="circle"/>
                         </PieChart>
                     </ResponsiveContainer>
+                    
+                    {/* TEXTO FLUTUANTE NO CENTRO DO DONUT */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
+                        <span className="text-[9px] text-gray-400 font-bold uppercase">Saldo</span>
+                        <span className={`text-xs font-black ${balance >= 0 ? 'text-gray-700' : 'text-red-600'}`}>
+                            {formatMoney(balance)}
+                        </span>
+                    </div>
                 </div>
             </div>
           )}
@@ -459,7 +459,6 @@ export default function FinancialPage() {
                                       {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
                                   </span>
                                   
-                                  {/* CORREÇÃO AQUI: Botões visíveis no mobile, ocultos no desktop até hover */}
                                   <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition">
                                       <button onClick={() => handleOpenModal(t)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg print:hidden">
                                           <Edit size={16}/>
