@@ -5,11 +5,11 @@ import { postService, Post, Comment } from "../services/postService";
 import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { generalScaleService } from "../services/generalScaleService";
-import { prayerService } from "../services/prayerService"; // Importe o serviço de oração
+import { prayerService } from "../services/prayerService";
 import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
 import { 
-  Megaphone, Calendar, Gift, BookOpen, User, Bell, 
+  Megaphone, Calendar, BookOpen, User, Bell, 
   CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, MessageCircle, Image as ImageIcon 
 } from "lucide-react";
 
@@ -19,7 +19,7 @@ export function MemberDashboard() {
   const [loading, setLoading] = useState(true);
   const [memberData, setMemberData] = useState<Member | null>(null);
   
-  // DADOS GERAIS
+  // DADOS
   const [posts, setPosts] = useState<Post[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
   const [myScales, setMyScales] = useState<any[]>([]);
@@ -31,15 +31,16 @@ export function MemberDashboard() {
   const [showPrayer, setShowPrayer] = useState(false);
   const [activeStory, setActiveStory] = useState<Post | null>(null);
 
-  // ESTADOS PARA ORAÇÃO (NOVOS)
+  // ESTADOS NOVOS
   const [prayerText, setPrayerText] = useState("");
   const [sendingPrayer, setSendingPrayer] = useState(false);
-
-  // --- ESTADOS PARA COMENTÁRIOS INLINE ---
+  
+  // Comentários e "Ver Mais"
   const [postComments, setPostComments] = useState<Record<string, Comment[]>>({});
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [loadingCommentsId, setLoadingCommentsId] = useState<string | null>(null);
+  const [expandedTexts, setExpandedTexts] = useState<Record<string, boolean>>({}); // Controla o "Ver mais"
 
   useEffect(() => {
     if (churchId && user?.email) {
@@ -114,12 +115,9 @@ export function MemberDashboard() {
   const handleLike = async (post: Post) => {
       if (!user?.uid || !post.id) return;
       const isLiked = post.likes?.includes(user.uid) || false;
-      
       const updatedPosts = posts.map(p => {
           if (p.id === post.id) {
-              const newLikes = isLiked 
-                  ? (p.likes || []).filter(id => id !== user.uid)
-                  : [...(p.likes || []), user.uid];
+              const newLikes = isLiked ? (p.likes || []).filter(id => id !== user.uid) : [...(p.likes || []), user.uid];
               return { ...p, likes: newLikes };
           }
           return p;
@@ -128,12 +126,9 @@ export function MemberDashboard() {
       await postService.toggleLike(post.id, user.uid, isLiked);
   };
 
-  // --- COMENTÁRIOS INLINE ---
+  // --- COMENTÁRIOS ---
   const toggleComments = async (postId: string) => {
-      if (expandedPostId === postId) {
-          setExpandedPostId(null);
-          return;
-      }
+      if (expandedPostId === postId) { setExpandedPostId(null); return; }
       setExpandedPostId(postId);
       if (!postComments[postId]) {
           setLoadingCommentsId(postId);
@@ -143,14 +138,11 @@ export function MemberDashboard() {
       }
   };
 
-  const handleInputChange = (postId: string, text: string) => {
-      setCommentInputs(prev => ({ ...prev, [postId]: text }));
-  };
+  const handleInputChange = (postId: string, text: string) => setCommentInputs(prev => ({ ...prev, [postId]: text }));
 
   const handleSendComment = async (postId: string) => {
       const text = commentInputs[postId];
       if (!postId || !text?.trim() || !user?.uid) return;
-
       const newComment: Comment = {
           userId: user.uid,
           userName: getFirstName(),
@@ -158,17 +150,12 @@ export function MemberDashboard() {
           content: text,
           createdAt: new Date()
       };
-
-      setPostComments(prev => ({
-          ...prev,
-          [postId]: [...(prev[postId] || []), newComment]
-      }));
-      
+      setPostComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), newComment] }));
       setCommentInputs(prev => ({ ...prev, [postId]: "" }));
       await postService.addComment(postId, newComment);
   };
 
-  // --- ENVIO DE ORAÇÃO ---
+  // --- ORAÇÃO ---
   const handleSendPrayer = async () => {
     if (!prayerText.trim() || !user?.uid || !churchId) return;
     setSendingPrayer(true);
@@ -186,11 +173,16 @@ export function MemberDashboard() {
         setPrayerText("");
         setShowPrayer(false);
     } catch (error) {
-        alert("Erro ao enviar pedido.");
         console.error(error);
+        alert("Erro ao enviar.");
     } finally {
         setSendingPrayer(false);
     }
+  };
+
+  // --- "VER MAIS" ---
+  const toggleText = (postId: string) => {
+      setExpandedTexts(prev => ({ ...prev, [postId]: !prev[postId] }));
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
@@ -198,7 +190,21 @@ export function MemberDashboard() {
   const todayStr = new Date().toISOString().split('T')[0];
   const todayDevotional = posts.find(p => p.type === 'devotional' && p.date === todayStr);
   const hasNewStory = !!todayDevotional;
-  const feed = posts.filter(p => p.type === 'notice' || p.type === 'event' || p.type === 'devotional');
+
+  // *** FILTRO DO FEED (REGRA DE VALIDADE) ***
+  const feed = posts.filter(p => {
+      // Data do post normalizada (sem hora)
+      const postDate = new Date(p.date + 'T00:00:00'); // Garante fuso local ou UTC consistente
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      // Se for Evento: Mostra até a data passar (>= hoje)
+      if (p.type === 'event') return postDate >= today;
+
+      // Se for Aviso ou Palavra: Mostra apenas se for de hoje ou futuro (Regra 24h/Recente)
+      return postDate >= today;
+  });
+
   const hasRecentPosts = posts.some(p => {
       const postDate = new Date(p.date);
       const twoDaysAgo = new Date();
@@ -209,7 +215,7 @@ export function MemberDashboard() {
   return (
     <div className="min-h-screen bg-gray-100 pb-24 font-sans">
       
-      {/* 1. CABEÇALHO AZUL */}
+      {/* 1. CABEÇALHO */}
       <div className="bg-blue-600 pt-8 pb-16 px-6 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
           <div className="relative z-10">
@@ -240,7 +246,7 @@ export function MemberDashboard() {
 
       <div className="px-4 -mt-8 relative z-20 space-y-6">
           
-          {/* 2. STORIES */}
+          {/* STORIES */}
           <div className="bg-white py-4 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 overflow-x-auto scrollbar-hide">
               <div className="flex gap-4 px-4 min-w-max">
                   <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => hasNewStory ? setActiveStory(todayDevotional!) : alert("Nenhuma palavra nova hoje.")}>
@@ -266,7 +272,7 @@ export function MemberDashboard() {
               </div>
           </div>
 
-          {/* 3. MENU RÁPIDO */}
+          {/* MENU RÁPIDO */}
           <div className="grid grid-cols-3 gap-3">
               <button onClick={() => setShowCard(true)} className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition">
                   <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><CreditCard size={20}/></div>
@@ -282,7 +288,7 @@ export function MemberDashboard() {
               </button>
           </div>
 
-          {/* 4. ALERTA DE ESCALA */}
+          {/* ALERTA DE ESCALA */}
           {myScales.length > 0 && (
               <div className="bg-gradient-to-r from-orange-500 to-pink-500 rounded-3xl p-5 text-white shadow-lg flex items-center justify-between relative overflow-hidden">
                   <div className="absolute -right-6 -top-6 w-24 h-24 bg-white opacity-10 rounded-full"></div>
@@ -294,20 +300,23 @@ export function MemberDashboard() {
               </div>
           )}
 
-          {/* 5. FEED INFINITO */}
-          <h2 className="font-bold text-gray-700 text-sm mt-4 mb-2 flex items-center gap-2">
-              <Megaphone size={16} className="text-blue-600"/> Mural da Igreja
-          </h2>
-          
+          {/* FEED INFINITO */}
+          <h2 className="font-bold text-gray-700 text-sm mt-4 mb-2 flex items-center gap-2"><Megaphone size={16} className="text-blue-600"/> Mural da Igreja</h2>
           <div className="space-y-4">
               {feed.length === 0 ? (
-                  <div className="bg-white p-8 rounded-2xl text-center shadow-sm border border-dashed border-gray-200"><p className="text-gray-400 text-sm">Tudo tranquilo por aqui.</p></div>
+                  <div className="bg-white p-8 rounded-2xl text-center shadow-sm border border-dashed border-gray-200"><p className="text-gray-400 text-sm">Nenhum aviso recente.</p></div>
               ) : (
                   feed.map(post => {
                       const isLiked = post.likes?.includes(user?.uid || "");
                       const likeCount = post.likes?.length || 0;
                       const isExpanded = expandedPostId === post.id;
                       const currentComments = postComments[post.id!] || [];
+                      
+                      // TRUNCAR TEXTO (VER MAIS)
+                      const isTextExpanded = expandedTexts[post.id!] || false;
+                      const textLimit = 150; // Limite de caracteres
+                      const shouldTruncate = post.content.length > textLimit;
+                      const displayedContent = isTextExpanded || !shouldTruncate ? post.content : post.content.slice(0, textLimit) + "...";
 
                       return (
                           <div key={post.id} className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
@@ -318,24 +327,22 @@ export function MemberDashboard() {
                                       <p className="text-[10px] text-gray-400">{new Date(post.date).toLocaleDateString('pt-BR')} • {post.type === 'event' ? 'Evento' : post.type === 'devotional' ? 'Palavra' : 'Comunicado'}</p>
                                   </div>
                               </div>
-                              
-                              {/* IMAGEM DO POST (Proporcional) */}
                               {post.imageUrl && (
                                   <div className="w-full bg-gray-100 flex justify-center items-center max-h-[500px] overflow-hidden">
-                                      <img 
-                                          src={getImageUrl(post.imageUrl)!} 
-                                          className="w-full h-auto max-h-[500px] object-contain" 
-                                          alt="Post"
-                                      />
+                                      <img src={getImageUrl(post.imageUrl)!} className="w-full h-auto max-h-[500px] object-contain" alt="Post"/>
                                   </div>
                               )}
-
                               <div className={`px-5 py-4 ${post.type === 'devotional' ? 'bg-purple-50/30' : post.type === 'event' ? 'bg-orange-50/30' : ''}`}>
                                   <h4 className="font-bold text-gray-800 text-lg mb-2">{post.title}</h4>
-                                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
+                                      {displayedContent}
+                                      {shouldTruncate && (
+                                          <button onClick={() => toggleText(post.id!)} className="text-blue-600 font-bold ml-1 hover:underline text-xs">
+                                              {isTextExpanded ? "Ver menos" : "Ver mais"}
+                                          </button>
+                                      )}
+                                  </p>
                               </div>
-
-                              {/* BOTOES DE AÇÃO */}
                               <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-6 text-gray-500 bg-gray-50/50">
                                   <button onClick={() => handleLike(post)} className={`flex items-center gap-1.5 transition ${isLiked ? 'text-red-500' : 'hover:text-red-500'}`}>
                                       <Heart size={20} fill={isLiked ? "currentColor" : "none"}/>
@@ -346,8 +353,6 @@ export function MemberDashboard() {
                                       <span className="text-xs font-bold">Comentar</span>
                                   </button>
                               </div>
-
-                              {/* --- ÁREA DE COMENTÁRIOS EXPANSÍVEL --- */}
                               {isExpanded && (
                                   <div className="bg-gray-50 border-t border-gray-100 p-4 animate-in slide-in-from-top-2">
                                       <div className="space-y-3 mb-4 max-h-60 overflow-y-auto custom-scrollbar">
@@ -369,26 +374,13 @@ export function MemberDashboard() {
                                               ))
                                           )}
                                       </div>
-
                                       <div className="flex gap-2 items-center">
                                           <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0">
                                               {memberData?.photoUrl ? <img src={memberData.photoUrl} className="w-full h-full object-cover"/> : <User size={14} className="w-full h-full p-1.5 text-gray-400"/>}
                                           </div>
                                           <div className="flex-1 relative">
-                                              <input 
-                                                  type="text" 
-                                                  value={commentInputs[post.id!] || ""} 
-                                                  onChange={(e) => handleInputChange(post.id!, e.target.value)}
-                                                  placeholder="Escreva um comentário..." 
-                                                  className="w-full bg-white border border-gray-200 rounded-full py-2 px-4 text-xs focus:ring-1 ring-blue-300 outline-none pr-10"
-                                              />
-                                              <button 
-                                                  onClick={() => handleSendComment(post.id!)}
-                                                  disabled={!commentInputs[post.id!]?.trim()}
-                                                  className="absolute right-1 top-1 p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                              >
-                                                  <Send size={12}/>
-                                              </button>
+                                              <input type="text" value={commentInputs[post.id!] || ""} onChange={(e) => handleInputChange(post.id!, e.target.value)} placeholder="Escreva um comentário..." className="w-full bg-white border border-gray-200 rounded-full py-2 px-4 text-xs focus:ring-1 ring-blue-300 outline-none pr-10"/>
+                                              <button onClick={() => handleSendComment(post.id!)} disabled={!commentInputs[post.id!]?.trim()} className="absolute right-1 top-1 p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"><Send size={12}/></button>
                                           </div>
                                       </div>
                                   </div>
@@ -398,11 +390,26 @@ export function MemberDashboard() {
                   })
               )}
           </div>
-
       </div>
 
-      {/* --- OUTROS MODAIS (Carteirinha, Dízimos, etc...) --- */}
-      {/* 1. CARTEIRINHA DIGITAL */}
+      {/* STORY MODAL */}
+      {activeStory && (
+          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-300">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-800 z-50"><div className="h-full bg-white w-full animate-[width_10s_linear]"></div></div>
+              <button onClick={() => setActiveStory(null)} className="absolute top-6 right-6 text-white z-50 bg-white/20 p-2 rounded-full"><X size={24}/></button>
+              <div className="w-full max-w-md h-full bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">
+                  {activeStory.imageUrl ? (
+                      <img src={getImageUrl(activeStory.imageUrl)!} className="w-full h-64 object-cover rounded-xl mb-6 shadow-2xl border-2 border-white/20"/>
+                  ) : (
+                      <BookOpen size={48} className="mx-auto text-purple-300 mb-6 animate-bounce"/>
+                  )}
+                  <h2 className="text-2xl font-bold mb-6 leading-tight">{activeStory.title}</h2>
+                  <div className="overflow-y-auto max-h-[40vh] custom-scrollbar text-lg leading-relaxed opacity-90 text-justify">{activeStory.content}</div>
+              </div>
+          </div>
+      )}
+
+      {/* OUTROS MODAIS (Carteirinha, Dízimos, Oração) */}
       {showCard && memberData && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-sm relative">
@@ -472,7 +479,6 @@ export function MemberDashboard() {
           </div>
       )}
 
-      {/* MODAL DE ORAÇÃO (ATUALIZADO COM LÓGICA DE ENVIO) */}
       {showPrayer && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in-95">
@@ -497,23 +503,6 @@ export function MemberDashboard() {
                           {sendingPrayer ? <Loader2 className="animate-spin" size={16}/> : <Send size={16}/>} Enviar
                       </button>
                   </div>
-              </div>
-          </div>
-      )}
-
-      {/* STORY MODAL */}
-      {activeStory && (
-          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-300">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-800 z-50"><div className="h-full bg-white w-full animate-[width_10s_linear]"></div></div>
-              <button onClick={() => setActiveStory(null)} className="absolute top-6 right-6 text-white z-50 bg-white/20 p-2 rounded-full"><X size={24}/></button>
-              <div className="w-full max-w-md h-full bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">
-                  {activeStory.imageUrl ? (
-                      <img src={getImageUrl(activeStory.imageUrl)!} className="w-full h-64 object-cover rounded-xl mb-6 shadow-2xl border-2 border-white/20"/>
-                  ) : (
-                      <BookOpen size={48} className="mx-auto text-purple-300 mb-6 animate-bounce"/>
-                  )}
-                  <h2 className="text-2xl font-bold mb-6 leading-tight">{activeStory.title}</h2>
-                  <div className="overflow-y-auto max-h-[40vh] custom-scrollbar text-lg leading-relaxed opacity-90 text-justify">{activeStory.content}</div>
               </div>
           </div>
       )}
