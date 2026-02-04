@@ -5,6 +5,7 @@ import { postService, Post, Comment } from "../services/postService";
 import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { generalScaleService } from "../services/generalScaleService";
+import { prayerService } from "../services/prayerService"; // Importe o serviço de oração
 import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
 import { 
@@ -30,11 +31,15 @@ export function MemberDashboard() {
   const [showPrayer, setShowPrayer] = useState(false);
   const [activeStory, setActiveStory] = useState<Post | null>(null);
 
-  // ESTADOS PARA COMENTÁRIOS
-  const [activePostForComments, setActivePostForComments] = useState<Post | null>(null);
-  const [commentsList, setCommentsList] = useState<Comment[]>([]);
-  const [newCommentText, setNewCommentText] = useState("");
-  const [loadingComments, setLoadingComments] = useState(false);
+  // ESTADOS PARA ORAÇÃO (NOVOS)
+  const [prayerText, setPrayerText] = useState("");
+  const [sendingPrayer, setSendingPrayer] = useState(false);
+
+  // --- ESTADOS PARA COMENTÁRIOS INLINE ---
+  const [postComments, setPostComments] = useState<Record<string, Comment[]>>({});
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [loadingCommentsId, setLoadingCommentsId] = useState<string | null>(null);
 
   useEffect(() => {
     if (churchId && user?.email) {
@@ -105,11 +110,9 @@ export function MemberDashboard() {
       return url;
   };
 
-  // --- FUNÇÕES DE INTERAÇÃO (LIKE & COMMENT) ---
-
+  // --- LIKE ---
   const handleLike = async (post: Post) => {
       if (!user?.uid || !post.id) return;
-      
       const isLiked = post.likes?.includes(user.uid) || false;
       
       const updatedPosts = posts.map(p => {
@@ -122,34 +125,72 @@ export function MemberDashboard() {
           return p;
       });
       setPosts(updatedPosts);
-
       await postService.toggleLike(post.id, user.uid, isLiked);
   };
 
-  const openComments = async (post: Post) => {
-      if (!post.id) return;
-      setActivePostForComments(post);
-      setLoadingComments(true);
-      const comments = await postService.getComments(post.id);
-      setCommentsList(comments);
-      setLoadingComments(false);
+  // --- COMENTÁRIOS INLINE ---
+  const toggleComments = async (postId: string) => {
+      if (expandedPostId === postId) {
+          setExpandedPostId(null);
+          return;
+      }
+      setExpandedPostId(postId);
+      if (!postComments[postId]) {
+          setLoadingCommentsId(postId);
+          const comments = await postService.getComments(postId);
+          setPostComments(prev => ({ ...prev, [postId]: comments }));
+          setLoadingCommentsId(null);
+      }
   };
 
-  const handleSendComment = async () => {
-      if (!activePostForComments?.id || !newCommentText.trim() || !user?.uid) return;
+  const handleInputChange = (postId: string, text: string) => {
+      setCommentInputs(prev => ({ ...prev, [postId]: text }));
+  };
+
+  const handleSendComment = async (postId: string) => {
+      const text = commentInputs[postId];
+      if (!postId || !text?.trim() || !user?.uid) return;
 
       const newComment: Comment = {
           userId: user.uid,
           userName: getFirstName(),
           userPhoto: memberData?.photoUrl || "",
-          content: newCommentText,
+          content: text,
           createdAt: new Date()
       };
 
-      setCommentsList([...commentsList, newComment]);
-      setNewCommentText("");
+      setPostComments(prev => ({
+          ...prev,
+          [postId]: [...(prev[postId] || []), newComment]
+      }));
+      
+      setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+      await postService.addComment(postId, newComment);
+  };
 
-      await postService.addComment(activePostForComments.id, newComment);
+  // --- ENVIO DE ORAÇÃO ---
+  const handleSendPrayer = async () => {
+    if (!prayerText.trim() || !user?.uid || !churchId) return;
+    setSendingPrayer(true);
+    try {
+        await prayerService.create({
+            churchId,
+            userId: user.uid,
+            userName: memberData?.fullName || getFirstName(),
+            userPhoto: memberData?.photoUrl,
+            content: prayerText,
+            status: 'pending',
+            createdAt: new Date()
+        });
+        alert("Seu pedido foi enviado ao Pastor! 🙏");
+        setPrayerText("");
+        setShowPrayer(false);
+    } catch (error) {
+        alert("Erro ao enviar pedido.");
+        console.error(error);
+    } finally {
+        setSendingPrayer(false);
+    }
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
@@ -157,9 +198,7 @@ export function MemberDashboard() {
   const todayStr = new Date().toISOString().split('T')[0];
   const todayDevotional = posts.find(p => p.type === 'devotional' && p.date === todayStr);
   const hasNewStory = !!todayDevotional;
-  
   const feed = posts.filter(p => p.type === 'notice' || p.type === 'event' || p.type === 'devotional');
-  
   const hasRecentPosts = posts.some(p => {
       const postDate = new Date(p.date);
       const twoDaysAgo = new Date();
@@ -204,7 +243,6 @@ export function MemberDashboard() {
           {/* 2. STORIES */}
           <div className="bg-white py-4 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 overflow-x-auto scrollbar-hide">
               <div className="flex gap-4 px-4 min-w-max">
-                  {/* STORY PALAVRA */}
                   <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => hasNewStory ? setActiveStory(todayDevotional!) : alert("Nenhuma palavra nova hoje.")}>
                       <div className={`w-14 h-14 rounded-full p-[2px] ${hasNewStory ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600' : 'bg-gray-200'}`}>
                           <div className="w-full h-full bg-white rounded-full p-0.5">
@@ -215,7 +253,6 @@ export function MemberDashboard() {
                       </div>
                       <span className="text-[10px] font-bold text-gray-600">{hasNewStory ? 'Nova Palavra' : 'Palavra'}</span>
                   </div>
-                  {/* STORIES ANIVERSARIANTES */}
                   {birthdays.map(m => (
                       <div key={m.id} className="flex flex-col items-center gap-1">
                           <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-green-300 to-blue-500">
@@ -269,6 +306,8 @@ export function MemberDashboard() {
                   feed.map(post => {
                       const isLiked = post.likes?.includes(user?.uid || "");
                       const likeCount = post.likes?.length || 0;
+                      const isExpanded = expandedPostId === post.id;
+                      const currentComments = postComments[post.id!] || [];
 
                       return (
                           <div key={post.id} className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
@@ -280,7 +319,7 @@ export function MemberDashboard() {
                                   </div>
                               </div>
                               
-                              {/* --- IMAGEM DO POST CORRIGIDA (Proporcional e não Gigante) --- */}
+                              {/* IMAGEM DO POST (Proporcional) */}
                               {post.imageUrl && (
                                   <div className="w-full bg-gray-100 flex justify-center items-center max-h-[500px] overflow-hidden">
                                       <img 
@@ -296,16 +335,64 @@ export function MemberDashboard() {
                                   <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{post.content}</p>
                               </div>
 
+                              {/* BOTOES DE AÇÃO */}
                               <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-6 text-gray-500 bg-gray-50/50">
                                   <button onClick={() => handleLike(post)} className={`flex items-center gap-1.5 transition ${isLiked ? 'text-red-500' : 'hover:text-red-500'}`}>
                                       <Heart size={20} fill={isLiked ? "currentColor" : "none"}/>
                                       <span className="text-xs font-bold">{likeCount > 0 ? likeCount : 'Curtir'}</span>
                                   </button>
-                                  <button onClick={() => openComments(post)} className="flex items-center gap-1.5 hover:text-blue-500 transition">
+                                  <button onClick={() => toggleComments(post.id!)} className={`flex items-center gap-1.5 transition ${isExpanded ? 'text-blue-600' : 'hover:text-blue-500'}`}>
                                       <MessageCircle size={20}/>
                                       <span className="text-xs font-bold">Comentar</span>
                                   </button>
                               </div>
+
+                              {/* --- ÁREA DE COMENTÁRIOS EXPANSÍVEL --- */}
+                              {isExpanded && (
+                                  <div className="bg-gray-50 border-t border-gray-100 p-4 animate-in slide-in-from-top-2">
+                                      <div className="space-y-3 mb-4 max-h-60 overflow-y-auto custom-scrollbar">
+                                          {loadingCommentsId === post.id ? (
+                                              <div className="text-center py-2"><Loader2 className="animate-spin w-4 h-4 mx-auto text-gray-400"/></div>
+                                          ) : currentComments.length === 0 ? (
+                                              <p className="text-xs text-gray-400 text-center italic">Seja o primeiro a comentar.</p>
+                                          ) : (
+                                              currentComments.map((c, idx) => (
+                                                  <div key={idx} className="flex gap-2">
+                                                      <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0 mt-1">
+                                                          {c.userPhoto ? <img src={c.userPhoto} className="w-full h-full object-cover"/> : <User size={14} className="w-full h-full p-1.5 text-gray-400"/>}
+                                                      </div>
+                                                      <div className="bg-white p-2.5 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 flex-1">
+                                                          <p className="text-[10px] font-bold text-gray-800 mb-0.5">{c.userName}</p>
+                                                          <p className="text-xs text-gray-600 leading-relaxed">{c.content}</p>
+                                                      </div>
+                                                  </div>
+                                              ))
+                                          )}
+                                      </div>
+
+                                      <div className="flex gap-2 items-center">
+                                          <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                                              {memberData?.photoUrl ? <img src={memberData.photoUrl} className="w-full h-full object-cover"/> : <User size={14} className="w-full h-full p-1.5 text-gray-400"/>}
+                                          </div>
+                                          <div className="flex-1 relative">
+                                              <input 
+                                                  type="text" 
+                                                  value={commentInputs[post.id!] || ""} 
+                                                  onChange={(e) => handleInputChange(post.id!, e.target.value)}
+                                                  placeholder="Escreva um comentário..." 
+                                                  className="w-full bg-white border border-gray-200 rounded-full py-2 px-4 text-xs focus:ring-1 ring-blue-300 outline-none pr-10"
+                                              />
+                                              <button 
+                                                  onClick={() => handleSendComment(post.id!)}
+                                                  disabled={!commentInputs[post.id!]?.trim()}
+                                                  className="absolute right-1 top-1 p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                              >
+                                                  <Send size={12}/>
+                                              </button>
+                                          </div>
+                                      </div>
+                                  </div>
+                              )}
                           </div>
                       );
                   })
@@ -314,56 +401,8 @@ export function MemberDashboard() {
 
       </div>
 
-      {/* --- MODAL DE COMENTÁRIOS --- */}
-      {activePostForComments && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-in slide-in-from-bottom-10">
-              <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl h-[80vh] flex flex-col shadow-2xl overflow-hidden">
-                  <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                      <h3 className="font-bold text-gray-800">Comentários</h3>
-                      <button onClick={() => setActivePostForComments(null)} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition"><X size={16}/></button>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
-                      {loadingComments ? (
-                          <div className="text-center py-10"><Loader2 className="animate-spin text-blue-600 mx-auto"/></div>
-                      ) : commentsList.length === 0 ? (
-                          <div className="text-center py-10 text-gray-400 text-sm">Seja o primeiro a comentar!</div>
-                      ) : (
-                          commentsList.map((c, idx) => (
-                              <div key={idx} className="flex gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                                      {c.userPhoto ? <img src={c.userPhoto} className="w-full h-full object-cover"/> : <User size={16} className="w-full h-full p-1.5 text-gray-400"/>}
-                                  </div>
-                                  <div className="bg-gray-100 p-3 rounded-2xl rounded-tl-none">
-                                      <p className="text-[10px] font-bold text-gray-600 mb-0.5">{c.userName}</p>
-                                      <p className="text-sm text-gray-800">{c.content}</p>
-                                  </div>
-                              </div>
-                          ))
-                      )}
-                  </div>
-
-                  <div className="p-4 border-t border-gray-100 bg-white flex gap-2">
-                      <input 
-                          type="text" 
-                          value={newCommentText} 
-                          onChange={(e) => setNewCommentText(e.target.value)}
-                          placeholder="Escreva um comentário..." 
-                          className="flex-1 bg-gray-100 border-0 rounded-xl px-4 text-sm focus:ring-2 ring-blue-100 outline-none"
-                      />
-                      <button 
-                          onClick={handleSendComment} 
-                          disabled={!newCommentText.trim()}
-                          className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                      >
-                          <Send size={18}/>
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* --- OUTROS MODAIS (Mantidos) --- */}
+      {/* --- OUTROS MODAIS (Carteirinha, Dízimos, etc...) --- */}
+      {/* 1. CARTEIRINHA DIGITAL */}
       {showCard && memberData && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-sm relative">
@@ -433,23 +472,36 @@ export function MemberDashboard() {
           </div>
       )}
 
+      {/* MODAL DE ORAÇÃO (ATUALIZADO COM LÓGICA DE ENVIO) */}
       {showPrayer && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in-95">
                   <div className="text-center mb-6">
                       <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-purple-100 animate-pulse"><Heart size={32}/></div>
                       <h2 className="text-xl font-bold text-gray-800">Pedido de Oração</h2>
-                      <p className="text-xs text-gray-500 mt-1">Seu pedido será enviado confidencialmente.</p>
+                      <p className="text-xs text-gray-500 mt-1">Seu pedido será enviado diretamente à caixa de entrada do Pastor.</p>
                   </div>
-                  <textarea className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 text-sm h-32 focus:ring-2 ring-purple-100 outline-none resize-none mb-4" placeholder="Escreva aqui seu pedido..."></textarea>
+                  <textarea 
+                      value={prayerText}
+                      onChange={(e) => setPrayerText(e.target.value)}
+                      className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 text-sm h-32 focus:ring-2 ring-purple-100 outline-none resize-none mb-4" 
+                      placeholder="Escreva aqui seu pedido..."
+                  ></textarea>
                   <div className="flex gap-3">
                       <button onClick={() => setShowPrayer(false)} className="flex-1 py-3 text-gray-500 font-bold text-sm bg-gray-100 rounded-xl hover:bg-gray-200 transition">Cancelar</button>
-                      <button onClick={() => { alert("Pedido Enviado com Fé! 🙏"); setShowPrayer(false); }} className="flex-1 py-3 text-white font-bold text-sm bg-purple-600 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 transition flex justify-center items-center gap-2"><Send size={16}/> Enviar</button>
+                      <button 
+                          onClick={handleSendPrayer} 
+                          disabled={sendingPrayer || !prayerText.trim()}
+                          className="flex-1 py-3 text-white font-bold text-sm bg-purple-600 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 transition flex justify-center items-center gap-2"
+                      >
+                          {sendingPrayer ? <Loader2 className="animate-spin" size={16}/> : <Send size={16}/>} Enviar
+                      </button>
                   </div>
               </div>
           </div>
       )}
 
+      {/* STORY MODAL */}
       {activeStory && (
           <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-300">
               <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-800 z-50"><div className="h-full bg-white w-full animate-[width_10s_linear]"></div></div>
