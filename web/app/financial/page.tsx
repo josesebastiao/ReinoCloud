@@ -459,7 +459,8 @@ export default function FinancialPage() {
                                       {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
                                   </span>
                                   
-                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                                  {/* CORREÇÃO AQUI: Botões visíveis no mobile, ocultos no desktop até hover */}
+                                  <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition">
                                       <button onClick={() => handleOpenModal(t)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg print:hidden">
                                           <Edit size={16}/>
                                       </button>
