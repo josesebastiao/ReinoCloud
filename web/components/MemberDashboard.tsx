@@ -8,8 +8,8 @@ import { generalScaleService } from "../services/generalScaleService";
 import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
 import { 
-  Megaphone, Calendar, Gift, BookOpen, Clock, User, Bell, 
-  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2 
+  Megaphone, Calendar, Gift, BookOpen, User, Bell, 
+  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, ChevronRight 
 } from "lucide-react";
 
 export function MemberDashboard() {
@@ -28,6 +28,9 @@ export function MemberDashboard() {
   const [showCard, setShowCard] = useState(false);
   const [showFinance, setShowFinance] = useState(false);
   const [showPrayer, setShowPrayer] = useState(false);
+  
+  // STORIES MODE
+  const [activeStory, setActiveStory] = useState<Post | null>(null); // Story aberto
 
   useEffect(() => {
     if (churchId && user?.email) {
@@ -39,21 +42,17 @@ export function MemberDashboard() {
     if (!churchId) return;
     setLoading(true);
     try {
-        // 1. Identificar o Membro
         const allMembers = await memberService.listByChurch(churchId);
         const me = allMembers.find(m => m.email === user?.email);
         
         if (me) {
             setMemberData(me);
-            
-            // 2. Minhas Contribuições
             if (me.id) {
                 const allTrans = await financeService.listByChurch(churchId);
                 const mine = allTrans.filter(t => t.memberId === me.id && t.type === 'income');
                 setMyContributions(mine);
             }
-
-            // 3. Minhas Escalas
+            // Escalas
             const scalesFound: any[] = [];
             const generalScales = await generalScaleService.listByChurch(churchId);
             generalScales.forEach((scale: any) => {
@@ -71,7 +70,6 @@ export function MemberDashboard() {
             setMyScales(scalesFound.filter(s => new Date(s.date) >= new Date()));
         }
 
-        // 4. Mural e Aniversariantes (FEED DINÂMICO)
         const allPosts = await postService.listByChurch(churchId);
         setPosts(allPosts);
 
@@ -84,11 +82,7 @@ export function MemberDashboard() {
         }).sort((a, b) => parseInt(a.birthDate!.split('-')[2]) - parseInt(b.birthDate!.split('-')[2]));
         setBirthdays(bdays);
 
-    } catch (e) {
-        console.error(e);
-    } finally {
-        setLoading(false);
-    }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   const handleLogout = () => {
@@ -104,145 +98,153 @@ export function MemberDashboard() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  const notices = posts.filter(p => p.type === 'notice' || p.type === 'event');
-  const devotionals = posts.filter(p => p.type === 'devotional');
+  // FILTROS TIPO "REDE SOCIAL"
+  const todayStr = new Date().toISOString().split('T')[0];
+  
+  // 1. Stories: Pega a Palavra de HOJE (24h)
+  const todayDevotional = posts.find(p => p.type === 'devotional' && p.date === todayStr);
+  const hasNewStory = !!todayDevotional;
+
+  // 2. Feed: Avisos e Eventos (Timeline)
+  const feed = posts.filter(p => p.type === 'notice' || p.type === 'event');
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+    <div className="min-h-screen bg-gray-100 pb-24 font-sans">
       
-      {/* 1. CABEÇALHO APP */}
-      <div className="bg-blue-600 pt-8 pb-16 px-6 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-          
-          <div className="relative z-10">
-              <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-3">
-                      {logoUrl ? (
-                          <img src={logoUrl} alt="Logo" className="w-10 h-10 object-contain bg-white/10 rounded-xl p-1 backdrop-blur-sm" />
-                      ) : (
-                          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white"><Building2 size={20}/></div>
-                      )}
-                      <h1 className="text-white font-bold text-lg leading-tight opacity-90">{churchName}</h1>
-                  </div>
-                  <button onClick={handleLogout} className="bg-white/10 p-2 rounded-full text-white hover:bg-white/20 transition">
-                      <LogOut size={18}/>
-                  </button>
-              </div>
-
-              <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full border-2 border-white/30 overflow-hidden bg-white/10 backdrop-blur-sm">
-                      {memberData?.photoUrl ? (
-                          <img src={memberData.photoUrl} className="w-full h-full object-cover" />
-                      ) : (
-                          <div className="w-full h-full flex items-center justify-center text-white"><User size={28}/></div>
-                      )}
-                  </div>
-                  <div>
-                      <p className="text-blue-200 text-xs font-bold uppercase tracking-wider">Bem-vindo(a)</p>
-                      <h2 className="text-2xl font-bold text-white">{getFirstName()}</h2>
-                  </div>
-              </div>
+      {/* 1. CABEÇALHO COMPACTO (Instagram Style) */}
+      <div className="bg-white px-4 pt-4 pb-2 sticky top-0 z-30 shadow-sm flex justify-between items-center">
+          <div className="flex items-center gap-2">
+              {logoUrl ? <img src={logoUrl} className="w-8 h-8 rounded-full border border-gray-200 object-contain"/> : <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white"><Building2 size={16}/></div>}
+              <h1 className="font-bold text-gray-800 text-lg tracking-tight">{churchName}</h1>
+          </div>
+          <div className="flex gap-3">
+             <button onClick={handleLogout}><LogOut size={22} className="text-gray-600"/></button>
           </div>
       </div>
 
-      <div className="px-6 -mt-8 relative z-20 space-y-6">
-          
-          {/* 2. MENU DE AÇÕES RÁPIDAS (ATUALIZADO AQUI) */}
-          <div className="bg-white p-4 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex justify-around items-center animate-in slide-in-from-bottom-4">
-              <button onClick={() => setShowCard(true)} className="flex flex-col items-center gap-2 group">
-                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-sm">
-                      <CreditCard size={24}/>
-                  </div>
-                  <span className="text-[10px] font-bold text-gray-500">Cartão de Membro</span>
-              </button>
+      {/* 2. ÁREA DE STORIES (Carrossel Horizontal) */}
+      <div className="bg-white py-4 mb-2 overflow-x-auto scrollbar-hide border-b border-gray-100">
+          <div className="flex gap-4 px-4 min-w-max">
               
-              <button onClick={() => setShowFinance(true)} className="flex flex-col items-center gap-2 group">
-                  <div className="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-sm">
-                      <DollarSign size={24}/>
+              {/* STORY: PALAVRA PASTORAL (Destaque) */}
+              <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => hasNewStory ? setActiveStory(todayDevotional!) : alert("Nenhuma palavra nova hoje.")}>
+                  <div className={`w-16 h-16 rounded-full p-[3px] ${hasNewStory ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600' : 'bg-gray-200'}`}>
+                      <div className="w-full h-full bg-white rounded-full p-1">
+                          <div className="w-full h-full bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
+                              <BookOpen size={24} className={hasNewStory ? "text-purple-600" : "text-gray-400"}/>
+                          </div>
+                      </div>
                   </div>
-                  <span className="text-[10px] font-bold text-gray-500">Meus Dízimos</span>
-              </button>
+                  <span className="text-[10px] font-medium text-gray-700">{hasNewStory ? 'Nova Palavra' : 'Palavra'}</span>
+              </div>
 
-              <button onClick={() => setShowPrayer(true)} className="flex flex-col items-center gap-2 group">
-                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-sm">
-                      <Heart size={24}/>
+              {/* STORIES: ANIVERSARIANTES */}
+              {birthdays.map(m => (
+                  <div key={m.id} className="flex flex-col items-center gap-1">
+                      <div className="w-16 h-16 rounded-full p-[3px] bg-gradient-to-tr from-green-300 to-blue-500">
+                          <div className="w-full h-full bg-white rounded-full p-1">
+                              <img src={m.photoUrl || "https://ui-avatars.com/api/?name="+m.fullName} className="w-full h-full rounded-full object-cover"/>
+                          </div>
+                      </div>
+                      <span className="text-[10px] font-medium text-gray-700 truncate w-14 text-center">{m.fullName.split(' ')[0]}</span>
                   </div>
-                  <span className="text-[10px] font-bold text-gray-500">Oração</span>
+              ))}
+          </div>
+      </div>
+
+      <div className="px-4 space-y-4">
+          
+          {/* 3. MENU RÁPIDO (Abaixo dos Stories) */}
+          <div className="grid grid-cols-3 gap-3">
+              <button onClick={() => setShowCard(true)} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center gap-2 active:scale-95 transition">
+                  <CreditCard size={24} className="text-blue-600"/>
+                  <span className="text-[10px] font-bold text-gray-600">Carteirinha</span>
+              </button>
+              <button onClick={() => setShowFinance(true)} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center gap-2 active:scale-95 transition">
+                  <DollarSign size={24} className="text-green-600"/>
+                  <span className="text-[10px] font-bold text-gray-600">Dízimos</span>
+              </button>
+              <button onClick={() => setShowPrayer(true)} className="bg-white p-3 rounded-2xl shadow-sm flex flex-col items-center gap-2 active:scale-95 transition">
+                  <Heart size={24} className="text-purple-600"/>
+                  <span className="text-[10px] font-bold text-gray-600">Oração</span>
               </button>
           </div>
 
-          {/* 3. AVISO DE ESCALA */}
+          {/* 4. ALERTA DE ESCALA (Card de Notificação) */}
           {myScales.length > 0 && (
-              <div className="bg-orange-50 border border-orange-100 p-5 rounded-3xl relative overflow-hidden flex gap-4 items-center">
-                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-100 rounded-full opacity-50"></div>
-                  <div className="bg-white p-3 rounded-2xl shadow-sm text-center min-w-[60px] relative z-10">
-                      <span className="block text-xs font-bold text-orange-400 uppercase">DIA</span>
-                      <span className="block text-xl font-black text-gray-800">{new Date(myScales[0].date).getDate()}</span>
+              <div className="bg-gradient-to-r from-orange-500 to-pink-500 rounded-2xl p-4 text-white shadow-lg flex items-center justify-between">
+                  <div>
+                      <p className="text-[10px] font-bold uppercase opacity-80 mb-1">Próxima Escala</p>
+                      <h3 className="font-bold text-lg">{myScales[0].event}</h3>
+                      <p className="text-xs opacity-90">{new Date(myScales[0].date).toLocaleDateString('pt-BR')} • {myScales[0].obs}</p>
                   </div>
-                  <div className="relative z-10">
-                      <span className="text-[10px] font-bold bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full">VOCÊ FOI ESCALADO!</span>
-                      <h3 className="font-bold text-gray-800 mt-1 text-sm">{myScales[0].event}</h3>
-                      <p className="text-xs text-gray-500">{myScales[0].obs}</p>
+                  <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                      <Calendar size={24}/>
                   </div>
               </div>
           )}
 
-          {/* 4. PALAVRA PASTORAL */}
-          {devotionals.length > 0 && (
-              <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-3xl shadow-lg text-white relative overflow-hidden">
-                  <BookOpen className="absolute -bottom-4 -right-4 text-white/10 w-32 h-32"/>
-                  <span className="bg-white/20 px-2 py-1 rounded text-[10px] font-bold uppercase mb-3 inline-block backdrop-blur-sm">Palavra Pastoral</span>
-                  <h3 className="text-xl font-bold mb-2 leading-tight">{devotionals[0].title}</h3>
-                  <p className="text-sm text-purple-100 line-clamp-3 leading-relaxed">{devotionals[0].content}</p>
-              </div>
-          )}
-
-          {/* 5. MURAL DA IGREJA */}
-          <div>
-              <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                  <Megaphone size={18} className="text-blue-600"/> Mural da Igreja
-              </h2>
-              <div className="space-y-3">
-                  {notices.length === 0 ? (
-                      <p className="text-gray-400 text-sm text-center py-4 italic bg-white rounded-2xl border border-dashed border-gray-200">Nenhum aviso por enquanto.</p>
-                  ) : notices.map(notice => (
-                      <div key={notice.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex gap-3">
-                          <div className={`w-1 rounded-full ${notice.type === 'event' ? 'bg-orange-400' : 'bg-blue-400'}`}></div>
-                          <div className="flex-1">
-                              <div className="flex justify-between items-start mb-1">
-                                  <h3 className="font-bold text-gray-800 text-sm">{notice.title}</h3>
-                                  <span className="text-[10px] text-gray-400 whitespace-nowrap">{new Date(notice.date).toLocaleDateString('pt-BR')}</span>
+          {/* 5. FEED INFINITO (Timeline) */}
+          <h2 className="font-bold text-gray-700 text-sm mt-4 mb-2">Mural da Igreja</h2>
+          
+          <div className="space-y-4">
+              {feed.length === 0 ? (
+                  <div className="bg-white p-8 rounded-2xl text-center shadow-sm">
+                      <p className="text-gray-400 text-sm">Tudo tranquilo por aqui.</p>
+                  </div>
+              ) : (
+                  feed.map(post => (
+                      <div key={post.id} className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
+                          {/* Cabeçalho do Post */}
+                          <div className="p-4 flex items-center gap-3">
+                              {logoUrl ? <img src={logoUrl} className="w-10 h-10 rounded-full bg-gray-100 object-contain p-1"/> : <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600"><Building2 size={20}/></div>}
+                              <div className="flex-1">
+                                  <h3 className="font-bold text-sm text-gray-900">{churchName}</h3>
+                                  <p className="text-[10px] text-gray-400">{new Date(post.date).toLocaleDateString('pt-BR')} • {post.type === 'event' ? 'Evento' : 'Comunicado'}</p>
                               </div>
-                              <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{notice.content}</p>
+                              <button className="text-gray-400"><Megaphone size={16}/></button>
                           </div>
-                      </div>
-                  ))}
-              </div>
-          </div>
 
-          {/* 6. ANIVERSARIANTES */}
-          <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
-              <h2 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2 tracking-wider">
-                  <Gift size={16} className="text-pink-500"/> Aniversariantes do Mês
-              </h2>
-              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                  {birthdays.length === 0 ? (
-                      <p className="text-gray-400 text-xs italic w-full text-center">Ninguém faz aniversário este mês.</p>
-                  ) : birthdays.map(m => (
-                      <div key={m.id} className="min-w-[70px] flex flex-col items-center text-center">
-                          <div className="w-12 h-12 rounded-full bg-gray-100 mb-2 overflow-hidden border-2 border-white shadow-sm ring-2 ring-gray-50">
-                              {m.photoUrl ? <img src={m.photoUrl} className="w-full h-full object-cover"/> : <User className="w-full h-full p-2 text-gray-300"/>}
+                          {/* Conteúdo do Post */}
+                          <div className={`px-4 pb-4 ${post.type === 'event' ? 'bg-orange-50/30' : ''}`}>
+                              <h4 className="font-bold text-gray-800 text-lg mb-2">{post.title}</h4>
+                              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{post.content}</p>
                           </div>
-                          <p className="text-xs font-bold text-gray-700 truncate w-full">{m.fullName.split(' ')[0]}</p>
-                          <p className="text-[10px] text-pink-500 font-bold">{m.birthDate.split('-')[2]}/{m.birthDate.split('-')[1]}</p>
+
+                          {/* Rodapé do Post (Like fake visual) */}
+                          <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-4 text-gray-400">
+                              <Heart size={20} className="hover:text-red-500 cursor-pointer transition"/>
+                              <Send size={20} className="hover:text-blue-500 cursor-pointer transition"/>
+                          </div>
                       </div>
-                  ))}
-              </div>
+                  ))
+              )}
           </div>
 
       </div>
 
-      {/* --- MODAIS --- */}
+      {/* --- MODAL VIEW STORY (PALAVRA PASTORAL) --- */}
+      {activeStory && (
+          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-200">
+              {/* Barra de Progresso (Visual) */}
+              <div className="absolute top-0 left-0 w-full h-1 bg-white/30">
+                  <div className="h-full bg-white w-full animate-[width_10s_linear]"></div>
+              </div>
+
+              <button onClick={() => setActiveStory(null)} className="absolute top-4 right-4 text-white z-50"><X size={32}/></button>
+              
+              <div className="w-full max-w-md h-full md:h-[80vh] bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">
+                  <BookOpen size={48} className="mx-auto text-purple-300 mb-6"/>
+                  <h2 className="text-2xl font-bold mb-4">{activeStory.title}</h2>
+                  <div className="overflow-y-auto max-h-[60vh] custom-scrollbar">
+                      <p className="text-lg leading-relaxed opacity-90">{activeStory.content}</p>
+                  </div>
+                  <p className="text-xs text-purple-300 mt-8 uppercase tracking-widest">Palavra do Dia • {new Date(activeStory.date).toLocaleDateString()}</p>
+              </div>
+          </div>
+      )}
+
+      {/* --- OUTROS MODAIS (IGUAIS AO ANTERIOR) --- */}
       
       {/* 1. CARTEIRINHA DIGITAL */}
       {showCard && memberData && (
@@ -287,7 +289,7 @@ export function MemberDashboard() {
           <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-in slide-in-from-bottom-10">
               <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl p-6 h-[80vh] flex flex-col shadow-2xl">
                   <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><DollarSign className="text-green-600"/> Minhas Contribuições</h2>
+                      <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><DollarSign className="text-green-600"/> Meus Dízimos</h2>
                       <button onClick={() => setShowFinance(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition"><X size={20}/></button>
                   </div>
                   
