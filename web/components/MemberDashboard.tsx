@@ -9,23 +9,22 @@ import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
 import { 
   Megaphone, Calendar, Gift, BookOpen, Clock, User, Bell, 
-  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, ChevronRight 
+  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2 
 } from "lucide-react";
 
 export function MemberDashboard() {
   const { churchId, churchName, logoUrl, user, userName, formatMoney } = useChurch();
   
-  // ESTADOS GERAIS
   const [loading, setLoading] = useState(true);
   const [memberData, setMemberData] = useState<Member | null>(null);
   
-  // DADOS DO DASHBOARD
+  // DADOS
   const [posts, setPosts] = useState<Post[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
   const [myScales, setMyScales] = useState<any[]>([]);
   const [myContributions, setMyContributions] = useState<any[]>([]);
 
-  // MODAIS (NOVOS)
+  // MODAIS
   const [showCard, setShowCard] = useState(false);
   const [showFinance, setShowFinance] = useState(false);
   const [showPrayer, setShowPrayer] = useState(false);
@@ -40,14 +39,14 @@ export function MemberDashboard() {
     if (!churchId) return;
     setLoading(true);
     try {
-        // 1. Carregar Membros e Identificar "Eu"
+        // 1. Identificar o Membro
         const allMembers = await memberService.listByChurch(churchId);
         const me = allMembers.find(m => m.email === user?.email);
         
         if (me) {
             setMemberData(me);
             
-            // 2. Carregar Minhas Contribuições (Dízimos)
+            // 2. Minhas Contribuições
             if (me.id) {
                 const allTrans = await financeService.listByChurch(churchId);
                 const mine = allTrans.filter(t => t.memberId === me.id && t.type === 'income');
@@ -72,7 +71,7 @@ export function MemberDashboard() {
             setMyScales(scalesFound.filter(s => new Date(s.date) >= new Date()));
         }
 
-        // 4. Carregar Mural e Aniversariantes
+        // 4. Mural e Aniversariantes (FEED DINÂMICO)
         const allPosts = await postService.listByChurch(churchId);
         setPosts(allPosts);
 
@@ -97,43 +96,62 @@ export function MemberDashboard() {
       window.location.href = "/login";
   };
 
+  // Função para nome seguro (Corrige o erro de split)
+  const getFirstName = () => {
+      if (memberData?.fullName) return memberData.fullName.split(' ')[0];
+      if (userName) return userName.split(' ')[0];
+      return "Irmão(ã)";
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
+  // Filtra os tipos de post
   const notices = posts.filter(p => p.type === 'notice' || p.type === 'event');
   const devotionals = posts.filter(p => p.type === 'devotional');
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* 1. CABEÇALHO APP */}
+      {/* 1. CABEÇALHO APP (LOGO DA IGREJA + NOME DO MEMBRO) */}
       <div className="bg-blue-600 pt-8 pb-16 px-6 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-          <div className="relative z-10 flex justify-between items-center">
+          
+          <div className="relative z-10">
+              {/* Linha Superior: Igreja e Logout */}
+              <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-3">
+                      {logoUrl ? (
+                          <img src={logoUrl} alt="Logo" className="w-10 h-10 object-contain bg-white/10 rounded-xl p-1 backdrop-blur-sm" />
+                      ) : (
+                          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white"><Building2 size={20}/></div>
+                      )}
+                      <h1 className="text-white font-bold text-lg leading-tight opacity-90">{churchName}</h1>
+                  </div>
+                  <button onClick={handleLogout} className="bg-white/10 p-2 rounded-full text-white hover:bg-white/20 transition">
+                      <LogOut size={18}/>
+                  </button>
+              </div>
+
+              {/* Linha Inferior: Saudação ao Membro */}
               <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full border-2 border-white/30 overflow-hidden bg-white/10 backdrop-blur-sm">
+                  <div className="w-14 h-14 rounded-full border-2 border-white/30 overflow-hidden bg-white/10 backdrop-blur-sm">
                       {memberData?.photoUrl ? (
                           <img src={memberData.photoUrl} className="w-full h-full object-cover" />
                       ) : (
-                          <div className="w-full h-full flex items-center justify-center text-white"><User size={24}/></div>
+                          <div className="w-full h-full flex items-center justify-center text-white"><User size={28}/></div>
                       )}
                   </div>
                   <div>
-                      <p className="text-blue-200 text-xs font-bold uppercase tracking-wider">Bem-vindo</p>
-                      {/* Correção de segurança no nome */}
-                      <h1 className="text-xl font-bold text-white truncate max-w-[200px]">
-                          {userName ? userName.split(' ')[0] : "Irmão(ã)"}
-                      </h1>
+                      <p className="text-blue-200 text-xs font-bold uppercase tracking-wider">Bem-vindo(a)</p>
+                      <h2 className="text-2xl font-bold text-white">{getFirstName()}</h2>
                   </div>
               </div>
-              <button onClick={handleLogout} className="bg-white/10 p-2 rounded-full text-white hover:bg-white/20 transition">
-                  <LogOut size={20}/>
-              </button>
           </div>
       </div>
 
       <div className="px-6 -mt-8 relative z-20 space-y-6">
           
-          {/* 2. MENU DE AÇÕES RÁPIDAS (NOVO) */}
+          {/* 2. MENU DE AÇÕES RÁPIDAS */}
           <div className="bg-white p-4 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex justify-around items-center animate-in slide-in-from-bottom-4">
               <button onClick={() => setShowCard(true)} className="flex flex-col items-center gap-2 group">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-sm">
@@ -157,7 +175,7 @@ export function MemberDashboard() {
               </button>
           </div>
 
-          {/* 3. AVISO DE ESCALA (SE HOUVER) */}
+          {/* 3. AVISO DE ESCALA */}
           {myScales.length > 0 && (
               <div className="bg-orange-50 border border-orange-100 p-5 rounded-3xl relative overflow-hidden flex gap-4 items-center">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-100 rounded-full opacity-50"></div>
@@ -173,7 +191,7 @@ export function MemberDashboard() {
               </div>
           )}
 
-          {/* 4. DEVOCIONAL DO DIA */}
+          {/* 4. PALAVRA PASTORAL (FEED) */}
           {devotionals.length > 0 && (
               <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-3xl shadow-lg text-white relative overflow-hidden">
                   <BookOpen className="absolute -bottom-4 -right-4 text-white/10 w-32 h-32"/>
@@ -183,7 +201,7 @@ export function MemberDashboard() {
               </div>
           )}
 
-          {/* 5. MURAL DE AVISOS */}
+          {/* 5. MURAL DA IGREJA (FEED) */}
           <div>
               <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
                   <Megaphone size={18} className="text-blue-600"/> Mural da Igreja
