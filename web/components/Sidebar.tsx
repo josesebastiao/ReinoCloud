@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation"; 
 import { 
-  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone 
+  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone, Heart 
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
 import { auth } from "../lib/firebase"; 
@@ -37,7 +37,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       if (module === 'secretary') return hasPermission('secretary') || userRole === 'secretary';
       if (module === 'financial') return hasPermission('financial') || userRole === 'treasurer';
       if (module === 'ministry') return userRole === 'leader' || userRole === 'pastor';
-      if (module === 'posts') return userRole === 'leader' || userRole === 'secretary' || hasPermission('secretary'); // Líderes e Secretária podem postar
+      if (module === 'posts') return userRole === 'leader' || userRole === 'secretary' || hasPermission('secretary'); 
+      if (module === 'prayers') return userRole === 'pastor' || hasPermission('pastor'); // Apenas Pastor/Admin vê orações
       if (module === 'settings') return userRole === 'treasurer' || userRole === 'admin';
       if (module === 'dashboard') return true;
 
@@ -49,7 +50,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const menuItems = [
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Início", href: "/" }] : []),
-    ...(canAccess('posts')     ? [{ icon: Megaphone, label: "Mural de Avisos", href: "/posts" }] : []), // NOVO ITEM
+    ...(canAccess('posts')     ? [{ icon: Megaphone, label: "Mural de Avisos", href: "/posts" }] : []),
+    ...(canAccess('prayers')   ? [{ icon: Heart, label: "Pedidos de Oração", href: "/prayers" }] : []), // NOVO ITEM AQUI
     ...(canAccess('secretary') ? [{ icon: FolderOpen, label: "Secretaria", href: "/secretary" }] : []),
     ...(canAccess('ministry')  ? [{ icon: Music, label: "Departamentos", href: "/ministries" }] : []),
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
