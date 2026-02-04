@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useChurch } from "../contexts/ChurchContext";
-import { postService, Post, Comment } from "../services/postService"; // Importe Comment aqui
+import { postService, Post, Comment } from "../services/postService";
 import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { generalScaleService } from "../services/generalScaleService";
@@ -112,12 +112,12 @@ export function MemberDashboard() {
       
       const isLiked = post.likes?.includes(user.uid) || false;
       
-      // Atualização Otimista (Visual instantâneo)
+      // Atualização Otimista
       const updatedPosts = posts.map(p => {
           if (p.id === post.id) {
               const newLikes = isLiked 
-                  ? (p.likes || []).filter(id => id !== user.uid) // Remove like
-                  : [...(p.likes || []), user.uid]; // Adiciona like
+                  ? (p.likes || []).filter(id => id !== user.uid)
+                  : [...(p.likes || []), user.uid];
               return { ...p, likes: newLikes };
           }
           return p;
@@ -148,11 +148,9 @@ export function MemberDashboard() {
           createdAt: new Date()
       };
 
-      // Atualiza visualmente
       setCommentsList([...commentsList, newComment]);
       setNewCommentText("");
 
-      // Salva no banco
       await postService.addComment(activePostForComments.id, newComment);
   };
 
@@ -162,7 +160,6 @@ export function MemberDashboard() {
   const todayDevotional = posts.find(p => p.type === 'devotional' && p.date === todayStr);
   const hasNewStory = !!todayDevotional;
   
-  // Feed inclui devocionais também para aparecerem na timeline
   const feed = posts.filter(p => p.type === 'notice' || p.type === 'event' || p.type === 'devotional');
   
   const hasRecentPosts = posts.some(p => {
@@ -283,9 +280,14 @@ export function MemberDashboard() {
                                   </div>
                               </div>
                               
+                              {/* --- AQUI ESTÁ A CORREÇÃO DA IMAGEM --- */}
                               {post.imageUrl && (
-                                  <div className="w-full h-48 bg-gray-100 overflow-hidden relative group">
-                                      <img src={getImageUrl(post.imageUrl)!} className="w-full h-full object-cover" alt="Post"/>
+                                  <div className="w-full bg-gray-50 border-y border-gray-100">
+                                      <img 
+                                          src={getImageUrl(post.imageUrl)!} 
+                                          className="w-full h-auto object-contain" 
+                                          alt="Post"
+                                      />
                                   </div>
                               )}
 
