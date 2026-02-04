@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useChurch } from "../contexts/ChurchContext";
-import { postService, Post } from "../services/postService";
+import { postService, Post, Comment } from "../services/postService"; // Importe Comment aqui
 import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { generalScaleService } from "../services/generalScaleService";
@@ -9,7 +9,7 @@ import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
 import { 
   Megaphone, Calendar, Gift, BookOpen, User, Bell, 
-  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, Image as ImageIcon 
+  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, MessageCircle, Image as ImageIcon 
 } from "lucide-react";
 
 export function MemberDashboard() {
@@ -18,7 +18,7 @@ export function MemberDashboard() {
   const [loading, setLoading] = useState(true);
   const [memberData, setMemberData] = useState<Member | null>(null);
   
-  // DADOS
+  // DADOS GERAIS
   const [posts, setPosts] = useState<Post[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
   const [myScales, setMyScales] = useState<any[]>([]);
@@ -28,9 +28,13 @@ export function MemberDashboard() {
   const [showCard, setShowCard] = useState(false);
   const [showFinance, setShowFinance] = useState(false);
   const [showPrayer, setShowPrayer] = useState(false);
-  
-  // STORIES MODE
   const [activeStory, setActiveStory] = useState<Post | null>(null);
+
+  // ESTADOS PARA COMENTÁRIOS
+  const [activePostForComments, setActivePostForComments] = useState<Post | null>(null);
+  const [commentsList, setCommentsList] = useState<Comment[]>([]);
+  const [newCommentText, setNewCommentText] = useState("");
+  const [loadingComments, setLoadingComments] = useState(false);
 
   useEffect(() => {
     if (churchId && user?.email) {
@@ -52,7 +56,6 @@ export function MemberDashboard() {
                 const mine = allTrans.filter(t => t.memberId === me.id && t.type === 'income');
                 setMyContributions(mine);
             }
-            // Escalas
             const scalesFound: any[] = [];
             const generalScales = await generalScaleService.listByChurch(churchId);
             generalScales.forEach((scale: any) => {
@@ -85,18 +88,14 @@ export function MemberDashboard() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const handleLogout = () => {
-      auth.signOut();
-      window.location.href = "/login";
-  };
-
+  const handleLogout = () => { auth.signOut(); window.location.href = "/login"; };
+  
   const getFirstName = () => {
       if (memberData?.fullName) return memberData.fullName.split(' ')[0];
       if (userName) return userName.split(' ')[0];
       return "Irmão(ã)";
   };
 
-  // Função auxiliar para links de imagem (Drive, etc)
   const getImageUrl = (url?: string) => {
       if (!url) return null;
       if (url.includes('drive.google.com') && url.includes('/file/d/')) {
@@ -106,14 +105,66 @@ export function MemberDashboard() {
       return url;
   };
 
+  // --- FUNÇÕES DE INTERAÇÃO (LIKE & COMMENT) ---
+
+  const handleLike = async (post: Post) => {
+      if (!user?.uid || !post.id) return;
+      
+      const isLiked = post.likes?.includes(user.uid) || false;
+      
+      // Atualização Otimista (Visual instantâneo)
+      const updatedPosts = posts.map(p => {
+          if (p.id === post.id) {
+              const newLikes = isLiked 
+                  ? (p.likes || []).filter(id => id !== user.uid) // Remove like
+                  : [...(p.likes || []), user.uid]; // Adiciona like
+              return { ...p, likes: newLikes };
+          }
+          return p;
+      });
+      setPosts(updatedPosts);
+
+      // Persiste no banco
+      await postService.toggleLike(post.id, user.uid, isLiked);
+  };
+
+  const openComments = async (post: Post) => {
+      if (!post.id) return;
+      setActivePostForComments(post);
+      setLoadingComments(true);
+      const comments = await postService.getComments(post.id);
+      setCommentsList(comments);
+      setLoadingComments(false);
+  };
+
+  const handleSendComment = async () => {
+      if (!activePostForComments?.id || !newCommentText.trim() || !user?.uid) return;
+
+      const newComment: Comment = {
+          userId: user.uid,
+          userName: getFirstName(),
+          userPhoto: memberData?.photoUrl || "",
+          content: newCommentText,
+          createdAt: new Date()
+      };
+
+      // Atualiza visualmente
+      setCommentsList([...commentsList, newComment]);
+      setNewCommentText("");
+
+      // Salva no banco
+      await postService.addComment(activePostForComments.id, newComment);
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // LÓGICA DE STORIES E FEED
   const todayStr = new Date().toISOString().split('T')[0];
   const todayDevotional = posts.find(p => p.type === 'devotional' && p.date === todayStr);
   const hasNewStory = !!todayDevotional;
   
-  // LÓGICA DE NOTIFICAÇÃO
+  // Feed inclui devocionais também para aparecerem na timeline
+  const feed = posts.filter(p => p.type === 'notice' || p.type === 'event' || p.type === 'devotional');
+  
   const hasRecentPosts = posts.some(p => {
       const postDate = new Date(p.date);
       const twoDaysAgo = new Date();
@@ -124,7 +175,7 @@ export function MemberDashboard() {
   return (
     <div className="min-h-screen bg-gray-100 pb-24 font-sans">
       
-      {/* 1. CABEÇALHO AZUL */}
+      {/* 1. CABEÇALHO */}
       <div className="bg-blue-600 pt-8 pb-16 px-6 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
           <div className="relative z-10">
@@ -158,7 +209,6 @@ export function MemberDashboard() {
           {/* 2. STORIES */}
           <div className="bg-white py-4 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 overflow-x-auto scrollbar-hide">
               <div className="flex gap-4 px-4 min-w-max">
-                  {/* STORY PALAVRA */}
                   <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => hasNewStory ? setActiveStory(todayDevotional!) : alert("Nenhuma palavra nova hoje.")}>
                       <div className={`w-14 h-14 rounded-full p-[2px] ${hasNewStory ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600' : 'bg-gray-200'}`}>
                           <div className="w-full h-full bg-white rounded-full p-0.5">
@@ -169,7 +219,6 @@ export function MemberDashboard() {
                       </div>
                       <span className="text-[10px] font-bold text-gray-600">{hasNewStory ? 'Nova Palavra' : 'Palavra'}</span>
                   </div>
-                  {/* STORIES ANIVERSARIANTES */}
                   {birthdays.map(m => (
                       <div key={m.id} className="flex flex-col items-center gap-1">
                           <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-green-300 to-blue-500">
@@ -211,86 +260,108 @@ export function MemberDashboard() {
               </div>
           )}
 
-          {/* 5. FEED INFINITO (COM IMAGENS) */}
+          {/* 5. FEED INFINITO */}
           <h2 className="font-bold text-gray-700 text-sm mt-4 mb-2 flex items-center gap-2">
               <Megaphone size={16} className="text-blue-600"/> Mural da Igreja
           </h2>
           
           <div className="space-y-4">
-              {posts.length === 0 ? (
+              {feed.length === 0 ? (
                   <div className="bg-white p-8 rounded-2xl text-center shadow-sm border border-dashed border-gray-200"><p className="text-gray-400 text-sm">Tudo tranquilo por aqui.</p></div>
               ) : (
-                  posts.map(post => (
-                      <div key={post.id} className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
-                          {/* Cabeçalho */}
-                          <div className="p-4 flex items-center gap-3 border-b border-gray-50">
-                              {logoUrl ? <img src={logoUrl} className="w-10 h-10 rounded-full bg-gray-50 object-contain p-1 border border-gray-100"/> : <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600"><Building2 size={20}/></div>}
-                              <div className="flex-1">
-                                  <h3 className="font-bold text-sm text-gray-900">{churchName}</h3>
-                                  <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                      <span>{new Date(post.date).toLocaleDateString('pt-BR')}</span>
-                                      <span>•</span>
-                                      <span className={`uppercase font-bold ${post.type === 'devotional' ? 'text-purple-500' : post.type === 'event' ? 'text-orange-500' : 'text-blue-500'}`}>
-                                          {post.type === 'devotional' ? 'Palavra' : post.type === 'event' ? 'Evento' : 'Aviso'}
-                                      </span>
+                  feed.map(post => {
+                      const isLiked = post.likes?.includes(user?.uid || "");
+                      const likeCount = post.likes?.length || 0;
+
+                      return (
+                          <div key={post.id} className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100">
+                              <div className="p-4 flex items-center gap-3 border-b border-gray-50">
+                                  {logoUrl ? <img src={logoUrl} className="w-10 h-10 rounded-full bg-gray-50 object-contain p-1 border border-gray-100"/> : <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600"><Building2 size={20}/></div>}
+                                  <div className="flex-1">
+                                      <h3 className="font-bold text-sm text-gray-900">{churchName}</h3>
+                                      <p className="text-[10px] text-gray-400">{new Date(post.date).toLocaleDateString('pt-BR')} • {post.type === 'event' ? 'Evento' : post.type === 'devotional' ? 'Palavra' : 'Comunicado'}</p>
                                   </div>
                               </div>
-                          </div>
+                              
+                              {post.imageUrl && (
+                                  <div className="w-full h-48 bg-gray-100 overflow-hidden relative group">
+                                      <img src={getImageUrl(post.imageUrl)!} className="w-full h-full object-cover" alt="Post"/>
+                                  </div>
+                              )}
 
-                          {/* IMAGEM DO POST (Se houver) */}
-                          {post.imageUrl && (
-                              <div className="w-full h-48 bg-gray-100 overflow-hidden relative group">
-                                  <img src={getImageUrl(post.imageUrl)!} className="w-full h-full object-cover transition duration-500 group-hover:scale-105" alt="Post"/>
+                              <div className={`px-5 py-4 ${post.type === 'devotional' ? 'bg-purple-50/30' : post.type === 'event' ? 'bg-orange-50/30' : ''}`}>
+                                  <h4 className="font-bold text-gray-800 text-lg mb-2">{post.title}</h4>
+                                  <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{post.content}</p>
                               </div>
-                          )}
 
-                          {/* Conteúdo */}
-                          <div className={`px-5 py-4 ${post.type === 'devotional' ? 'bg-purple-50/30' : ''}`}>
-                              <h4 className="font-bold text-gray-800 text-lg mb-2">{post.title}</h4>
-                              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                              <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-6 text-gray-500 bg-gray-50/50">
+                                  <button onClick={() => handleLike(post)} className={`flex items-center gap-1.5 transition ${isLiked ? 'text-red-500' : 'hover:text-red-500'}`}>
+                                      <Heart size={20} fill={isLiked ? "currentColor" : "none"}/>
+                                      <span className="text-xs font-bold">{likeCount > 0 ? likeCount : 'Curtir'}</span>
+                                  </button>
+                                  <button onClick={() => openComments(post)} className="flex items-center gap-1.5 hover:text-blue-500 transition">
+                                      <MessageCircle size={20}/>
+                                      <span className="text-xs font-bold">Comentar</span>
+                                  </button>
+                              </div>
                           </div>
-
-                          {/* Rodapé */}
-                          <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-4 text-gray-400 bg-gray-50/50">
-                              <Heart size={20} className="hover:text-red-500 cursor-pointer transition"/>
-                              <Send size={20} className="hover:text-blue-500 cursor-pointer transition"/>
-                          </div>
-                      </div>
-                  ))
+                      );
+                  })
               )}
           </div>
 
       </div>
 
-      {/* --- MODAIS (Stories, Cartão, etc - MANTIDOS IGUAIS AO ANTERIOR) --- */}
-      {/* ... (O restante dos modais continua igual, não precisa alterar) ... */}
-      
-      {/* --- MODAL VIEW STORY (PALAVRA PASTORAL) --- */}
-      {activeStory && (
-          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-300">
-              <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-800 z-50">
-                  <div className="h-full bg-white w-full animate-[width_10s_linear]"></div>
-              </div>
-              <button onClick={() => setActiveStory(null)} className="absolute top-6 right-6 text-white z-50 bg-white/20 p-2 rounded-full"><X size={24}/></button>
-              
-              <div className="w-full max-w-md h-full bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">
+      {/* --- MODAL DE COMENTÁRIOS --- */}
+      {activePostForComments && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-in slide-in-from-bottom-10">
+              <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl h-[80vh] flex flex-col shadow-2xl overflow-hidden">
+                  <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                      <h3 className="font-bold text-gray-800">Comentários</h3>
+                      <button onClick={() => setActivePostForComments(null)} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300 transition"><X size={16}/></button>
+                  </div>
                   
-                  {/* Se tiver imagem no story, mostra ela */}
-                  {activeStory.imageUrl ? (
-                      <img src={getImageUrl(activeStory.imageUrl)!} className="w-full h-64 object-cover rounded-xl mb-6 shadow-2xl border-2 border-white/20"/>
-                  ) : (
-                      <BookOpen size={48} className="mx-auto text-purple-300 mb-6 animate-bounce"/>
-                  )}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
+                      {loadingComments ? (
+                          <div className="text-center py-10"><Loader2 className="animate-spin text-blue-600 mx-auto"/></div>
+                      ) : commentsList.length === 0 ? (
+                          <div className="text-center py-10 text-gray-400 text-sm">Seja o primeiro a comentar!</div>
+                      ) : (
+                          commentsList.map((c, idx) => (
+                              <div key={idx} className="flex gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                                      {c.userPhoto ? <img src={c.userPhoto} className="w-full h-full object-cover"/> : <User size={16} className="w-full h-full p-1.5 text-gray-400"/>}
+                                  </div>
+                                  <div className="bg-gray-100 p-3 rounded-2xl rounded-tl-none">
+                                      <p className="text-[10px] font-bold text-gray-600 mb-0.5">{c.userName}</p>
+                                      <p className="text-sm text-gray-800">{c.content}</p>
+                                  </div>
+                              </div>
+                          ))
+                      )}
+                  </div>
 
-                  <h2 className="text-2xl font-bold mb-6 leading-tight">{activeStory.title}</h2>
-                  <div className="overflow-y-auto max-h-[40vh] custom-scrollbar text-lg leading-relaxed opacity-90 text-justify">
-                      {activeStory.content}
+                  <div className="p-4 border-t border-gray-100 bg-white flex gap-2">
+                      <input 
+                          type="text" 
+                          value={newCommentText} 
+                          onChange={(e) => setNewCommentText(e.target.value)}
+                          placeholder="Escreva um comentário..." 
+                          className="flex-1 bg-gray-100 border-0 rounded-xl px-4 text-sm focus:ring-2 ring-blue-100 outline-none"
+                      />
+                      <button 
+                          onClick={handleSendComment} 
+                          disabled={!newCommentText.trim()}
+                          className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                          <Send size={18}/>
+                      </button>
                   </div>
               </div>
           </div>
       )}
 
-      {/* 1. CARTEIRINHA DIGITAL */}
+      {/* --- OUTROS MODAIS (Mantidos) --- */}
       {showCard && memberData && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
             <div className="w-full max-w-sm relative">
@@ -328,7 +399,6 @@ export function MemberDashboard() {
         </div>
       )}
 
-      {/* 2. EXTRATO DE DÍZIMOS */}
       {showFinance && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-in slide-in-from-bottom-10">
               <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl p-6 h-[80vh] flex flex-col shadow-2xl">
@@ -344,10 +414,7 @@ export function MemberDashboard() {
                   </div>
                   <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                       {myContributions.length === 0 ? (
-                          <div className="text-center py-12 text-gray-400">
-                              <DollarSign size={40} className="mx-auto mb-2 opacity-20"/>
-                              <p className="text-sm">Nenhuma contribuição registrada ainda.</p>
-                          </div>
+                          <div className="text-center py-12 text-gray-400"><DollarSign size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Nenhuma contribuição registrada ainda.</p></div>
                       ) : (
                           myContributions.map(t => (
                               <div key={t.id} className="flex justify-between items-center p-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition rounded-lg">
@@ -364,7 +431,6 @@ export function MemberDashboard() {
           </div>
       )}
 
-      {/* 3. PEDIDO DE ORAÇÃO */}
       {showPrayer && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in-95">
@@ -376,10 +442,24 @@ export function MemberDashboard() {
                   <textarea className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 text-sm h-32 focus:ring-2 ring-purple-100 outline-none resize-none mb-4" placeholder="Escreva aqui seu pedido..."></textarea>
                   <div className="flex gap-3">
                       <button onClick={() => setShowPrayer(false)} className="flex-1 py-3 text-gray-500 font-bold text-sm bg-gray-100 rounded-xl hover:bg-gray-200 transition">Cancelar</button>
-                      <button onClick={() => { alert("Pedido Enviado com Fé! 🙏"); setShowPrayer(false); }} className="flex-1 py-3 text-white font-bold text-sm bg-purple-600 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 transition flex justify-center items-center gap-2">
-                          <Send size={16}/> Enviar
-                      </button>
+                      <button onClick={() => { alert("Pedido Enviado com Fé! 🙏"); setShowPrayer(false); }} className="flex-1 py-3 text-white font-bold text-sm bg-purple-600 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 transition flex justify-center items-center gap-2"><Send size={16}/> Enviar</button>
                   </div>
+              </div>
+          </div>
+      )}
+
+      {activeStory && (
+          <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-300">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gray-800 z-50"><div className="h-full bg-white w-full animate-[width_10s_linear]"></div></div>
+              <button onClick={() => setActiveStory(null)} className="absolute top-6 right-6 text-white z-50 bg-white/20 p-2 rounded-full"><X size={24}/></button>
+              <div className="w-full max-w-md h-full bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">
+                  {activeStory.imageUrl ? (
+                      <img src={getImageUrl(activeStory.imageUrl)!} className="w-full h-64 object-cover rounded-xl mb-6 shadow-2xl border-2 border-white/20"/>
+                  ) : (
+                      <BookOpen size={48} className="mx-auto text-purple-300 mb-6 animate-bounce"/>
+                  )}
+                  <h2 className="text-2xl font-bold mb-6 leading-tight">{activeStory.title}</h2>
+                  <div className="overflow-y-auto max-h-[40vh] custom-scrollbar text-lg leading-relaxed opacity-90 text-justify">{activeStory.content}</div>
               </div>
           </div>
       )}
