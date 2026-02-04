@@ -5,8 +5,8 @@ import { useChurch } from "../../contexts/ChurchContext";
 import { memberService } from "../../services/memberService";
 import { generalScaleService } from "../../services/generalScaleService";
 import { Member } from "../../types/member"; 
-import { db } from "../../lib/firebase"; // Importar db
-import { doc, getDoc } from "firebase/firestore"; // Importar getDoc
+import { db } from "../../lib/firebase"; 
+import { doc, getDoc } from "firebase/firestore";
 
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
@@ -30,7 +30,7 @@ export default function ServicesPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [savedScales, setSavedScales] = useState<any[]>([]); 
   
-  // ESTADOS PARA TEXTOS PERSONALIZADOS
+  // ESTADOS PARA ARMAZENAR OS TEXTOS PERSONALIZADOS DO BANCO
   const [customTexts, setCustomTexts] = useState({ recommendation: "", transfer: "" });
 
   const [loading, setLoading] = useState(false);
@@ -49,6 +49,7 @@ export default function ServicesPage() {
       rows: [] as ScaleRow[]
   });
 
+  // VERIFICAÇÃO DE SEGURANÇA
   useEffect(() => {
     if (!authLoading) {
          if (userRole !== 'admin' && !hasPermission('secretary')) {
@@ -57,10 +58,11 @@ export default function ServicesPage() {
     }
   }, [authLoading, userRole, hasPermission, router]);
 
+  // CARREGAMENTO DE DADOS (MEMBROS E TEXTOS CONFIGURADOS)
   useEffect(() => {
     if (churchId) {
         loadMembers();
-        loadChurchCustomTexts(); // <--- Carregar textos personalizados
+        loadChurchCustomTexts(); // <--- IMPORTANTE: Carrega o texto da config
         if(selectedDoc === 'scale') loadHistory();
     }
   }, [churchId, selectedDoc]);
@@ -74,7 +76,7 @@ export default function ServicesPage() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  // --- BUSCAR TEXTOS PERSONALIZADOS ---
+  // --- FUNÇÃO CRUCIAL: BUSCAR OS TEXTOS DO BANCO ---
   const loadChurchCustomTexts = async () => {
       if (!churchId) return;
       try {
@@ -82,6 +84,7 @@ export default function ServicesPage() {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
               const data = docSnap.data();
+              // Salva no estado para usar na impressão
               setCustomTexts({
                   recommendation: data.textRecommendation || "",
                   transfer: data.textTransfer || ""
@@ -100,7 +103,7 @@ export default function ServicesPage() {
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
-  // --- FUNÇÕES DA ESCALA (Mantidas) ---
+  // --- FUNÇÕES DA ESCALA ---
   const handleSaveScale = async () => {
       if(!churchId) return;
       if(scaleData.rows.length === 0) return alert("Adicione pelo menos uma linha na escala.");
@@ -158,10 +161,11 @@ export default function ServicesPage() {
     } catch (e) { return ""; }
   };
 
-  // --- IMPRESSÃO ---
+  // --- IMPRESSÃO (AQUI ACONTECE A MÁGICA) ---
   const handlePrint = async () => {
     setPrinting(true); 
     
+    // 1. Prepara as Imagens
     let finalLogo = "";
     if (logoUrl) finalLogo = await toDataURL(logoUrl);
     
@@ -175,7 +179,7 @@ export default function ServicesPage() {
     const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
     if (selectedDoc === 'scale') {
-        // --- ESCALA ---
+        // --- GERAR ESCALA (SEM MUDANÇAS) ---
         const rowsHtml = scaleData.rows.map(row => {
             let dateDisplay = row.date;
             try {
@@ -194,21 +198,20 @@ export default function ServicesPage() {
             <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
         `;
     } else {
-        // --- CARTAS (COM LÓGICA DE TEXTO PERSONALIZADO) ---
+        // --- GERAR CARTA (COM LÓGICA DE TEXTO PERSONALIZADO) ---
         if (!selectedMember) return;
 
-        // 1. Define o corpo do texto
         let bodyText = "";
         
+        // LÓGICA DE SUBSTITUIÇÃO DO TEXTO
         if (selectedDoc === 'recommendation') {
-            // Se tiver texto customizado, usa ele. Se não, usa o padrão.
             if (customTexts.recommendation && customTexts.recommendation.trim() !== "") {
-                // Substitui {nome} ou [nome] pelo nome do membro
+                // Se o pastor configurou texto, usamos ele e trocamos {nome} pelo nome do membro
                 bodyText = customTexts.recommendation
                     .replace(/{nome}/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`)
                     .replace(/\[nome\]/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
             } else {
-                // Padrão
+                // Texto Padrão se não houver configuração
                 bodyText = `Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão, não constando nada, até a presente data, que desabone sua conduta cristã.`;
             }
         } else {
@@ -218,7 +221,6 @@ export default function ServicesPage() {
                     .replace(/{nome}/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`)
                     .replace(/\[nome\]/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
             } else {
-                // Padrão
                 bodyText = `Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão. Solicitamos que o(a) mesmo(a) seja recebido(a) como membro dessa amada igreja, cessando assim suas responsabilidades conosco.`;
             }
         }
@@ -252,22 +254,23 @@ export default function ServicesPage() {
             .logo { max-width: 100px; max-height: 100px; object-fit: contain; margin: 0 auto 10px; display: block; }
             .content { font-size: 18px; line-height: 1.6; text-align: justify; margin: 40px 0; min-height: 200px; }
             
-            /* --- CORREÇÃO DO RODAPÉ (ALINHAMENTO) --- */
+            /* --- NOVO CSS PARA RODAPÉ ALINHADO --- */
             .footer { 
                 margin-top: 50px; 
                 display: flex; 
-                justify-content: space-between; /* Afasta um para cada lado */
+                justify-content: space-between; /* Garante separação total esq/dir */
                 align-items: flex-end; 
-                padding: 0 20px;
+                padding: 0 40px; /* Margem interna para não colar na borda */
                 width: 100%;
                 box-sizing: border-box;
             }
             .signature-block { 
-                width: 40%; /* Tamanho fixo para garantir alinhamento */
+                width: 40%; /* Cada assinatura ocupa 40%, deixando 20% no meio */
                 text-align: center;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+                position: relative;
             }
             .signature-line {
                 width: 100%;
@@ -275,14 +278,21 @@ export default function ServicesPage() {
                 padding-top: 5px;
                 font-weight: bold;
                 font-size: 14px;
+                margin-top: 5px;
             }
             .signature-img { 
                 height: 70px; 
                 object-fit: contain; 
-                margin-bottom: -10px; /* Sobrepõe levemente a linha para ficar natural */
+                display: block;
+                margin-bottom: -15px; /* Faz a assinatura "encostar" na linha */
                 z-index: 10;
-                position: relative;
             }
+            /* Espaço reservado para quando não tem assinatura digital, para alinhar com a direita */
+            .signature-placeholder {
+                height: 70px;
+                width: 100%;
+            }
+
             .meta { font-size: 10px; color: #999; margin-top: 60px; text-align: center; width: 100%; }
             
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -311,12 +321,12 @@ export default function ServicesPage() {
           
           <div class="footer">
             <div class="signature-block">
-                ${finalSignature ? `<img src="${finalSignature}" class="signature-img" />` : '<div style="height: 60px;"></div>'}
+                ${finalSignature ? `<img src="${finalSignature}" class="signature-img" />` : '<div class="signature-placeholder"></div>'}
                 <div class="signature-line">Pastor / Responsável</div>
             </div>
 
             <div class="signature-block">
-                <div style="height: 60px;"></div> <div class="signature-line">Secretaria</div>
+                <div class="signature-placeholder"></div> <div class="signature-line">Secretaria</div>
             </div>
           </div>
 
