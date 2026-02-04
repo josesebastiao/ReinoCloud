@@ -5,6 +5,8 @@ import { useChurch } from "../../contexts/ChurchContext";
 import { memberService } from "../../services/memberService";
 import { generalScaleService } from "../../services/generalScaleService";
 import { Member } from "../../types/member"; 
+import { db } from "../../lib/firebase"; // Importar db
+import { doc, getDoc } from "firebase/firestore"; // Importar getDoc
 
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
@@ -26,19 +28,20 @@ export default function ServicesPage() {
   const { churchId, churchName, logoUrl, signatureUrl, userRole, hasPermission, loading: authLoading } = useChurch(); 
   
   const [members, setMembers] = useState<Member[]>([]);
-  const [savedScales, setSavedScales] = useState<any[]>([]); // Histórico
+  const [savedScales, setSavedScales] = useState<any[]>([]); 
   
+  // ESTADOS PARA TEXTOS PERSONALIZADOS
+  const [customTexts, setCustomTexts] = useState({ recommendation: "", transfer: "" });
+
   const [loading, setLoading] = useState(false);
   const [printing, setPrinting] = useState(false); 
   const [saving, setSaving] = useState(false);
   
-  // Controle dos Modais
   const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | 'scale' | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [search, setSearch] = useState("");
   const [obs, setObs] = useState(""); 
 
-  // ESTADO DA ESCALA
   const [scaleData, setScaleData] = useState({
       title: `ESCALA DE ${new Date().toLocaleString('pt-BR', { month: 'long' }).toUpperCase()} / ${new Date().getFullYear()}`,
       theme: "",
@@ -46,7 +49,6 @@ export default function ServicesPage() {
       rows: [] as ScaleRow[]
   });
 
-  // Segurança
   useEffect(() => {
     if (!authLoading) {
          if (userRole !== 'admin' && !hasPermission('secretary')) {
@@ -55,10 +57,10 @@ export default function ServicesPage() {
     }
   }, [authLoading, userRole, hasPermission, router]);
 
-  // Carregar Dados
   useEffect(() => {
     if (churchId) {
         loadMembers();
+        loadChurchCustomTexts(); // <--- Carregar textos personalizados
         if(selectedDoc === 'scale') loadHistory();
     }
   }, [churchId, selectedDoc]);
@@ -72,6 +74,24 @@ export default function ServicesPage() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
+  // --- BUSCAR TEXTOS PERSONALIZADOS ---
+  const loadChurchCustomTexts = async () => {
+      if (!churchId) return;
+      try {
+          const docRef = doc(db, "churches", churchId);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+              const data = docSnap.data();
+              setCustomTexts({
+                  recommendation: data.textRecommendation || "",
+                  transfer: data.textTransfer || ""
+              });
+          }
+      } catch (e) {
+          console.error("Erro ao carregar textos:", e);
+      }
+  };
+
   const loadHistory = async () => {
       if (!churchId) return;
       const history = await generalScaleService.listByChurch(churchId);
@@ -80,7 +100,7 @@ export default function ServicesPage() {
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
-  // --- FUNÇÕES DA ESCALA ---
+  // --- FUNÇÕES DA ESCALA (Mantidas) ---
   const handleSaveScale = async () => {
       if(!churchId) return;
       if(scaleData.rows.length === 0) return alert("Adicione pelo menos uma linha na escala.");
@@ -142,7 +162,6 @@ export default function ServicesPage() {
   const handlePrint = async () => {
     setPrinting(true); 
     
-    // Converter imagens para Base64
     let finalLogo = "";
     if (logoUrl) finalLogo = await toDataURL(logoUrl);
     
@@ -156,7 +175,7 @@ export default function ServicesPage() {
     const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
     if (selectedDoc === 'scale') {
-        // --- GERAR ESCALA ---
+        // --- ESCALA ---
         const rowsHtml = scaleData.rows.map(row => {
             let dateDisplay = row.date;
             try {
@@ -175,8 +194,35 @@ export default function ServicesPage() {
             <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
         `;
     } else {
-        // --- GERAR CARTA ---
+        // --- CARTAS (COM LÓGICA DE TEXTO PERSONALIZADO) ---
         if (!selectedMember) return;
+
+        // 1. Define o corpo do texto
+        let bodyText = "";
+        
+        if (selectedDoc === 'recommendation') {
+            // Se tiver texto customizado, usa ele. Se não, usa o padrão.
+            if (customTexts.recommendation && customTexts.recommendation.trim() !== "") {
+                // Substitui {nome} ou [nome] pelo nome do membro
+                bodyText = customTexts.recommendation
+                    .replace(/{nome}/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`)
+                    .replace(/\[nome\]/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
+            } else {
+                // Padrão
+                bodyText = `Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão, não constando nada, até a presente data, que desabone sua conduta cristã.`;
+            }
+        } else {
+            // Transferência
+            if (customTexts.transfer && customTexts.transfer.trim() !== "") {
+                bodyText = customTexts.transfer
+                    .replace(/{nome}/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`)
+                    .replace(/\[nome\]/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
+            } else {
+                // Padrão
+                bodyText = `Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão. Solicitamos que o(a) mesmo(a) seja recebido(a) como membro dessa amada igreja, cessando assim suas responsabilidades conosco.`;
+            }
+        }
+
         docContent = `
           <div class="header">
             ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
@@ -186,14 +232,9 @@ export default function ServicesPage() {
           <h2 style="text-transform: uppercase; margin-top: 40px; text-decoration: underline;">${selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : 'CARTA DE TRANSFERÊNCIA'}</h2>
           
           <div class="content">
-            <p>
-              Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) 
-              <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão, 
-              não constando nada, até a presente data, que desabone sua conduta cristã.
-            </p>
-            ${selectedDoc === 'transfer' ? `<p>Solicitamos que o(a) mesmo(a) seja recebido(a) como membro dessa amada igreja, cessando assim suas responsabilidades conosco.</p>` : ''}
+            <p>${bodyText}</p>
             ${obs ? `<p><strong>Observação:</strong> ${obs}</p>` : ''}
-            <p>Sem mais para o momento, subscrevemo-nos em Cristo.</p>
+            <p style="margin-top: 20px;">Sem mais para o momento, subscrevemo-nos em Cristo.</p>
           </div>
           
           <p style="text-align: right; margin-top: 60px;">${today}</p>
@@ -209,19 +250,45 @@ export default function ServicesPage() {
             body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; color: #000; margin: 0; }
             .header { margin-bottom: 20px; padding-bottom: 10px; }
             .logo { max-width: 100px; max-height: 100px; object-fit: contain; margin: 0 auto 10px; display: block; }
-            .content { font-size: 18px; line-height: 1.6; text-align: justify; margin: 40px 0; }
-            .footer { margin-top: 60px; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px; }
-            .signature { width: 40%; min-width: 150px; font-weight: bold; position: relative; }
-            .meta { font-size: 10px; color: #999; margin-top: 40px; text-align: center; }
+            .content { font-size: 18px; line-height: 1.6; text-align: justify; margin: 40px 0; min-height: 200px; }
             
-            /* Assinatura Digital */
-            .signature-img { height: 60px; display: block; margin: 0 auto -15px auto; position: relative; z-index: 10; }
+            /* --- CORREÇÃO DO RODAPÉ (ALINHAMENTO) --- */
+            .footer { 
+                margin-top: 50px; 
+                display: flex; 
+                justify-content: space-between; /* Afasta um para cada lado */
+                align-items: flex-end; 
+                padding: 0 20px;
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .signature-block { 
+                width: 40%; /* Tamanho fixo para garantir alinhamento */
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .signature-line {
+                width: 100%;
+                border-top: 1px solid #000;
+                padding-top: 5px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            .signature-img { 
+                height: 70px; 
+                object-fit: contain; 
+                margin-bottom: -10px; /* Sobrepõe levemente a linha para ficar natural */
+                z-index: 10;
+                position: relative;
+            }
+            .meta { font-size: 10px; color: #999; margin-top: 60px; text-align: center; width: 100%; }
             
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             td, th { border: 1px solid #000; padding: 6px; font-size: 13px; text-align: left; vertical-align: top; }
             th { background: #f0f0f0; }
 
-            /* ESTILOS DO BOTÃO FLUTUANTE (SÓ NA TELA) */
             @media print {
                .no-print { display: none !important; }
                @page { margin: 2cm; size: A4; }
@@ -231,7 +298,7 @@ export default function ServicesPage() {
                position: fixed; top: 15px; left: 15px;
                background: #000; color: #fff;
                padding: 10px 20px; border-radius: 50px;
-               text-decoration: none; font-family: sans-serif; font-weight: bold;
+               font-family: sans-serif; font-weight: bold;
                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                z-index: 9999; font-size: 14px; border: none; cursor: pointer;
             }
@@ -243,21 +310,20 @@ export default function ServicesPage() {
           ${docContent}
           
           <div class="footer">
-            <div class="signature">
-                ${finalSignature ? `<img src="${finalSignature}" class="signature-img" />` : ''}
-                <div style="border-top: 1px solid #000; padding-top: 5px;">Pastor / Responsável</div>
+            <div class="signature-block">
+                ${finalSignature ? `<img src="${finalSignature}" class="signature-img" />` : '<div style="height: 60px;"></div>'}
+                <div class="signature-line">Pastor / Responsável</div>
             </div>
-            <div class="signature">
-                <div style="margin-top: 50px; border-top: 1px solid #000; padding-top: 5px;">Secretaria</div>
+
+            <div class="signature-block">
+                <div style="height: 60px;"></div> <div class="signature-line">Secretaria</div>
             </div>
           </div>
 
           <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
           
           <script>
-             setTimeout(function() {
-                window.print();
-             }, 800);
+             setTimeout(function() { window.print(); }, 800);
           </script>
         </body>
       </html>
@@ -325,7 +391,7 @@ export default function ServicesPage() {
                         </div>
                     </div>
                 ) : (
-                    // --- MODO CARTA ---
+                    // --- MODO CARTA (SELECIONAR MEMBRO) ---
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
                         <div className={`${selectedMember ? 'hidden md:block' : 'block'}`}>
                             <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Selecione o Membro</label>
