@@ -112,7 +112,6 @@ export function MemberDashboard() {
       
       const isLiked = post.likes?.includes(user.uid) || false;
       
-      // Atualização Otimista
       const updatedPosts = posts.map(p => {
           if (p.id === post.id) {
               const newLikes = isLiked 
@@ -124,7 +123,6 @@ export function MemberDashboard() {
       });
       setPosts(updatedPosts);
 
-      // Persiste no banco
       await postService.toggleLike(post.id, user.uid, isLiked);
   };
 
@@ -172,7 +170,7 @@ export function MemberDashboard() {
   return (
     <div className="min-h-screen bg-gray-100 pb-24 font-sans">
       
-      {/* 1. CABEÇALHO */}
+      {/* 1. CABEÇALHO AZUL */}
       <div className="bg-blue-600 pt-8 pb-16 px-6 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
           <div className="relative z-10">
@@ -206,6 +204,7 @@ export function MemberDashboard() {
           {/* 2. STORIES */}
           <div className="bg-white py-4 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 overflow-x-auto scrollbar-hide">
               <div className="flex gap-4 px-4 min-w-max">
+                  {/* STORY PALAVRA */}
                   <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => hasNewStory ? setActiveStory(todayDevotional!) : alert("Nenhuma palavra nova hoje.")}>
                       <div className={`w-14 h-14 rounded-full p-[2px] ${hasNewStory ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600' : 'bg-gray-200'}`}>
                           <div className="w-full h-full bg-white rounded-full p-0.5">
@@ -216,6 +215,7 @@ export function MemberDashboard() {
                       </div>
                       <span className="text-[10px] font-bold text-gray-600">{hasNewStory ? 'Nova Palavra' : 'Palavra'}</span>
                   </div>
+                  {/* STORIES ANIVERSARIANTES */}
                   {birthdays.map(m => (
                       <div key={m.id} className="flex flex-col items-center gap-1">
                           <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-green-300 to-blue-500">
@@ -280,12 +280,12 @@ export function MemberDashboard() {
                                   </div>
                               </div>
                               
-                              {/* --- AQUI ESTÁ A CORREÇÃO DA IMAGEM --- */}
+                              {/* --- IMAGEM DO POST CORRIGIDA (Proporcional e não Gigante) --- */}
                               {post.imageUrl && (
-                                  <div className="w-full bg-gray-50 border-y border-gray-100">
+                                  <div className="w-full bg-gray-100 flex justify-center items-center max-h-[500px] overflow-hidden">
                                       <img 
                                           src={getImageUrl(post.imageUrl)!} 
-                                          className="w-full h-auto object-contain" 
+                                          className="w-full h-auto max-h-[500px] object-contain" 
                                           alt="Post"
                                       />
                                   </div>
