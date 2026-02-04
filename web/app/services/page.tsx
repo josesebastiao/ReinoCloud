@@ -13,7 +13,6 @@ import {
   User, X, Building2, Loader2, ShieldCheck, CalendarRange, Plus, Trash2, Save, Clock 
 } from "lucide-react";
 
-// Tipo para as linhas da escala
 interface ScaleRow {
     date: string;
     event: string;
@@ -29,8 +28,6 @@ export default function ServicesPage() {
   
   const [members, setMembers] = useState<Member[]>([]);
   const [savedScales, setSavedScales] = useState<any[]>([]); 
-  
-  // ESTADOS PARA ARMAZENAR OS TEXTOS PERSONALIZADOS DO BANCO
   const [customTexts, setCustomTexts] = useState({ recommendation: "", transfer: "" });
 
   const [loading, setLoading] = useState(false);
@@ -49,7 +46,6 @@ export default function ServicesPage() {
       rows: [] as ScaleRow[]
   });
 
-  // VERIFICAÇÃO DE SEGURANÇA
   useEffect(() => {
     if (!authLoading) {
          if (userRole !== 'admin' && !hasPermission('secretary')) {
@@ -58,11 +54,10 @@ export default function ServicesPage() {
     }
   }, [authLoading, userRole, hasPermission, router]);
 
-  // CARREGAMENTO DE DADOS (MEMBROS E TEXTOS CONFIGURADOS)
   useEffect(() => {
     if (churchId) {
         loadMembers();
-        loadChurchCustomTexts(); // <--- IMPORTANTE: Carrega o texto da config
+        loadChurchCustomTexts();
         if(selectedDoc === 'scale') loadHistory();
     }
   }, [churchId, selectedDoc]);
@@ -76,7 +71,6 @@ export default function ServicesPage() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  // --- FUNÇÃO CRUCIAL: BUSCAR OS TEXTOS DO BANCO ---
   const loadChurchCustomTexts = async () => {
       if (!churchId) return;
       try {
@@ -84,15 +78,12 @@ export default function ServicesPage() {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
               const data = docSnap.data();
-              // Salva no estado para usar na impressão
               setCustomTexts({
                   recommendation: data.textRecommendation || "",
                   transfer: data.textTransfer || ""
               });
           }
-      } catch (e) {
-          console.error("Erro ao carregar textos:", e);
-      }
+      } catch (e) { console.error(e); }
   };
 
   const loadHistory = async () => {
@@ -149,9 +140,19 @@ export default function ServicesPage() {
       setScaleData({ ...scaleData, rows: newRows });
   };
 
+  // --- CORREÇÃO DE LINKS DO DRIVE ---
+  const getDriveDirectLink = (url: string) => {
+      if (url && url.includes('drive.google.com') && url.includes('/file/d/')) {
+          const id = url.split('/file/d/')[1].split('/')[0];
+          return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
+      }
+      return url;
+  };
+
   const toDataURL = async (url: string) => {
     try {
-        const res = await fetch(url);
+        const directUrl = getDriveDirectLink(url);
+        const res = await fetch(directUrl);
         const blob = await res.blob();
         return new Promise<string>((resolve) => {
             const reader = new FileReader();
@@ -161,14 +162,15 @@ export default function ServicesPage() {
     } catch (e) { return ""; }
   };
 
-  // --- IMPRESSÃO (AQUI ACONTECE A MÁGICA) ---
+  // --- IMPRESSÃO ---
   const handlePrint = async () => {
     setPrinting(true); 
     
-    // 1. Prepara as Imagens
+    // 1. Converte Logo
     let finalLogo = "";
     if (logoUrl) finalLogo = await toDataURL(logoUrl);
     
+    // 2. Converte Assinatura (AQUI ESTAVA O ERRO ANTES)
     let finalSignature = "";
     if (signatureUrl) finalSignature = await toDataURL(signatureUrl);
 
@@ -179,7 +181,6 @@ export default function ServicesPage() {
     const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
     if (selectedDoc === 'scale') {
-        // --- GERAR ESCALA (SEM MUDANÇAS) ---
         const rowsHtml = scaleData.rows.map(row => {
             let dateDisplay = row.date;
             try {
@@ -198,28 +199,19 @@ export default function ServicesPage() {
             <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
         `;
     } else {
-        // --- GERAR CARTA (COM LÓGICA DE TEXTO PERSONALIZADO) ---
         if (!selectedMember) return;
 
         let bodyText = "";
         
-        // LÓGICA DE SUBSTITUIÇÃO DO TEXTO
         if (selectedDoc === 'recommendation') {
             if (customTexts.recommendation && customTexts.recommendation.trim() !== "") {
-                // Se o pastor configurou texto, usamos ele e trocamos {nome} pelo nome do membro
-                bodyText = customTexts.recommendation
-                    .replace(/{nome}/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`)
-                    .replace(/\[nome\]/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
+                bodyText = customTexts.recommendation.replace(/{nome}/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`).replace(/\[nome\]/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
             } else {
-                // Texto Padrão se não houver configuração
                 bodyText = `Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão, não constando nada, até a presente data, que desabone sua conduta cristã.`;
             }
         } else {
-            // Transferência
             if (customTexts.transfer && customTexts.transfer.trim() !== "") {
-                bodyText = customTexts.transfer
-                    .replace(/{nome}/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`)
-                    .replace(/\[nome\]/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
+                bodyText = customTexts.transfer.replace(/{nome}/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`).replace(/\[nome\]/gi, `<strong>${selectedMember.fullName.toUpperCase()}</strong>`);
             } else {
                 bodyText = `Recomendamos aos amados irmãos em Cristo o portador(a) desta, o(a) irmão(ã) <strong>${selectedMember.fullName.toUpperCase()}</strong>, membro desta igreja em plena comunhão. Solicitamos que o(a) mesmo(a) seja recebido(a) como membro dessa amada igreja, cessando assim suas responsabilidades conosco.`;
             }
@@ -254,18 +246,17 @@ export default function ServicesPage() {
             .logo { max-width: 100px; max-height: 100px; object-fit: contain; margin: 0 auto 10px; display: block; }
             .content { font-size: 18px; line-height: 1.6; text-align: justify; margin: 40px 0; min-height: 200px; }
             
-            /* --- NOVO CSS PARA RODAPÉ ALINHADO --- */
             .footer { 
                 margin-top: 50px; 
                 display: flex; 
-                justify-content: space-between; /* Garante separação total esq/dir */
+                justify-content: space-between; 
                 align-items: flex-end; 
-                padding: 0 40px; /* Margem interna para não colar na borda */
+                padding: 0 40px;
                 width: 100%;
                 box-sizing: border-box;
             }
             .signature-block { 
-                width: 40%; /* Cada assinatura ocupa 40%, deixando 20% no meio */
+                width: 40%; 
                 text-align: center;
                 display: flex;
                 flex-direction: column;
@@ -284,14 +275,10 @@ export default function ServicesPage() {
                 height: 70px; 
                 object-fit: contain; 
                 display: block;
-                margin-bottom: -15px; /* Faz a assinatura "encostar" na linha */
+                margin-bottom: -15px; 
                 z-index: 10;
             }
-            /* Espaço reservado para quando não tem assinatura digital, para alinhar com a direita */
-            .signature-placeholder {
-                height: 70px;
-                width: 100%;
-            }
+            .signature-placeholder { height: 70px; width: 100%; }
 
             .meta { font-size: 10px; color: #999; margin-top: 60px; text-align: center; width: 100%; }
             
@@ -326,7 +313,8 @@ export default function ServicesPage() {
             </div>
 
             <div class="signature-block">
-                <div class="signature-placeholder"></div> <div class="signature-line">Secretaria</div>
+                <div class="signature-placeholder"></div>
+                <div class="signature-line">Secretaria</div>
             </div>
           </div>
 
@@ -401,7 +389,7 @@ export default function ServicesPage() {
                         </div>
                     </div>
                 ) : (
-                    // --- MODO CARTA (SELECIONAR MEMBRO) ---
+                    // --- MODO CARTA ---
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
                         <div className={`${selectedMember ? 'hidden md:block' : 'block'}`}>
                             <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Selecione o Membro</label>
