@@ -8,8 +8,9 @@ export interface Post {
   churchId: string;
   title: string;
   content: string;
-  type: 'notice' | 'devotional' | 'event'; // Aviso, Devocional ou Evento
+  type: 'notice' | 'devotional' | 'event';
   date: string;
+  imageUrl?: string; // <--- ADICIONE ESTA LINHA (O "?" significa opcional)
   createdAt?: any;
 }
 
@@ -22,7 +23,7 @@ export const postService = {
     });
   },
 
-  // Listar avisos da igreja (do mais recente para o antigo)
+  // Listar avisos
   listByChurch: async (churchId: string) => {
     const q = query(
         collection(db, COLLECTION), 
@@ -33,7 +34,7 @@ export const postService = {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
   },
 
-  // Excluir aviso
+  // Excluir
   delete: async (id: string) => {
     await deleteDoc(doc(db, COLLECTION, id));
   }
