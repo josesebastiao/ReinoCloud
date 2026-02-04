@@ -96,7 +96,6 @@ export function MemberDashboard() {
       window.location.href = "/login";
   };
 
-  // Função para nome seguro (Corrige o erro de split)
   const getFirstName = () => {
       if (memberData?.fullName) return memberData.fullName.split(' ')[0];
       if (userName) return userName.split(' ')[0];
@@ -105,19 +104,17 @@ export function MemberDashboard() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // Filtra os tipos de post
   const notices = posts.filter(p => p.type === 'notice' || p.type === 'event');
   const devotionals = posts.filter(p => p.type === 'devotional');
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* 1. CABEÇALHO APP (LOGO DA IGREJA + NOME DO MEMBRO) */}
+      {/* 1. CABEÇALHO APP */}
       <div className="bg-blue-600 pt-8 pb-16 px-6 rounded-b-[2.5rem] shadow-lg relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
           
           <div className="relative z-10">
-              {/* Linha Superior: Igreja e Logout */}
               <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-3">
                       {logoUrl ? (
@@ -132,7 +129,6 @@ export function MemberDashboard() {
                   </button>
               </div>
 
-              {/* Linha Inferior: Saudação ao Membro */}
               <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-full border-2 border-white/30 overflow-hidden bg-white/10 backdrop-blur-sm">
                       {memberData?.photoUrl ? (
@@ -151,20 +147,20 @@ export function MemberDashboard() {
 
       <div className="px-6 -mt-8 relative z-20 space-y-6">
           
-          {/* 2. MENU DE AÇÕES RÁPIDAS */}
+          {/* 2. MENU DE AÇÕES RÁPIDAS (ATUALIZADO AQUI) */}
           <div className="bg-white p-4 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex justify-around items-center animate-in slide-in-from-bottom-4">
               <button onClick={() => setShowCard(true)} className="flex flex-col items-center gap-2 group">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-sm">
                       <CreditCard size={24}/>
                   </div>
-                  <span className="text-[10px] font-bold text-gray-500">Carteirinha</span>
+                  <span className="text-[10px] font-bold text-gray-500">Cartão de Membro</span>
               </button>
               
               <button onClick={() => setShowFinance(true)} className="flex flex-col items-center gap-2 group">
                   <div className="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition duration-300 shadow-sm">
                       <DollarSign size={24}/>
                   </div>
-                  <span className="text-[10px] font-bold text-gray-500">Dízimos</span>
+                  <span className="text-[10px] font-bold text-gray-500">Meus Dízimos</span>
               </button>
 
               <button onClick={() => setShowPrayer(true)} className="flex flex-col items-center gap-2 group">
@@ -191,7 +187,7 @@ export function MemberDashboard() {
               </div>
           )}
 
-          {/* 4. PALAVRA PASTORAL (FEED) */}
+          {/* 4. PALAVRA PASTORAL */}
           {devotionals.length > 0 && (
               <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-3xl shadow-lg text-white relative overflow-hidden">
                   <BookOpen className="absolute -bottom-4 -right-4 text-white/10 w-32 h-32"/>
@@ -201,7 +197,7 @@ export function MemberDashboard() {
               </div>
           )}
 
-          {/* 5. MURAL DA IGREJA (FEED) */}
+          {/* 5. MURAL DA IGREJA */}
           <div>
               <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
                   <Megaphone size={18} className="text-blue-600"/> Mural da Igreja
@@ -246,7 +242,7 @@ export function MemberDashboard() {
 
       </div>
 
-      {/* --- MODAIS (CARTEIRINHA, FINANCEIRO, ORAÇÃO) --- */}
+      {/* --- MODAIS --- */}
       
       {/* 1. CARTEIRINHA DIGITAL */}
       {showCard && memberData && (
