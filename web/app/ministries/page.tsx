@@ -54,18 +54,13 @@ export default function Ministries() {
 
         setAllMembers(listaMembros);
 
-        // --- LÓGICA DE PERMISSÃO (AQUI ESTÁ A MÁGICA) ---
+        // --- LÓGICA DE PERMISSÃO ---
         const me = listaMembros.find(m => m.email === user?.email);
-
-        // REGRA 1: Quem vê TUDO? (Admin, Pastor e Secretária)
-        // Adicionamos a permissão de 'secretary' aqui para manter o fluxo que você já gosta.
         const canViewAll = userRole === 'admin' || userRole === 'pastor' || userRole === 'secretary' || hasPermission('secretary');
 
         if (canViewAll) {
-            // Vê tudo
             setMinistries(listaMin);
         } else {
-            // REGRA 2: Se não é chefe, é Líder. Vê só o seu.
             if (me) {
                 const myMinistries = listaMin.filter(m => m.leaderId === me.id);
                 setMinistries(myMinistries);
@@ -226,9 +221,9 @@ export default function Ministries() {
             {ministries.map((m, index) => (
               <div key={m.id} className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition duration-300 group relative flex flex-col">
                 
-                {/* Ações de Edição (Só Admin/Pastor) */}
+                {/* Ações de Edição (Só Admin/Pastor) - CORREÇÃO AQUI: Sempre visível no mobile, hover no desktop */}
                 {canManageStructure && (
-                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10">
                       <button onClick={() => abrirModal(m)} className="p-2 text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition"><Pencil size={16} /></button>
                       <button onClick={() => handleExcluir(m.id!)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 rounded-lg transition"><Trash2 size={16} /></button>
                     </div>
