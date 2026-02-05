@@ -47,8 +47,8 @@ export function MemberDashboard() {
   // Oração
   const [prayerText, setPrayerText] = useState("");
   const [sendingPrayer, setSendingPrayer] = useState(false);
-  const [myRequests, setMyRequests] = useState<PrayerRequest[]>([]); // Lista de pedidos do usuário
-  const [prayerTab, setPrayerTab] = useState<'new' | 'list'>('new'); // Abas do modal
+  const [myRequests, setMyRequests] = useState<PrayerRequest[]>([]); 
+  const [prayerTab, setPrayerTab] = useState<'new' | 'list'>('new');
 
   useEffect(() => {
     if (churchId && user?.email) {
@@ -203,8 +203,8 @@ export function MemberDashboard() {
         });
         alert("Seu pedido foi enviado ao Pastor! 🙏");
         setPrayerText("");
-        setPrayerTab('list'); // Vai para a lista para ver o novo pedido
-        const myReqs = await prayerService.listByUser(user.uid); // Recarrega
+        setPrayerTab('list'); 
+        const myReqs = await prayerService.listByUser(user.uid); 
         setMyRequests(myReqs);
     } catch (error) {
         alert("Erro ao enviar.");
@@ -304,24 +304,23 @@ export function MemberDashboard() {
               </div>
           </div>
 
-          {/* MENU RÁPIDO */}
+          {/* MENU RÁPIDO - NOMES AJUSTADOS AQUI */}
           <div className="grid grid-cols-4 gap-2">
               <button onClick={() => setShowCard(true)} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
                   <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><CreditCard size={16}/></div>
-                  <span className="text-[9px] font-bold text-gray-600 text-center">Cartão</span>
+                  <span className="text-[9px] font-bold text-gray-600 text-center leading-tight">Cartão de Membro</span>
               </button>
               <button onClick={() => setShowFinance(true)} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
                   <div className="w-8 h-8 bg-green-50 text-green-600 rounded-full flex items-center justify-center"><DollarSign size={16}/></div>
-                  <span className="text-[9px] font-bold text-gray-600 text-center">Dízimos</span>
+                  <span className="text-[9px] font-bold text-gray-600 text-center leading-tight">Meus Dízimos</span>
               </button>
-              {/* Chama a função de abrir com carregar lista */}
               <button onClick={handleOpenPrayer} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
                   <div className="w-8 h-8 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center"><Heart size={16}/></div>
-                  <span className="text-[9px] font-bold text-gray-600 text-center">Oração</span>
+                  <span className="text-[9px] font-bold text-gray-600 text-center leading-tight">Pedidos de Oração</span>
               </button>
               <button onClick={() => setShowAvailability(true)} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
                   <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center"><CalendarX size={16}/></div>
-                  <span className="text-[9px] font-bold text-gray-600 text-center">Indisponível</span>
+                  <span className="text-[9px] font-bold text-gray-600 text-center leading-tight">Indisponível</span>
               </button>
           </div>
 
