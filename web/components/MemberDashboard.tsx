@@ -11,8 +11,14 @@ import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
 import { 
   Megaphone, Calendar, BookOpen, User, Bell, 
-  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, MessageCircle, Image as ImageIcon, CalendarX, MessageSquare 
+  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, MessageCircle, Image as ImageIcon, CalendarX, MessageSquare, Book 
 } from "lucide-react";
+
+// Lista de Livros
+const BIBLE_BOOKS = [
+  "Gênesis", "Êxodo", "Levítico", "Números", "Deuteronômio", "Josué", "Juízes", "Rute", "1 Samuel", "2 Samuel", "1 Reis", "2 Reis", "1 Crônicas", "2 Crônicas", "Esdras", "Neemias", "Ester", "Jó", "Salmos", "Provérbios", "Eclesiastes", "Cânticos", "Isaías", "Jeremias", "Lamentações", "Ezequiel", "Daniel", "Oseias", "Joel", "Amós", "Obadias", "Jonas", "Miqueias", "Naum", "Habacuque", "Sofonias", "Ageu", "Zacarias", "Malaquias",
+  "Mateus", "Marcos", "Lucas", "João", "Atos", "Romanos", "1 Coríntios", "2 Coríntios", "Gálatas", "Efésios", "Filipenses", "Colossenses", "1 Tessalonicenses", "2 Tessalonicenses", "1 Timóteo", "2 Timóteo", "Tito", "Filemom", "Hebreus", "Tiago", "1 Pedro", "2 Pedro", "1 João", "2 João", "3 João", "Judas", "Apocalipse"
+];
 
 export function MemberDashboard() {
   const { churchId, churchName, logoUrl, user, userName, formatMoney } = useChurch();
@@ -31,6 +37,7 @@ export function MemberDashboard() {
   const [showFinance, setShowFinance] = useState(false);
   const [showPrayer, setShowPrayer] = useState(false);
   const [showAvailability, setShowAvailability] = useState(false);
+  const [showBible, setShowBible] = useState(false);
   const [activeStory, setActiveStory] = useState<Post | null>(null);
 
   // Estados Auxiliares
@@ -49,6 +56,12 @@ export function MemberDashboard() {
   const [sendingPrayer, setSendingPrayer] = useState(false);
   const [myRequests, setMyRequests] = useState<PrayerRequest[]>([]); 
   const [prayerTab, setPrayerTab] = useState<'new' | 'list'>('new');
+
+  // BÍBLIA (Com Cache Inteligente)
+  const [bibleBook, setBibleBook] = useState("João");
+  const [bibleChapter, setBibleChapter] = useState(3);
+  const [bibleText, setBibleText] = useState<any[]>([]);
+  const [loadingBible, setLoadingBible] = useState(false);
 
   useEffect(() => {
     if (churchId && user?.email) {
@@ -73,7 +86,6 @@ export function MemberDashboard() {
 
             // BUSCA ESCALAS
             const scalesFound: any[] = [];
-            
             const generalScales = await generalScaleService.listByChurch(churchId);
             generalScales.forEach((scale: any) => {
                 scale.rows.forEach((row: any) => {
@@ -213,6 +225,40 @@ export function MemberDashboard() {
     }
   };
 
+  // --- BÍBLIA (CACHE INTELIGENTE) ---
+  const handleOpenBible = () => {
+      setShowBible(true);
+      if (bibleText.length === 0) fetchBibleText();
+  };
+
+  const fetchBibleText = async () => {
+      // 1. Tenta pegar do Cache (Offline)
+      const cacheKey = `bible_${bibleBook}_${bibleChapter}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (cached) {
+          setBibleText(JSON.parse(cached));
+          return;
+      }
+
+      // 2. Se não tem, busca na API (Online)
+      setLoadingBible(true);
+      try {
+          const res = await fetch(`https://bible-api.com/${bibleBook}+${bibleChapter}?translation=almeida`);
+          const data = await res.json();
+          if (data.verses) {
+              setBibleText(data.verses);
+              // Salva no cache para a próxima vez (vira Offline)
+              localStorage.setItem(cacheKey, JSON.stringify(data.verses));
+          }
+      } catch (error) {
+          console.error("Erro ao carregar bíblia", error);
+          alert("Você está sem internet e ainda não baixou este capítulo.");
+      } finally {
+          setLoadingBible(false);
+      }
+  };
+
   // --- DISPONIBILIDADE ---
   const handleAddUnavailableDate = async () => {
       if (!unavailableDateInput || !memberData?.id) return;
@@ -304,7 +350,7 @@ export function MemberDashboard() {
               </div>
           </div>
 
-          {/* MENU RÁPIDO - NOMES AJUSTADOS AQUI */}
+          {/* MENU RÁPIDO - NOMES COMPLETOS */}
           <div className="grid grid-cols-4 gap-2">
               <button onClick={() => setShowCard(true)} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
                   <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><CreditCard size={16}/></div>
@@ -318,9 +364,17 @@ export function MemberDashboard() {
                   <div className="w-8 h-8 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center"><Heart size={16}/></div>
                   <span className="text-[9px] font-bold text-gray-600 text-center leading-tight">Pedidos de Oração</span>
               </button>
+              <button onClick={handleOpenBible} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
+                  <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center"><Book size={16}/></div>
+                  <span className="text-[9px] font-bold text-gray-600 text-center leading-tight">Bíblia Sagrada</span>
+              </button>
+          </div>
+          
+          {/* SEGUNDA LINHA (MINHA ESCALA) */}
+          <div className="grid grid-cols-4 gap-2">
               <button onClick={() => setShowAvailability(true)} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
                   <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center"><CalendarX size={16}/></div>
-                  <span className="text-[9px] font-bold text-gray-600 text-center leading-tight">Indisponível</span>
+                  <span className="text-[9px] font-bold text-gray-600 text-center leading-tight">Minha Escala</span>
               </button>
           </div>
 
@@ -399,12 +453,53 @@ export function MemberDashboard() {
       </div>
 
       {/* --- MODAIS --- */}
+      {/* BÍBLIA (CACHE INTELIGENTE) */}
+      {showBible && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white w-full max-w-lg rounded-3xl h-[80vh] flex flex-col shadow-2xl animate-in zoom-in-95">
+                  <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-indigo-50">
+                      <h2 className="text-lg font-bold text-indigo-800 flex items-center gap-2"><Book size={18}/> Bíblia Sagrada</h2>
+                      <button onClick={() => setShowBible(false)} className="bg-white p-2 rounded-full text-gray-500 hover:text-red-500 transition shadow-sm"><X size={18}/></button>
+                  </div>
+                  
+                  <div className="p-4 bg-white border-b border-gray-100 flex gap-2">
+                      <select value={bibleBook} onChange={e => {setBibleBook(e.target.value); setBibleText([])}} className="flex-1 p-2 bg-gray-50 border rounded-xl text-sm font-bold outline-none">
+                          {BIBLE_BOOKS.map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                      <input type="number" min="1" max="150" value={bibleChapter} onChange={e => {setBibleChapter(Number(e.target.value)); setBibleText([])}} className="w-16 p-2 bg-gray-50 border rounded-xl text-sm font-bold outline-none text-center"/>
+                      <button onClick={fetchBibleText} className="bg-indigo-600 text-white px-4 rounded-xl font-bold text-sm">Ler</button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-6 bg-white custom-scrollbar">
+                      {loadingBible ? (
+                          <div className="flex flex-col items-center justify-center h-full text-indigo-300">
+                              <Loader2 className="animate-spin mb-2" size={30}/> Carregando...
+                          </div>
+                      ) : bibleText.length > 0 ? (
+                          <div className="space-y-4">
+                              <h3 className="text-2xl font-serif font-bold text-gray-800 text-center mb-6">{bibleBook} {bibleChapter}</h3>
+                              {bibleText.map((v: any) => (
+                                  <p key={v.verse} className="text-gray-700 leading-relaxed font-serif text-lg">
+                                      <sup className="text-xs text-indigo-500 font-bold mr-1">{v.verse}</sup>
+                                      {v.text}
+                                  </p>
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="text-center text-gray-400 mt-20">Selecione um capítulo e clique em Ler.</div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* OUTROS MODAIS (Oração, Dízimo, etc) */}
       {/* 4. DISPONIBILIDADE */}
       {showAvailability && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in zoom-in-95">
               <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
                   <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><CalendarX className="text-orange-500"/> Minhas Indisponibilidades</h2>
+                      <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><CalendarX className="text-orange-500"/> Indisponibilidade</h2>
                       <button onClick={() => setShowAvailability(false)} className="bg-gray-100 p-2 rounded-full"><X size={18}/></button>
                   </div>
                   <p className="text-xs text-gray-500 mb-4">Marque os dias que você NÃO poderá ser escalado.</p>
@@ -425,22 +520,18 @@ export function MemberDashboard() {
           </div>
       )}
 
-      {/* 3. ORAÇÃO (COM ABAS DE HISTÓRICO) */}
+      {/* 3. ORAÇÃO */}
       {showPrayer && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 h-[500px] flex flex-col">
-                  {/* Cabeçalho do Modal */}
                   <div className="bg-purple-600 p-6 text-white text-center">
                       <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 backdrop-blur-sm"><Heart size={24}/></div>
                       <h2 className="text-xl font-bold">Pedidos de Oração</h2>
-                      
                       <div className="flex gap-2 mt-4 bg-purple-800/30 p-1 rounded-xl">
                           <button onClick={() => setPrayerTab('new')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${prayerTab === 'new' ? 'bg-white text-purple-700 shadow-sm' : 'text-purple-200 hover:text-white'}`}>Novo Pedido</button>
                           <button onClick={() => setPrayerTab('list')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${prayerTab === 'list' ? 'bg-white text-purple-700 shadow-sm' : 'text-purple-200 hover:text-white'}`}>Meus Pedidos</button>
                       </div>
                   </div>
-
-                  {/* Conteúdo */}
                   <div className="flex-1 bg-gray-50 p-6 overflow-y-auto">
                       {prayerTab === 'new' ? (
                           <div className="h-full flex flex-col">
@@ -453,29 +544,7 @@ export function MemberDashboard() {
                           </div>
                       ) : (
                           <div className="space-y-3">
-                              {myRequests.length === 0 ? (
-                                  <div className="text-center py-10 text-gray-400">
-                                      <MessageSquare size={32} className="mx-auto mb-2 opacity-20"/>
-                                      <p className="text-xs">Nenhum pedido anterior.</p>
-                                  </div>
-                              ) : (
-                                  myRequests.map(req => (
-                                      <div key={req.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                                          <div className="flex justify-between items-start mb-2">
-                                              <span className="text-[10px] text-gray-400 uppercase font-bold">{new Date(req.createdAt.seconds * 1000).toLocaleDateString()}</span>
-                                              {req.status === 'prayed' && <span className="bg-green-100 text-green-700 text-[9px] px-2 py-0.5 rounded font-bold uppercase">Orado</span>}
-                                          </div>
-                                          <p className="text-sm text-gray-700 mb-3">"{req.content}"</p>
-                                          
-                                          {req.response && (
-                                              <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
-                                                  <p className="text-[10px] text-purple-700 font-bold uppercase mb-1 flex items-center gap-1"><MessageCircle size={10}/> Resposta do Pastor</p>
-                                                  <p className="text-xs text-gray-600 italic">"{req.response}"</p>
-                                              </div>
-                                          )}
-                                      </div>
-                                  ))
-                              )}
+                              {myRequests.length === 0 ? <div className="text-center py-10 text-gray-400"><MessageSquare size={32} className="mx-auto mb-2 opacity-20"/><p className="text-xs">Nenhum pedido anterior.</p></div> : myRequests.map(req => (<div key={req.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm"><div className="flex justify-between items-start mb-2"><span className="text-[10px] text-gray-400 uppercase font-bold">{new Date(req.createdAt.seconds * 1000).toLocaleDateString()}</span>{req.status === 'prayed' && <span className="bg-green-100 text-green-700 text-[9px] px-2 py-0.5 rounded font-bold uppercase">Orado</span>}</div><p className="text-sm text-gray-700 mb-3">"{req.content}"</p>{req.response && (<div className="bg-purple-50 p-3 rounded-lg border border-purple-100"><p className="text-[10px] text-purple-700 font-bold uppercase mb-1 flex items-center gap-1"><MessageCircle size={10}/> Resposta do Pastor</p><p className="text-xs text-gray-600 italic">"{req.response}"</p></div>)}</div>))}
                           </div>
                       )}
                   </div>
@@ -483,13 +552,13 @@ export function MemberDashboard() {
           </div>
       )}
 
-      {/* 1. CARTEIRINHA DIGITAL */}
+      {/* 1. CARTEIRINHA DIGITAL (Mantido) */}
       {showCard && memberData && (<div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in"><div className="w-full max-w-sm relative"><button onClick={() => setShowCard(false)} className="absolute -top-10 right-0 text-white font-bold flex items-center gap-1 text-sm bg-white/20 px-3 py-1 rounded-full"><X size={14}/> Fechar</button><div className="bg-white rounded-2xl overflow-hidden shadow-2xl transform transition-all hover:scale-[1.02] duration-500"><div className="bg-gradient-to-br from-blue-800 to-blue-900 p-6 text-white relative h-[180px] flex flex-col justify-between"><div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div><div className="flex justify-between items-start relative z-10">{logoUrl && <img src={logoUrl} className="h-8 object-contain brightness-0 invert opacity-80" />}<div className="bg-white/20 px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest backdrop-blur-sm">Membro</div></div><div className="flex items-center gap-4 relative z-10"><div className="w-16 h-16 rounded-full border-2 border-white/50 bg-gray-300 overflow-hidden shadow-lg">{memberData.photoUrl ? <img src={memberData.photoUrl} className="w-full h-full object-cover"/> : <div className="flex items-center justify-center h-full text-xl text-gray-500">👤</div>}</div><div><h2 className="text-lg font-bold leading-tight uppercase">{memberData.fullName}</h2><p className="text-[10px] text-blue-200 mt-0.5 uppercase tracking-wide">{churchName}</p></div></div></div><div className="bg-white p-6"><div className="grid grid-cols-2 gap-4 text-xs mb-4"><div><p className="text-gray-400 font-bold uppercase text-[9px]">Membro Desde</p><p className="font-bold text-gray-800">{memberData.baptismDate ? new Date(memberData.baptismDate).toLocaleDateString() : '---'}</p></div><div><p className="text-gray-400 font-bold uppercase text-[9px]">Nascimento</p><p className="font-bold text-gray-800">{memberData.birthDate ? new Date(memberData.birthDate).toLocaleDateString() : '---'}</p></div></div><div className="pt-4 border-t border-dashed border-gray-200 text-center"><div className="h-6"></div><div className="border-t border-gray-400 w-2/3 mx-auto"></div><p className="text-[8px] font-bold text-gray-400 mt-1 uppercase">Pastor Presidente</p></div></div></div></div></div>)}
 
-      {/* 2. EXTRATO DE DÍZIMOS */}
+      {/* 2. EXTRATO DE DÍZIMOS (Mantido) */}
       {showFinance && (<div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-in slide-in-from-bottom-10"><div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl p-6 h-[80vh] flex flex-col shadow-2xl"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><DollarSign className="text-green-600"/> Meus Dízimos</h2><button onClick={() => setShowFinance(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition"><X size={20}/></button></div><div className="bg-green-50 p-6 rounded-2xl mb-4 text-center border border-green-100"><p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">Total Contribuído</p><p className="text-4xl font-black text-green-700 tracking-tight">{formatMoney(myContributions.reduce((acc, curr) => acc + Number(curr.amount), 0))}</p></div><div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">{myContributions.length === 0 ? <div className="text-center py-12 text-gray-400"><DollarSign size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Nenhuma contribuição.</p></div> : myContributions.map(t => (<div key={t.id} className="flex justify-between items-center p-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition rounded-lg"><div><p className="text-sm font-bold text-gray-700">{t.category}</p><p className="text-[10px] text-gray-400 font-medium uppercase">{new Date(t.date).toLocaleDateString('pt-BR', {weekday: 'short', day:'2-digit', month:'short'})}</p></div><span className="font-bold text-green-600 bg-green-50 px-2 py-1 rounded text-sm">{formatMoney(t.amount)}</span></div>))}</div></div></div>)}
 
-      {/* STORY MODAL */}
+      {/* STORY MODAL (Mantido) */}
       {activeStory && (<div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-300"><div className="absolute top-0 left-0 w-full h-1.5 bg-gray-800 z-50"><div className="h-full bg-white w-full animate-[width_10s_linear]"></div></div><button onClick={() => setActiveStory(null)} className="absolute top-6 right-6 text-white z-50 bg-white/20 p-2 rounded-full"><X size={24}/></button><div className="w-full max-w-md h-full bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">{activeStory.imageUrl ? <img src={getImageUrl(activeStory.imageUrl)!} className="w-full h-64 object-cover rounded-xl mb-6 shadow-2xl border-2 border-white/20"/> : <BookOpen size={48} className="mx-auto text-purple-300 mb-6 animate-bounce"/>}<h2 className="text-2xl font-bold mb-6 leading-tight">{activeStory.title}</h2><div className="overflow-y-auto max-h-[40vh] custom-scrollbar text-lg leading-relaxed opacity-90 text-justify">{activeStory.content}</div></div></div>)}
 
     </div>
