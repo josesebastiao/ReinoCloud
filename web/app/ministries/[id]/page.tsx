@@ -22,9 +22,11 @@ export default function MinistryDetails() {
   const [activeTab, setActiveTab] = useState<'members' | 'scales'>('scales');
   const [leaderName, setLeaderName] = useState("");
 
+  // Permissões
   const [isLeader, setIsLeader] = useState(false);
   const canEdit = userRole === 'admin' || isLeader;
 
+  // Modal Nova Escala
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newScale, setNewScale] = useState({ date: "", title: "", members: [] as string[] });
 
@@ -47,9 +49,11 @@ export default function MinistryDetails() {
       
       setMinistry(currentMinistry);
 
+      // Filtra equipe
       const team = allMembers.filter(m => m.ministries?.includes(ministryId));
       setTeamMembers(team);
 
+      // Identifica Líder
       if (currentMinistry.leaderId) {
           const leader = allMembers.find(m => m.id === currentMinistry.leaderId);
           setLeaderName(leader?.fullName || "Não definido");
@@ -58,6 +62,7 @@ export default function MinistryDetails() {
           }
       }
 
+      // Carrega Escalas
       const ministryScales = await scaleService.listByMinistry(ministryId);
       ministryScales.sort((a:any, b:any) => new Date(a.date).getTime() - new Date(b.date).getTime());
       setScales(ministryScales);
@@ -104,6 +109,7 @@ export default function MinistryDetails() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
       
+      {/* CABEÇALHO DA PÁGINA */}
       <div className="max-w-4xl mx-auto mb-6">
         <button onClick={() => router.back()} className="text-gray-500 hover:text-blue-600 flex items-center gap-2 mb-4 text-sm font-bold transition">
           <ArrowLeft size={18} /> Voltar para Ministérios
@@ -128,12 +134,24 @@ export default function MinistryDetails() {
           </div>
         </div>
 
+        {/* BOTÕES DE ABAS */}
         <div className="flex gap-2 mt-6 p-1 bg-gray-200/50 rounded-xl w-fit">
-          <button onClick={() => setActiveTab('scales')} className={`px-6 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'scales' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Escalas</button>
-          <button onClick={() => setActiveTab('members')} className={`px-6 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'members' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Equipe</button>
+          <button 
+            onClick={() => setActiveTab('scales')} 
+            className={`px-6 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'scales' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Escalas
+          </button>
+          <button 
+            onClick={() => setActiveTab('members')} 
+            className={`px-6 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'members' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Equipe
+          </button>
         </div>
       </div>
 
+      {/* CONTEÚDO DAS ABAS */}
       <div className="max-w-4xl mx-auto mt-6">
         
         {/* ABA: ESCALAS */}
@@ -141,6 +159,7 @@ export default function MinistryDetails() {
           <div className="animate-in fade-in slide-in-from-bottom-2">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2"><Calendar size={20}/> Agenda</h2>
+              
               {canEdit && (
                   <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200 transition">
                     <Plus size={18} /> Nova Escala
@@ -200,7 +219,7 @@ export default function MinistryDetails() {
           </div>
         )}
 
-        {/* ABA: MEMBROS */}
+        {/* ABA: MEMBROS DA EQUIPE */}
         {activeTab === 'members' && (
           <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2 shadow-sm">
              {teamMembers.map(member => (
@@ -227,7 +246,7 @@ export default function MinistryDetails() {
         )}
       </div>
 
-      {/* MODAL: NOVA ESCALA (COM VERIFICAÇÃO DE INDISPONIBILIDADE) */}
+      {/* --- MODAL: NOVA ESCALA (COM VERIFICAÇÃO DE INDISPONIBILIDADE) --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 animate-in zoom-in-95">
@@ -248,14 +267,14 @@ export default function MinistryDetails() {
                 <label className="text-xs font-bold text-gray-500 mb-2 ml-1 block uppercase">Quem vai participar?</label>
                 <div className="max-h-48 overflow-y-auto border rounded-xl p-2 space-y-1 custom-scrollbar bg-gray-50">
                   {teamMembers.map(member => {
-                    // VERIFICAÇÃO DE INDISPONIBILIDADE
+                    // --- AQUI ESTÁ A LÓGICA DE INDISPONIBILIDADE ---
                     const isUnavailable = newScale.date && member.unavailableDates?.includes(newScale.date);
 
                     return (
                       <div 
                         key={member.id} 
                         onClick={() => toggleMemberInScale(member.id!)}
-                        className={`p-3 rounded-lg flex items-center justify-between gap-3 cursor-pointer border transition ${newScale.members.includes(member.id!) ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white border-transparent hover:bg-gray-100 text-gray-600'} ${isUnavailable ? 'opacity-60 grayscale' : ''}`}
+                        className={`p-3 rounded-lg flex items-center justify-between gap-3 cursor-pointer border transition ${newScale.members.includes(member.id!) ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white border-transparent hover:bg-gray-100 text-gray-600'} ${isUnavailable ? 'opacity-60 grayscale bg-gray-100' : ''}`}
                       >
                         <div className="flex items-center gap-3">
                             <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${newScale.members.includes(member.id!) ? 'bg-white border-white' : 'bg-gray-100 border-gray-300'}`}>
@@ -264,7 +283,7 @@ export default function MinistryDetails() {
                             <span className="text-sm font-bold">{member.fullName}</span>
                         </div>
                         
-                        {/* AVISO DE INDISPONÍVEL */}
+                        {/* AVISO VISUAL DE INDISPONÍVEL */}
                         {isUnavailable && (
                             <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded flex items-center gap-1">
                                 <AlertTriangle size={10} /> Indisponível

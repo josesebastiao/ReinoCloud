@@ -8,7 +8,7 @@ import { Ministry } from "../../types/ministry";
 import { Member } from "../../types/member";
 import { 
   Users, Plus, Pencil, Trash2, Music, Heart, BookOpen, 
-  Mic2, X, Search, UserPlus, UserMinus, ShieldCheck, Star 
+  Mic2, X, Search, UserPlus, UserMinus, ShieldCheck, Star, Calendar, ArrowRight 
 } from "lucide-react";
 
 export default function Ministries() {
@@ -66,41 +66,35 @@ export default function Ministries() {
     if (!selectedMinistry) return;
     
     const currentMinistries = member.ministries || [];
+    if (currentMinistries.includes(selectedMinistry.id!)) return;
+
     const newMinistries = [...currentMinistries, selectedMinistry.id!];
 
     await memberService.update(member.id!, { ministries: newMinistries });
-    carregarDados(churchId);
+    setAllMembers(prev => prev.map(m => m.id === member.id ? { ...m, ministries: newMinistries } : m));
   };
 
   const handleRemoveMemberFromMinistry = async (member: Member) => {
     if (!selectedMinistry) return;
 
-    // Se ele era o líder, removemos a liderança também
     if (selectedMinistry.leaderId === member.id) {
         await ministryService.update(selectedMinistry.id!, { leaderId: null });
         setSelectedMinistry({...selectedMinistry, leaderId: undefined});
+        setMinistries(prev => prev.map(m => m.id === selectedMinistry.id ? { ...m, leaderId: undefined } : m));
     }
 
     const currentMinistries = member.ministries || [];
     const newMinistries = currentMinistries.filter(id => id !== selectedMinistry.id);
 
     await memberService.update(member.id!, { ministries: newMinistries });
-    carregarDados(churchId);
+    setAllMembers(prev => prev.map(m => m.id === member.id ? { ...m, ministries: newMinistries } : m));
   };
 
-  // --- NOVA FUNÇÃO: DEFINIR LÍDER ---
   const handleSetLeader = async (memberId: string) => {
       if (!selectedMinistry) return;
-      
-      // Se clicar no atual líder, remove a liderança (toggle)
       const newLeaderId = selectedMinistry.leaderId === memberId ? null : memberId;
-
       await ministryService.update(selectedMinistry.id!, { leaderId: newLeaderId });
-      
-      // Atualiza localmente para ver o efeito na hora
       setSelectedMinistry({ ...selectedMinistry, leaderId: newLeaderId || undefined });
-      
-      // Atualiza a lista geral
       setMinistries(prev => prev.map(m => m.id === selectedMinistry.id ? { ...m, leaderId: newLeaderId || undefined } : m));
   };
 
@@ -169,7 +163,7 @@ export default function Ministries() {
                 <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
                   <Users className="text-blue-300"/> Ministérios
                 </h1>
-                <p className="text-blue-100 text-lg opacity-90">Gestão de departamentos e lideranças.</p>
+                <p className="text-blue-100 text-lg opacity-90">Gestão de departamentos, equipes e escalas.</p>
             </div>
             <button onClick={() => abrirModal()} className="hidden md:flex bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl font-bold transition items-center gap-2">
                 <Plus size={20} /> Nova Equipe
@@ -188,27 +182,29 @@ export default function Ministries() {
             {ministries.map((m, index) => (
               <div key={m.id} className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition duration-300 group relative flex flex-col">
                 
-                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Ações de Edição (Canto Superior) */}
+                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                   <button onClick={() => abrirModal(m)} className="p-2 text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition"><Pencil size={16} /></button>
                   <button onClick={() => handleExcluir(m.id!)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 rounded-lg transition"><Trash2 size={16} /></button>
                 </div>
 
-                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 shadow-inner">
-                  {getRandomIcon(index)}
+                {/* Ícone e Título */}
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner shrink-0">
+                        {getRandomIcon(index)}
+                    </div>
+                    <div>
+                        <Link href={`/ministries/${m.id}`} className="hover:text-blue-600 transition cursor-pointer">
+                            <h3 className="text-xl font-bold text-gray-800 leading-tight">{m.name}</h3>
+                        </Link>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{countMembers(m.id!)} Membros</span>
+                    </div>
                 </div>
-                
-                <Link href={`/ministries/${m.id}`} className="hover:text-blue-600 transition cursor-pointer block">
-                    <h3 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
-                        {m.name}
-                        {m.leaderId && <Star size={14} className="text-yellow-500 fill-yellow-500"/>}
-                    </h3>
-                </Link>
 
                 <p className="text-sm text-gray-500 line-clamp-2 min-h-[40px] mb-4 leading-relaxed">{m.description || "Sem descrição."}</p>
                 
-                {/* Mostra quem é o líder no card */}
                 {m.leaderId && (
-                    <div className="mb-4 flex items-center gap-2 bg-yellow-50 p-2 rounded-lg border border-yellow-100">
+                    <div className="mb-6 flex items-center gap-2 bg-yellow-50 p-2 rounded-lg border border-yellow-100">
                         <Star size={12} className="text-yellow-600 fill-yellow-600"/>
                         <span className="text-xs font-bold text-yellow-700 truncate">
                             Líder: {allMembers.find(mem => mem.id === m.leaderId)?.fullName || "Desconhecido"}
@@ -216,16 +212,23 @@ export default function Ministries() {
                     </div>
                 )}
 
-                <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{countMembers(m.id!)} Membros</span>
-                  
+                {/* --- AQUI ESTÁ A CORREÇÃO: DOIS BOTÕES CLAROS --- */}
+                <div className="mt-auto pt-4 border-t border-gray-50 flex gap-2">
                   <button 
                     onClick={() => abrirGestaoEquipe(m)}
-                    className="text-xs bg-gray-50 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition font-bold flex items-center gap-1"
+                    className="flex-1 py-2.5 rounded-xl bg-gray-50 text-gray-600 font-bold text-xs hover:bg-gray-100 transition flex items-center justify-center gap-2"
                   >
-                    <Users size={14}/> Gerenciar
+                    <Users size={14}/> Equipe
                   </button>
+                  
+                  <Link 
+                    href={`/ministries/${m.id}`}
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 shadow-md shadow-blue-200 transition flex items-center justify-center gap-2"
+                  >
+                    <Calendar size={14}/> Agenda <ArrowRight size={12}/>
+                  </Link>
                 </div>
+
               </div>
             ))}
             
@@ -261,7 +264,7 @@ export default function Ministries() {
         </div>
       )}
 
-      {/* --- MODAL 2: GERENCIAR EQUIPE (COM LÍDER) --- */}
+      {/* --- MODAL 2: GERENCIAR EQUIPE --- */}
       {isTeamModalOpen && selectedMinistry && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl h-[650px] flex flex-col overflow-hidden animate-in zoom-in-95">
@@ -280,7 +283,7 @@ export default function Ministries() {
                 <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Membros Atuais ({membersInTeam.length})</h3>
                 
                 <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 mb-4 text-xs text-yellow-800">
-                    💡 Clique na <strong>Estrela</strong> para definir o Líder do Ministério.
+                    💡 Clique na <strong>Estrela</strong> para definir o Líder.
                 </div>
 
                 {membersInTeam.length === 0 && (
@@ -294,7 +297,6 @@ export default function Ministries() {
                   {membersInTeam.map(member => (
                     <div key={member.id} className={`flex justify-between items-center p-3 rounded-xl transition border ${selectedMinistry.leaderId === member.id ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-transparent hover:border-gray-200'}`}>
                       <div className="flex items-center gap-3">
-                          {/* BOTÃO ESTRELA (LÍDER) */}
                           <button 
                             onClick={() => handleSetLeader(member.id!)}
                             className={`p-1 rounded hover:bg-black/5 transition ${selectedMinistry.leaderId === member.id ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
