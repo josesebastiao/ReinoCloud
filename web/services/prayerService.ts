@@ -10,6 +10,7 @@ export interface PrayerRequest {
   userName: string;
   userPhoto?: string;
   content: string;
+  response?: string; // <--- NOVA CAMPO: Resposta do Pastor
   createdAt: any;
   status: 'pending' | 'read' | 'prayed';
 }
@@ -20,11 +21,12 @@ export const prayerService = {
     await addDoc(collection(db, COLLECTION), {
       ...data,
       status: 'pending',
+      response: "",
       createdAt: new Date()
     });
   },
 
-  // Listar pedidos da igreja
+  // Listar pedidos da igreja (Para o Pastor)
   listByChurch: async (churchId: string) => {
     try {
       const q = query(
@@ -40,12 +42,36 @@ export const prayerService = {
     }
   },
 
+  // Listar pedidos do usuário (Para o Membro ver o histórico) - NOVO
+  listByUser: async (userId: string) => {
+    try {
+      const q = query(
+          collection(db, COLLECTION), 
+          where("userId", "==", userId),
+          orderBy("createdAt", "desc")
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PrayerRequest));
+    } catch (error) {
+      console.error("Erro ao buscar histórico:", error);
+      return [];
+    }
+  },
+
+  // Responder ao pedido - NOVO
+  respond: async (id: string, response: string) => {
+    await updateDoc(doc(db, COLLECTION, id), { 
+        response,
+        status: 'read' // Marca como lido automaticamente ao responder
+    });
+  },
+
   // Marcar como orado
   updateStatus: async (id: string, status: 'read' | 'prayed') => {
     await updateDoc(doc(db, COLLECTION, id), { status });
   },
 
-  // Excluir
+  // Excluir pedido
   delete: async (id: string) => {
     await deleteDoc(doc(db, COLLECTION, id));
   }

@@ -6,12 +6,12 @@ import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { generalScaleService } from "../services/generalScaleService";
 import { ministryService } from "../services/ministryService";
-import { prayerService } from "../services/prayerService";
+import { prayerService, PrayerRequest } from "../services/prayerService";
 import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
 import { 
   Megaphone, Calendar, BookOpen, User, Bell, 
-  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, MessageCircle, Image as ImageIcon, CalendarX 
+  CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, MessageCircle, Image as ImageIcon, CalendarX, MessageSquare 
 } from "lucide-react";
 
 export function MemberDashboard() {
@@ -47,6 +47,8 @@ export function MemberDashboard() {
   // Oração
   const [prayerText, setPrayerText] = useState("");
   const [sendingPrayer, setSendingPrayer] = useState(false);
+  const [myRequests, setMyRequests] = useState<PrayerRequest[]>([]); // Lista de pedidos do usuário
+  const [prayerTab, setPrayerTab] = useState<'new' | 'list'>('new'); // Abas do modal
 
   useEffect(() => {
     if (churchId && user?.email) {
@@ -58,75 +60,54 @@ export function MemberDashboard() {
     if (!churchId) return;
     setLoading(true);
     try {
-        // 1. Identificar o Membro Logado
         const allMembers = await memberService.listByChurch(churchId);
         const me = allMembers.find(m => m.email === user?.email);
         
         if (me) {
             setMemberData(me);
-            
-            // 2. Minhas Contribuições
             if (me.id) {
                 const allTrans = await financeService.listByChurch(churchId);
                 const mine = allTrans.filter(t => t.memberId === me.id && t.type === 'income');
                 setMyContributions(mine);
             }
 
-            // 3. BUSCA DE ESCALAS (Geral + Ministérios)
+            // BUSCA ESCALAS
             const scalesFound: any[] = [];
             
-            // A) Escala Geral (Cultos Principais)
             const generalScales = await generalScaleService.listByChurch(churchId);
             generalScales.forEach((scale: any) => {
                 scale.rows.forEach((row: any) => {
-                    // Verifica se o nome do membro está em alguma função
                     if (row.leader.includes(me.fullName) || row.preacher.includes(me.fullName) || row.music.includes(me.fullName)) {
-                        let role = "";
-                        if (row.leader.includes(me.fullName)) role = "Dirigente";
-                        if (row.preacher.includes(me.fullName)) role = "Pregador";
-                        if (row.music.includes(me.fullName)) role = "Louvor";
-
                         scalesFound.push({
                             date: row.date,
                             event: row.event,
-                            obs: role
+                            obs: `${row.leader === me.fullName ? 'Dirigente' : ''} ${row.preacher === me.fullName ? 'Pregador' : ''} ${row.music === me.fullName ? 'Louvor' : ''}`.trim()
                         });
                     }
                 });
             });
 
-            // B) Escalas de Ministérios (Louvor, Infantil, etc) - CORREÇÃO AQUI
             const ministries = await ministryService.listByChurch(churchId);
             ministries.forEach((min: any) => {
-                if (min.scales && Array.isArray(min.scales)) {
+                if (min.scales) {
                     min.scales.forEach((scale: any) => {
-                        if (scale.people) {
-                            const participants = Object.values(scale.people);
-                            // Procura por ID ou por Nome Completo
-                            const isParticipating = participants.includes(me.id) || participants.includes(me.fullName);
-
-                            if (isParticipating) {
-                                 // Tenta achar o nome da função (chave do objeto)
-                                 const roleEntry = Object.entries(scale.people).find(([key, val]) => val === me.id || val === me.fullName);
-                                 const role = roleEntry ? roleEntry[0] : "Escalado";
-
-                                 scalesFound.push({
-                                     date: scale.date,
-                                     event: min.name, // Nome do Ministério (ex: Louvor)
-                                     obs: `${scale.title || 'Escala'} • ${role}`
-                                 });
-                            }
+                        const memberInScale = Object.values(scale.people || {}).some((personName: any) => personName === me.fullName);
+                        if (memberInScale) {
+                             const role = Object.entries(scale.people).find(([key, val]) => val === me.fullName)?.[0] || "Escalado";
+                             scalesFound.push({
+                                 date: scale.date,
+                                 event: min.name,
+                                 obs: `${scale.title} - ${role}`
+                             });
                         }
                     });
                 }
             });
 
-            // Ordena e filtra escalas futuras
             scalesFound.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            setMyScales(scalesFound.filter(s => new Date(s.date + "T23:59:59") >= new Date()));
+            setMyScales(scalesFound.filter(s => new Date(s.date) >= new Date()));
         }
 
-        // 4. Feed e Aniversariantes
         const allPosts = await postService.listByChurch(churchId);
         setPosts(allPosts);
 
@@ -199,6 +180,14 @@ export function MemberDashboard() {
   const toggleText = (postId: string) => setExpandedTexts(prev => ({ ...prev, [postId]: !prev[postId] }));
 
   // --- ORAÇÃO ---
+  const handleOpenPrayer = async () => {
+      setShowPrayer(true);
+      if (user?.uid) {
+          const myReqs = await prayerService.listByUser(user.uid);
+          setMyRequests(myReqs);
+      }
+  };
+
   const handleSendPrayer = async () => {
     if (!prayerText.trim() || !user?.uid || !churchId) return;
     setSendingPrayer(true);
@@ -214,7 +203,9 @@ export function MemberDashboard() {
         });
         alert("Seu pedido foi enviado ao Pastor! 🙏");
         setPrayerText("");
-        setShowPrayer(false);
+        setPrayerTab('list'); // Vai para a lista para ver o novo pedido
+        const myReqs = await prayerService.listByUser(user.uid); // Recarrega
+        setMyRequests(myReqs);
     } catch (error) {
         alert("Erro ao enviar.");
     } finally {
@@ -253,7 +244,6 @@ export function MemberDashboard() {
   const todayDevotional = posts.find(p => p.type === 'devotional' && p.date === todayStr);
   const hasNewStory = !!todayDevotional;
   
-  // Filtro de Feed (Regra 24h)
   const feed = posts.filter(p => {
       const pDate = new Date(p.date + 'T00:00:00');
       const today = new Date(); today.setHours(0,0,0,0);
@@ -301,21 +291,13 @@ export function MemberDashboard() {
               <div className="flex gap-4 px-4 min-w-max">
                   <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => hasNewStory ? setActiveStory(todayDevotional!) : alert("Nenhuma palavra nova hoje.")}>
                       <div className={`w-14 h-14 rounded-full p-[2px] ${hasNewStory ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600' : 'bg-gray-200'}`}>
-                          <div className="w-full h-full bg-white rounded-full p-0.5">
-                              <div className="w-full h-full bg-gray-50 rounded-full flex items-center justify-center overflow-hidden">
-                                  <BookOpen size={20} className={hasNewStory ? "text-purple-600" : "text-gray-400"}/>
-                              </div>
-                          </div>
+                          <div className="w-full h-full bg-white rounded-full p-0.5"><div className="w-full h-full bg-gray-50 rounded-full flex items-center justify-center overflow-hidden"><BookOpen size={20} className={hasNewStory ? "text-purple-600" : "text-gray-400"}/></div></div>
                       </div>
                       <span className="text-[10px] font-bold text-gray-600">{hasNewStory ? 'Nova Palavra' : 'Palavra'}</span>
                   </div>
                   {birthdays.map(m => (
                       <div key={m.id} className="flex flex-col items-center gap-1">
-                          <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-green-300 to-blue-500">
-                              <div className="w-full h-full bg-white rounded-full p-0.5">
-                                  <img src={m.photoUrl || "https://ui-avatars.com/api/?name="+m.fullName} className="w-full h-full rounded-full object-cover"/>
-                              </div>
-                          </div>
+                          <div className="w-14 h-14 rounded-full p-[2px] bg-gradient-to-tr from-green-300 to-blue-500"><div className="w-full h-full bg-white rounded-full p-0.5"><img src={m.photoUrl || "https://ui-avatars.com/api/?name="+m.fullName} className="w-full h-full rounded-full object-cover"/></div></div>
                           <span className="text-[10px] font-medium text-gray-600 truncate w-14 text-center">{m.fullName.split(' ')[0]}</span>
                       </div>
                   ))}
@@ -332,7 +314,8 @@ export function MemberDashboard() {
                   <div className="w-8 h-8 bg-green-50 text-green-600 rounded-full flex items-center justify-center"><DollarSign size={16}/></div>
                   <span className="text-[9px] font-bold text-gray-600 text-center">Dízimos</span>
               </button>
-              <button onClick={() => setShowPrayer(true)} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
+              {/* Chama a função de abrir com carregar lista */}
+              <button onClick={handleOpenPrayer} className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-1 active:scale-95 transition">
                   <div className="w-8 h-8 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center"><Heart size={16}/></div>
                   <span className="text-[9px] font-bold text-gray-600 text-center">Oração</span>
               </button>
@@ -342,8 +325,8 @@ export function MemberDashboard() {
               </button>
           </div>
 
-          {/* ALERTA DE ESCALA (CORRIGIDO PARA MOSTRAR TODAS) */}
-          {myScales.map((scale: any, idx: number) => (
+          {/* ALERTA DE ESCALA */}
+          {myScales.length > 0 && myScales.map((scale: any, idx: number) => (
               <div key={idx} className="bg-gradient-to-r from-orange-500 to-pink-500 rounded-3xl p-5 text-white shadow-lg flex items-center justify-between relative overflow-hidden animate-in slide-in-from-bottom-2">
                   <div className="absolute -right-6 -top-6 w-24 h-24 bg-white opacity-10 rounded-full"></div>
                   <div>
@@ -416,17 +399,8 @@ export function MemberDashboard() {
           </div>
       </div>
 
-      {/* --- MODAIS (Carteirinha, Dízimos, etc...) --- */}
-      {/* 1. CARTEIRINHA DIGITAL */}
-      {showCard && memberData && (<div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in"><div className="w-full max-w-sm relative"><button onClick={() => setShowCard(false)} className="absolute -top-10 right-0 text-white font-bold flex items-center gap-1 text-sm bg-white/20 px-3 py-1 rounded-full"><X size={14}/> Fechar</button><div className="bg-white rounded-2xl overflow-hidden shadow-2xl transform transition-all hover:scale-[1.02] duration-500"><div className="bg-gradient-to-br from-blue-800 to-blue-900 p-6 text-white relative h-[180px] flex flex-col justify-between"><div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div><div className="flex justify-between items-start relative z-10">{logoUrl && <img src={logoUrl} className="h-8 object-contain brightness-0 invert opacity-80" />}<div className="bg-white/20 px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest backdrop-blur-sm">Membro</div></div><div className="flex items-center gap-4 relative z-10"><div className="w-16 h-16 rounded-full border-2 border-white/50 bg-gray-300 overflow-hidden shadow-lg">{memberData.photoUrl ? <img src={memberData.photoUrl} className="w-full h-full object-cover"/> : <div className="flex items-center justify-center h-full text-xl text-gray-500">👤</div>}</div><div><h2 className="text-lg font-bold leading-tight uppercase">{memberData.fullName}</h2><p className="text-[10px] text-blue-200 mt-0.5 uppercase tracking-wide">{churchName}</p></div></div></div><div className="bg-white p-6"><div className="grid grid-cols-2 gap-4 text-xs mb-4"><div><p className="text-gray-400 font-bold uppercase text-[9px]">Membro Desde</p><p className="font-bold text-gray-800">{memberData.baptismDate ? new Date(memberData.baptismDate).toLocaleDateString() : '---'}</p></div><div><p className="text-gray-400 font-bold uppercase text-[9px]">Nascimento</p><p className="font-bold text-gray-800">{memberData.birthDate ? new Date(memberData.birthDate).toLocaleDateString() : '---'}</p></div></div><div className="pt-4 border-t border-dashed border-gray-200 text-center"><div className="h-6"></div><div className="border-t border-gray-400 w-2/3 mx-auto"></div><p className="text-[8px] font-bold text-gray-400 mt-1 uppercase">Pastor Presidente</p></div></div></div></div></div>)}
-
-      {/* 2. EXTRATO DE DÍZIMOS */}
-      {showFinance && (<div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-in slide-in-from-bottom-10"><div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl p-6 h-[80vh] flex flex-col shadow-2xl"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><DollarSign className="text-green-600"/> Meus Dízimos</h2><button onClick={() => setShowFinance(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition"><X size={20}/></button></div><div className="bg-green-50 p-6 rounded-2xl mb-4 text-center border border-green-100"><p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">Total Contribuído</p><p className="text-4xl font-black text-green-700 tracking-tight">{formatMoney(myContributions.reduce((acc, curr) => acc + Number(curr.amount), 0))}</p></div><div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">{myContributions.length === 0 ? <div className="text-center py-12 text-gray-400"><DollarSign size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Nenhuma contribuição.</p></div> : myContributions.map(t => (<div key={t.id} className="flex justify-between items-center p-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition rounded-lg"><div><p className="text-sm font-bold text-gray-700">{t.category}</p><p className="text-[10px] text-gray-400 font-medium uppercase">{new Date(t.date).toLocaleDateString('pt-BR', {weekday: 'short', day:'2-digit', month:'short'})}</p></div><span className="font-bold text-green-600 bg-green-50 px-2 py-1 rounded text-sm">{formatMoney(t.amount)}</span></div>))}</div></div></div>)}
-
-      {/* 3. PEDIDO DE ORAÇÃO */}
-      {showPrayer && (<div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm"><div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in-95"><div className="text-center mb-6"><div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-3 border-4 border-purple-100 animate-pulse"><Heart size={32}/></div><h2 className="text-xl font-bold text-gray-800">Pedido de Oração</h2><p className="text-xs text-gray-500 mt-1">Seu pedido será enviado confidencialmente.</p></div><textarea value={prayerText} onChange={(e) => setPrayerText(e.target.value)} className="w-full p-4 border border-gray-200 rounded-xl bg-gray-50 text-sm h-32 focus:ring-2 ring-purple-100 outline-none resize-none mb-4" placeholder="Escreva aqui seu pedido..."></textarea><div className="flex gap-3"><button onClick={() => setShowPrayer(false)} className="flex-1 py-3 text-gray-500 font-bold text-sm bg-gray-100 rounded-xl hover:bg-gray-200 transition">Cancelar</button><button onClick={handleSendPrayer} disabled={sendingPrayer || !prayerText.trim()} className="flex-1 py-3 text-white font-bold text-sm bg-purple-600 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 transition flex justify-center items-center gap-2">{sendingPrayer ? <Loader2 className="animate-spin" size={16}/> : <Send size={16}/>} Enviar</button></div></div></div>)}
-
-      {/* 4. DISPONIBILIDADE (NOVO) */}
+      {/* --- MODAIS --- */}
+      {/* 4. DISPONIBILIDADE */}
       {showAvailability && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in zoom-in-95">
               <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl">
@@ -451,6 +425,70 @@ export function MemberDashboard() {
               </div>
           </div>
       )}
+
+      {/* 3. ORAÇÃO (COM ABAS DE HISTÓRICO) */}
+      {showPrayer && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 h-[500px] flex flex-col">
+                  {/* Cabeçalho do Modal */}
+                  <div className="bg-purple-600 p-6 text-white text-center">
+                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 backdrop-blur-sm"><Heart size={24}/></div>
+                      <h2 className="text-xl font-bold">Pedidos de Oração</h2>
+                      
+                      <div className="flex gap-2 mt-4 bg-purple-800/30 p-1 rounded-xl">
+                          <button onClick={() => setPrayerTab('new')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${prayerTab === 'new' ? 'bg-white text-purple-700 shadow-sm' : 'text-purple-200 hover:text-white'}`}>Novo Pedido</button>
+                          <button onClick={() => setPrayerTab('list')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${prayerTab === 'list' ? 'bg-white text-purple-700 shadow-sm' : 'text-purple-200 hover:text-white'}`}>Meus Pedidos</button>
+                      </div>
+                  </div>
+
+                  {/* Conteúdo */}
+                  <div className="flex-1 bg-gray-50 p-6 overflow-y-auto">
+                      {prayerTab === 'new' ? (
+                          <div className="h-full flex flex-col">
+                              <p className="text-xs text-gray-500 mb-2 text-center">Seu pedido será enviado confidencialmente ao Pastor.</p>
+                              <textarea value={prayerText} onChange={(e) => setPrayerText(e.target.value)} className="flex-1 w-full p-4 border border-gray-200 rounded-xl bg-white text-sm focus:ring-2 ring-purple-100 outline-none resize-none mb-4" placeholder="Escreva aqui seu pedido..."></textarea>
+                              <div className="flex gap-3">
+                                  <button onClick={() => setShowPrayer(false)} className="flex-1 py-3 text-gray-500 font-bold text-sm bg-gray-200 rounded-xl hover:bg-gray-300 transition">Cancelar</button>
+                                  <button onClick={handleSendPrayer} disabled={sendingPrayer || !prayerText.trim()} className="flex-1 py-3 text-white font-bold text-sm bg-purple-600 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 transition flex justify-center items-center gap-2">{sendingPrayer ? <Loader2 className="animate-spin" size={16}/> : <Send size={16}/>} Enviar</button>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="space-y-3">
+                              {myRequests.length === 0 ? (
+                                  <div className="text-center py-10 text-gray-400">
+                                      <MessageSquare size={32} className="mx-auto mb-2 opacity-20"/>
+                                      <p className="text-xs">Nenhum pedido anterior.</p>
+                                  </div>
+                              ) : (
+                                  myRequests.map(req => (
+                                      <div key={req.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                                          <div className="flex justify-between items-start mb-2">
+                                              <span className="text-[10px] text-gray-400 uppercase font-bold">{new Date(req.createdAt.seconds * 1000).toLocaleDateString()}</span>
+                                              {req.status === 'prayed' && <span className="bg-green-100 text-green-700 text-[9px] px-2 py-0.5 rounded font-bold uppercase">Orado</span>}
+                                          </div>
+                                          <p className="text-sm text-gray-700 mb-3">"{req.content}"</p>
+                                          
+                                          {req.response && (
+                                              <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                                                  <p className="text-[10px] text-purple-700 font-bold uppercase mb-1 flex items-center gap-1"><MessageCircle size={10}/> Resposta do Pastor</p>
+                                                  <p className="text-xs text-gray-600 italic">"{req.response}"</p>
+                                              </div>
+                                          )}
+                                      </div>
+                                  ))
+                              )}
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* 1. CARTEIRINHA DIGITAL */}
+      {showCard && memberData && (<div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in"><div className="w-full max-w-sm relative"><button onClick={() => setShowCard(false)} className="absolute -top-10 right-0 text-white font-bold flex items-center gap-1 text-sm bg-white/20 px-3 py-1 rounded-full"><X size={14}/> Fechar</button><div className="bg-white rounded-2xl overflow-hidden shadow-2xl transform transition-all hover:scale-[1.02] duration-500"><div className="bg-gradient-to-br from-blue-800 to-blue-900 p-6 text-white relative h-[180px] flex flex-col justify-between"><div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div><div className="flex justify-between items-start relative z-10">{logoUrl && <img src={logoUrl} className="h-8 object-contain brightness-0 invert opacity-80" />}<div className="bg-white/20 px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest backdrop-blur-sm">Membro</div></div><div className="flex items-center gap-4 relative z-10"><div className="w-16 h-16 rounded-full border-2 border-white/50 bg-gray-300 overflow-hidden shadow-lg">{memberData.photoUrl ? <img src={memberData.photoUrl} className="w-full h-full object-cover"/> : <div className="flex items-center justify-center h-full text-xl text-gray-500">👤</div>}</div><div><h2 className="text-lg font-bold leading-tight uppercase">{memberData.fullName}</h2><p className="text-[10px] text-blue-200 mt-0.5 uppercase tracking-wide">{churchName}</p></div></div></div><div className="bg-white p-6"><div className="grid grid-cols-2 gap-4 text-xs mb-4"><div><p className="text-gray-400 font-bold uppercase text-[9px]">Membro Desde</p><p className="font-bold text-gray-800">{memberData.baptismDate ? new Date(memberData.baptismDate).toLocaleDateString() : '---'}</p></div><div><p className="text-gray-400 font-bold uppercase text-[9px]">Nascimento</p><p className="font-bold text-gray-800">{memberData.birthDate ? new Date(memberData.birthDate).toLocaleDateString() : '---'}</p></div></div><div className="pt-4 border-t border-dashed border-gray-200 text-center"><div className="h-6"></div><div className="border-t border-gray-400 w-2/3 mx-auto"></div><p className="text-[8px] font-bold text-gray-400 mt-1 uppercase">Pastor Presidente</p></div></div></div></div></div>)}
+
+      {/* 2. EXTRATO DE DÍZIMOS */}
+      {showFinance && (<div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm animate-in slide-in-from-bottom-10"><div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl p-6 h-[80vh] flex flex-col shadow-2xl"><div className="flex justify-between items-center mb-6"><h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><DollarSign className="text-green-600"/> Meus Dízimos</h2><button onClick={() => setShowFinance(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 transition"><X size={20}/></button></div><div className="bg-green-50 p-6 rounded-2xl mb-4 text-center border border-green-100"><p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">Total Contribuído</p><p className="text-4xl font-black text-green-700 tracking-tight">{formatMoney(myContributions.reduce((acc, curr) => acc + Number(curr.amount), 0))}</p></div><div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">{myContributions.length === 0 ? <div className="text-center py-12 text-gray-400"><DollarSign size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Nenhuma contribuição.</p></div> : myContributions.map(t => (<div key={t.id} className="flex justify-between items-center p-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition rounded-lg"><div><p className="text-sm font-bold text-gray-700">{t.category}</p><p className="text-[10px] text-gray-400 font-medium uppercase">{new Date(t.date).toLocaleDateString('pt-BR', {weekday: 'short', day:'2-digit', month:'short'})}</p></div><span className="font-bold text-green-600 bg-green-50 px-2 py-1 rounded text-sm">{formatMoney(t.amount)}</span></div>))}</div></div></div>)}
 
       {/* STORY MODAL */}
       {activeStory && (<div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-in fade-in duration-300"><div className="absolute top-0 left-0 w-full h-1.5 bg-gray-800 z-50"><div className="h-full bg-white w-full animate-[width_10s_linear]"></div></div><button onClick={() => setActiveStory(null)} className="absolute top-6 right-6 text-white z-50 bg-white/20 p-2 rounded-full"><X size={24}/></button><div className="w-full max-w-md h-full bg-gradient-to-b from-purple-900 to-black md:rounded-2xl relative flex flex-col p-8 text-center justify-center text-white">{activeStory.imageUrl ? <img src={getImageUrl(activeStory.imageUrl)!} className="w-full h-64 object-cover rounded-xl mb-6 shadow-2xl border-2 border-white/20"/> : <BookOpen size={48} className="mx-auto text-purple-300 mb-6 animate-bounce"/>}<h2 className="text-2xl font-bold mb-6 leading-tight">{activeStory.title}</h2><div className="overflow-y-auto max-h-[40vh] custom-scrollbar text-lg leading-relaxed opacity-90 text-justify">{activeStory.content}</div></div></div>)}
