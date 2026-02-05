@@ -4,16 +4,16 @@ import { useParams, useRouter } from "next/navigation";
 import { ministryService } from "../../../services/ministryService"; 
 import { scaleService } from "../../../services/scaleService";
 import { memberService } from "../../../services/memberService";
-import { useChurch } from "../../../contexts/ChurchContext"; // <--- Importamos o Contexto
+import { useChurch } from "../../../contexts/ChurchContext";
 import { Ministry } from "../../../types/ministry";
 import { Scale } from "../../../types/scale";
 import { Member } from "../../../types/member";
-import { Calendar, User, ArrowLeft, Plus, Trash2, CheckCircle, Crown, ShieldAlert } from "lucide-react";
+import { Calendar, User, ArrowLeft, Plus, Trash2, Crown, AlertTriangle } from "lucide-react";
 
 export default function MinistryDetails() {
   const params = useParams();
   const router = useRouter();
-  const { user, userRole } = useChurch(); // Pegamos o usuário logado
+  const { user, userRole } = useChurch();
   const ministryId = params.id as string;
 
   const [ministry, setMinistry] = useState<Ministry | null>(null);
@@ -22,11 +22,9 @@ export default function MinistryDetails() {
   const [activeTab, setActiveTab] = useState<'members' | 'scales'>('scales');
   const [leaderName, setLeaderName] = useState("");
 
-  // Permissões Locais
   const [isLeader, setIsLeader] = useState(false);
   const canEdit = userRole === 'admin' || isLeader;
 
-  // Modal de Nova Escala
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newScale, setNewScale] = useState({ date: "", title: "", members: [] as string[] });
 
@@ -39,7 +37,6 @@ export default function MinistryDetails() {
       const churchId = localStorage.getItem("churchId");
       if(!churchId) return;
 
-      // 1. Dados do Ministério e Membros
       const [allMinistries, allMembers] = await Promise.all([
           ministryService.listByChurch(churchId),
           memberService.listByChurch(churchId)
@@ -50,25 +47,18 @@ export default function MinistryDetails() {
       
       setMinistry(currentMinistry);
 
-      // 2. Filtra a Equipe
       const team = allMembers.filter(m => m.ministries?.includes(ministryId));
       setTeamMembers(team);
 
-      // 3. Identifica o Líder
       if (currentMinistry.leaderId) {
           const leader = allMembers.find(m => m.id === currentMinistry.leaderId);
           setLeaderName(leader?.fullName || "Não definido");
-
-          // Verifica se EU SOU o líder (comparando email, pois o ID do Auth pode variar do ID do membro em alguns casos, mas email é único)
-          // O ideal é comparar IDs se estiverem sincronizados, mas por segurança vamos checar o ID do membro logado
           if (user?.email && leader?.email === user.email) {
               setIsLeader(true);
           }
       }
 
-      // 4. Escalas
       const ministryScales = await scaleService.listByMinistry(ministryId);
-      // Ordenar por data (mais recente primeiro)
       ministryScales.sort((a:any, b:any) => new Date(a.date).getTime() - new Date(b.date).getTime());
       setScales(ministryScales);
 
@@ -113,7 +103,7 @@ export default function MinistryDetails() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
-      {/* Cabeçalho */}
+      
       <div className="max-w-4xl mx-auto mb-6">
         <button onClick={() => router.back()} className="text-gray-500 hover:text-blue-600 flex items-center gap-2 mb-4 text-sm font-bold transition">
           <ArrowLeft size={18} /> Voltar para Ministérios
@@ -124,7 +114,6 @@ export default function MinistryDetails() {
             <h1 className="text-3xl font-bold text-gray-800 mb-1">{ministry.name}</h1>
             <p className="text-gray-500 text-sm mb-3">{ministry.description || "Gestão de equipe e escalas"}</p>
             
-            {/* Badge do Líder */}
             <div className="inline-flex items-center gap-2 bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-yellow-100">
                 <Crown size={14} className="fill-yellow-500 text-yellow-600"/>
                 Líder: {leaderName}
@@ -139,24 +128,12 @@ export default function MinistryDetails() {
           </div>
         </div>
 
-        {/* Abas */}
         <div className="flex gap-2 mt-6 p-1 bg-gray-200/50 rounded-xl w-fit">
-          <button 
-            onClick={() => setActiveTab('scales')}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'scales' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Escalas
-          </button>
-          <button 
-            onClick={() => setActiveTab('members')}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'members' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-          >
-            Equipe
-          </button>
+          <button onClick={() => setActiveTab('scales')} className={`px-6 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'scales' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Escalas</button>
+          <button onClick={() => setActiveTab('members')} className={`px-6 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'members' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Equipe</button>
         </div>
       </div>
 
-      {/* Conteúdo das Abas */}
       <div className="max-w-4xl mx-auto mt-6">
         
         {/* ABA: ESCALAS */}
@@ -164,8 +141,6 @@ export default function MinistryDetails() {
           <div className="animate-in fade-in slide-in-from-bottom-2">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2"><Calendar size={20}/> Agenda</h2>
-              
-              {/* SÓ MOSTRA O BOTÃO SE FOR ADMIN OU LÍDER */}
               {canEdit && (
                   <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-blue-700 shadow-lg shadow-blue-200 transition">
                     <Plus size={18} /> Nova Escala
@@ -212,7 +187,6 @@ export default function MinistryDetails() {
                         </div>
                       </div>
                       
-                      {/* Botão de Excluir (Só para Admin/Líder) */}
                       {canEdit && (
                           <button onClick={() => handleDeleteScale(scale.id!)} className="text-gray-300 hover:text-red-500 self-start p-2 hover:bg-red-50 rounded-lg transition">
                             <Trash2 size={20} />
@@ -253,7 +227,7 @@ export default function MinistryDetails() {
         )}
       </div>
 
-      {/* MODAL: NOVA ESCALA */}
+      {/* MODAL: NOVA ESCALA (COM VERIFICAÇÃO DE INDISPONIBILIDADE) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 animate-in zoom-in-95">
@@ -273,18 +247,32 @@ export default function MinistryDetails() {
               <div>
                 <label className="text-xs font-bold text-gray-500 mb-2 ml-1 block uppercase">Quem vai participar?</label>
                 <div className="max-h-48 overflow-y-auto border rounded-xl p-2 space-y-1 custom-scrollbar bg-gray-50">
-                  {teamMembers.map(member => (
-                    <div 
-                      key={member.id} 
-                      onClick={() => toggleMemberInScale(member.id!)}
-                      className={`p-3 rounded-lg flex items-center gap-3 cursor-pointer border transition ${newScale.members.includes(member.id!) ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white border-transparent hover:bg-gray-100 text-gray-600'}`}
-                    >
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center ${newScale.members.includes(member.id!) ? 'bg-white border-white' : 'bg-gray-100 border-gray-300'}`}>
-                        {newScale.members.includes(member.id!) && <div className="w-3 h-3 bg-blue-600 rounded-sm" />}
+                  {teamMembers.map(member => {
+                    // VERIFICAÇÃO DE INDISPONIBILIDADE
+                    const isUnavailable = newScale.date && member.unavailableDates?.includes(newScale.date);
+
+                    return (
+                      <div 
+                        key={member.id} 
+                        onClick={() => toggleMemberInScale(member.id!)}
+                        className={`p-3 rounded-lg flex items-center justify-between gap-3 cursor-pointer border transition ${newScale.members.includes(member.id!) ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white border-transparent hover:bg-gray-100 text-gray-600'} ${isUnavailable ? 'opacity-60 grayscale' : ''}`}
+                      >
+                        <div className="flex items-center gap-3">
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${newScale.members.includes(member.id!) ? 'bg-white border-white' : 'bg-gray-100 border-gray-300'}`}>
+                              {newScale.members.includes(member.id!) && <div className="w-3 h-3 bg-blue-600 rounded-sm" />}
+                            </div>
+                            <span className="text-sm font-bold">{member.fullName}</span>
+                        </div>
+                        
+                        {/* AVISO DE INDISPONÍVEL */}
+                        {isUnavailable && (
+                            <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded flex items-center gap-1">
+                                <AlertTriangle size={10} /> Indisponível
+                            </span>
+                        )}
                       </div>
-                      <span className="text-sm font-bold">{member.fullName}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {teamMembers.length === 0 && <p className="text-xs text-red-500 text-center py-4">Adicione membros à equipe primeiro.</p>}
                 </div>
               </div>
