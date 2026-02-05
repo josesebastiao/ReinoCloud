@@ -4,7 +4,7 @@ import {
   doc, getDoc, addDoc, updateDoc, deleteDoc 
 } from "firebase/firestore";
 
-// AQUI ESTÁ A MÁGICA: Importamos o Member do arquivo que você acabou de corrigir
+// Importamos a interface centralizada. NÃO a redefinimos aqui para evitar erro de duplicidade.
 import { Member } from "../types/member";
 
 const COLLECTION = "members";

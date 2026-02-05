@@ -29,8 +29,9 @@ export interface Member {
 
   ministries?: string[]; // IDs dos ministérios
   
-  // --- [NOVO] Adicione esta linha aqui: ---
   permissions?: string[]; // Lista de permissões extras (ex: ['financial', 'secretary'])
+  
+  unavailableDates?: string[]; // Lista de datas indisponíveis "YYYY-MM-DD"
   
   createdAt?: string;
 }
