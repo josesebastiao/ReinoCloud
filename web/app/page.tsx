@@ -216,7 +216,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-3 pt-3 border-t border-gray-100 text-center">
                 <Link href="/agenda" className="text-blue-600 text-xs font-bold hover:underline flex items-center justify-center gap-1">
-                    Ver Calendário <ArrowRight size={12}/>
+                    Calendário <ArrowRight size={12}/>
                 </Link>
             </div>
         </div>
