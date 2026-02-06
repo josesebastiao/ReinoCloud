@@ -194,7 +194,7 @@ export default function Dashboard() {
             <div className="flex-1 space-y-3 overflow-y-auto max-h-[140px] pr-2 custom-scrollbar">
                 {nextEvents.length === 0 ? (
                     <div className="text-center py-4 text-gray-300">
-                        <p className="text-xs">Nenhum evento futuro.</p>
+                        <p className="text-xs">Nenhu evento futuro.</p>
                         <Link href="/agenda" className="text-blue-500 text-xs font-bold mt-1 block hover:underline">Agendar</Link>
                     </div>
                 ) : (
