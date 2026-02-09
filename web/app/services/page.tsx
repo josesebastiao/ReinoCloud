@@ -7,7 +7,6 @@ import { generalScaleService } from "../../services/generalScaleService";
 import { Member } from "../../types/member"; 
 import { db } from "../../lib/firebase"; 
 import { doc, getDoc } from "firebase/firestore";
-// IMPORTANTE: Adicionei o helper aqui também
 import { getDirectImageUrl } from "../../utils/imageHelper";
 
 import { 
@@ -36,7 +35,6 @@ export default function ServicesPage() {
   const [printing, setPrinting] = useState(false); 
   const [saving, setSaving] = useState(false);
   
-  // ADICIONADO 'certificate'
   const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | 'scale' | 'certificate' | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [search, setSearch] = useState("");
@@ -97,6 +95,7 @@ export default function ServicesPage() {
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
+  // --- FUNÇÕES DA ESCALA ---
   const handleSaveScale = async () => {
       if(!churchId) return;
       if(scaleData.rows.length === 0) return alert("Adicione pelo menos uma linha na escala.");
@@ -142,13 +141,33 @@ export default function ServicesPage() {
       setScaleData({ ...scaleData, rows: newRows });
   };
 
+  // --- CONVERSOR DE IMAGEM PARA BASE64 (A MÁGICA DA IMPRESSÃO) ---
+  const convertImageToBase64 = async (url: string) => {
+    if (!url) return "";
+    try {
+        const directUrl = getDirectImageUrl(url);
+        if (!directUrl) return "";
+        
+        const response = await fetch(directUrl);
+        const blob = await response.blob();
+        return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.warn("Erro ao converter imagem:", error);
+        return "";
+    }
+  };
+
   // --- IMPRESSÃO ---
   const handlePrint = async () => {
     setPrinting(true); 
     
-    // 1. Pega os links diretos usando o helper (isso corrige o erro da logo)
-    const directLogoUrl = getDirectImageUrl(logoUrl);
-    const directSigUrl = getDirectImageUrl(signatureUrl);
+    // 1. Converte Logo e Assinatura para Base64 (Isso garante que apareça na impressão)
+    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
+    const base64Signature = signatureUrl ? await convertImageToBase64(signatureUrl) : "";
 
     // Configura a janela
     const isLandscape = selectedDoc === 'certificate';
@@ -176,13 +195,13 @@ export default function ServicesPage() {
         }).join('');
 
         docContent = `
-            <div class="header">${directLogoUrl ? `<img src="${directLogoUrl}" class="logo" />` : ''}<h2 style="margin:0;text-transform:uppercase;font-size:24px;font-weight:900;">${churchName}</h2><h3 style="margin:5px 0 20px 0;text-transform:uppercase;font-size:18px;border-bottom:2px solid #000;display:inline-block;padding-bottom:5px;">${scaleData.title}</h3></div>
+            <div class="header">${base64Logo ? `<img src="${base64Logo}" class="logo" />` : ''}<h2 style="margin:0;text-transform:uppercase;font-size:24px;font-weight:900;">${churchName}</h2><h3 style="margin:5px 0 20px 0;text-transform:uppercase;font-size:18px;border-bottom:2px solid #000;display:inline-block;padding-bottom:5px;">${scaleData.title}</h3></div>
             <div style="margin:0 0 20px 0;text-align:left;font-size:14px;">${scaleData.theme ? `<p style="margin:5px 0;"><strong>TEMA DO MÊS:</strong> ${scaleData.theme}</p>` : ''}${scaleData.text ? `<p style="margin:5px 0;"><strong>TEXTO BASE:</strong> <em>${scaleData.text}</em></p>` : ''}</div>
             <table><thead><tr><th style="width:80px;">DATA</th><th>CULTO</th><th>DIRIGENTE</th><th>LOUVOR</th><th>PREGADOR</th><th>OBS / TEXTO</th></tr></thead><tbody>${rowsHtml}</tbody></table>
             <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
         `;
         
-        htmlContent = `<html><head><title>Escala</title><style>body{font-family:'Times New Roman';padding:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px}th{background:#f0f0f0}.logo{max-height:80px}</style></head><body>${docContent}<script>setTimeout(()=>window.print(),800)</script></body></html>`;
+        htmlContent = `<html><head><title>Escala</title><style>body{font-family:'Times New Roman';padding:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px}th{background:#f0f0f0}.logo{max-height:80px}</style></head><body>${docContent}<script>setTimeout(()=>window.print(),500)</script></body></html>`;
     
     // --- CASO 2: CERTIDÃO DE CRIANÇA ---
     } else if (selectedDoc === 'certificate') {
@@ -229,7 +248,7 @@ export default function ServicesPage() {
                 <div class="border-outer">
                   <div class="border-inner">
                     <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
-                    ${directLogoUrl ? `<img src="${directLogoUrl}" class="logo" />` : ''}
+                    ${base64Logo ? `<img src="${base64Logo}" class="logo" />` : ''}
                     <div class="church-header">${churchName}</div>
                     <div class="cert-title">Certificado de Apresentação</div>
                     <div class="content-text">
@@ -244,7 +263,7 @@ export default function ServicesPage() {
                     <div class="footer-row">
                         <div class="signature"><div style="height:40px"></div><div class="sig-line"></div><div class="sig-text">Secretaria</div></div>
                         <div class="signature">
-                           ${directSigUrl ? `<img src="${directSigUrl}" class="sig-img" />` : ''}
+                           ${base64Signature ? `<img src="${base64Signature}" class="sig-img" />` : ''}
                            <div style="height:40px"></div><div class="sig-line"></div><div class="sig-text">Pastor Presidente</div>
                         </div>
                     </div>
@@ -278,7 +297,7 @@ export default function ServicesPage() {
 
         docContent = `
           <div class="header">
-            ${directLogoUrl ? `<img src="${directLogoUrl}" class="logo" />` : ''}
+            ${base64Logo ? `<img src="${base64Logo}" class="logo" />` : ''}
             <div style="font-size: 22px; font-weight: bold; text-transform: uppercase;">${churchName}</div>
           </div>
           
@@ -318,7 +337,7 @@ export default function ServicesPage() {
               ${docContent}
               <div class="footer">
                 <div class="signature-block">
-                    ${directSigUrl ? `<img src="${directSigUrl}" class="signature-img" />` : '<div class="signature-placeholder"></div>'}
+                    ${base64Signature ? `<img src="${base64Signature}" class="signature-img" />` : '<div class="signature-placeholder"></div>'}
                     <div class="signature-line">Pastor / Responsável</div>
                 </div>
                 <div class="signature-block"><div class="signature-placeholder"></div><div class="signature-line">Secretaria</div></div>
@@ -406,7 +425,7 @@ export default function ServicesPage() {
                             <div className="flex-1 bg-gray-100 rounded-xl p-4 md:p-6 border border-gray-200 flex flex-col items-center">
                                 {selectedMember ? (
                                     <div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200">
-                                        <div className="flex justify-center mb-3">{logoUrl ? <img src={getDirectImageUrl(logoUrl)} alt="Logo" className="h-16 w-16 object-contain" /> : <Building2 size={32} className="text-gray-400"/>}</div>
+                                        <div className="flex justify-center mb-3">{logoUrl ? <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" /> : <Building2 size={32} className="text-gray-400"/>}</div>
                                         <h3 className="text-sm font-bold text-gray-800 uppercase border-b pb-2 mb-3">{churchName}</h3>
                                         <div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">{selectedMember.fullName}</div>
                                         
