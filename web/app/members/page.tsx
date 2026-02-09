@@ -27,7 +27,6 @@ export default function MembersPage() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
-  const [printing, setPrinting] = useState(false);
   
   const [viewMember, setViewMember] = useState<Member | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -76,26 +75,6 @@ export default function MembersPage() {
           case 'secretary': return 'Secretaria';
           case 'treasurer': return 'Tesouraria';
           default: return 'Membro';
-      }
-  };
-
-  // --- HELPER: CONVERTE IMAGEM PARA BASE64 (CORRIGE ERRO DE IMPRESSÃO) ---
-  const convertImageToBase64 = async (url: string) => {
-      if (!url) return "";
-      try {
-          const directUrl = getDirectImageUrl(url);
-          if (!directUrl) return "";
-          
-          const response = await fetch(directUrl);
-          const blob = await response.blob();
-          return new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-          });
-      } catch (error) {
-          console.warn("Erro ao converter imagem:", error);
-          return ""; // Retorna vazio se falhar, para não quebrar a impressão
       }
   };
 
@@ -186,18 +165,12 @@ export default function MembersPage() {
   const openAccessModal = (member: Member) => { if(!member.email) { alert("Este membro precisa de um e-mail."); return; } setSelectedMemberForAccess(member); setNewPassword(""); setShowAccessModal(true); };
   const handleCreateAccess = async (e: React.FormEvent) => { e.preventDefault(); if(!selectedMemberForAccess?.email) return; setCreatingAccess(true); try { await createSystemUser(selectedMemberForAccess.email, newPassword); alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); setShowAccessModal(false); } catch (error: any) { alert("Erro: " + error.message); } finally { setCreatingAccess(false); } };
 
-  // --- IMPRESSÃO DE LISTA ---
-  const handlePrintExecute = async () => {
-    setPrinting(true);
+  // --- IMPRESSÃO DE LISTA (CORRIGIDA) ---
+  const handlePrintExecute = () => {
     const printWindow = window.open('', '', 'width=900,height=600');
-    if (!printWindow) { setPrinting(false); return; }
-    
+    if (!printWindow) return;
     const today = new Date().toLocaleDateString('pt-BR');
     
-    // Converte a logo para Base64 antes de imprimir
-    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
-    const logoHtml = base64Logo ? `<img src="${base64Logo}" style="height: 60px; margin-bottom: 10px;" />` : '';
-
     const rows = filteredMembers.map((m, index) => `
         <tr style="border-bottom: 1px solid #eee;">
             <td style="padding: 8px;">${index + 1}</td>
@@ -208,28 +181,30 @@ export default function MembersPage() {
         </tr>
     `).join('');
 
+    // Correção da Logo na Lista
+    const finalLogo = getDirectImageUrl(logoUrl);
+    const logoHtml = finalLogo ? `<img src="${finalLogo}" style="height: 60px; margin-bottom: 10px;" />` : '';
+
     const html = `
         <html><head><title>Lista de Membros</title><style>body{font-family:sans-serif;padding:20px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px;text-align:left}th{background:#f9fafb;padding:8px;border-bottom:2px solid #eee}</style></head>
         <body>${logoHtml}<h1>${churchName}</h1><p>Relatório de Membros • ${today}</p>
         <table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
-        <script>setTimeout(() => window.print(), 500);</script></body></html>
+        <script>setTimeout(() => window.print(), 1000);</script></body></html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
-    setPrinting(false);
   };
 
-  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0 - COM BASE64) ---
-  const handlePrintCard = async (member: Member) => {
-    setPrinting(true);
+  // --- IMPRESSÃO DE CARTEIRINHA (CORRIGIDA) ---
+  const handlePrintCard = (member: Member) => {
     const printWindow = window.open('', '', 'width=900,height=600');
-    if (!printWindow) { setPrinting(false); return; }
+    if (!printWindow) return;
 
-    // 1. Converte imagens para Base64 (Isso resolve o problema da logo não aparecer)
-    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
-    const base64Photo = member.photoUrl ? await convertImageToBase64(member.photoUrl) : "";
+    // Correção da Logo e Foto no Cartão
+    const finalLogo = getDirectImageUrl(logoUrl);
+    const finalPhoto = getDirectImageUrl(member.photoUrl);
     
-    // Formatação da data de batismo
+    // Data de batismo formatada
     const baptismText = member.baptismDate 
         ? new Date(member.baptismDate).toLocaleDateString('pt-BR') 
         : '---';
@@ -242,46 +217,85 @@ export default function MembersPage() {
             @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');
             body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
             .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; }
-            .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             
+            /* CR80 Size Scaled */
+            .card {
+              width: 324px; height: 204px; 
+              background: #fff; border-radius: 12px; position: relative; overflow: hidden;
+              box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd;
+              -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
+
             /* FRENTE */
-            .card.front { background: linear-gradient(120deg, #0f172a 0%, #1e3a8a 100%); color: white; display: flex; flex-direction: column; }
-            .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+            .card.front {
+              background: linear-gradient(120deg, #0f172a 0%, #1e3a8a 100%);
+              color: white; display: flex; flex-direction: column;
+            }
+            .front-header {
+                display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
             .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
             .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+            
             .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; }
-            .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+            .photo-frame {
+               width: 75px; height: 75px; border-radius: 12px; background: #fff;
+               border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0;
+               box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
             .photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+            
             .member-info { display: flex; flex-direction: column; justify-content: center; }
             .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; }
             .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; }
-            .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; }
-            .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; }
+            
+            /* Ajuste para exibir Batismo */
+            .role-badge { 
+                background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2);
+                padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; 
+                text-transform: uppercase; width: fit-content;
+            }
+
+            .front-footer {
+                background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right;
+                font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8;
+            }
 
             /* VERSO */
-            .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; }
+            .card.back {
+              background: #fff; color: #333; display: flex; flex-direction: column;
+              background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px;
+            }
             .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+            
             .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; }
             .data-col { display: flex; flex-direction: column; }
             .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; }
             .data-value { font-size: 9px; font-weight: 600; color: #000; }
+
             .signature-box { text-align: center; margin-top: 10px; }
             .line { height: 1px; background: #000; width: 100%; margin: 2px auto; }
             .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; }
 
-            @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+            @media print {
+              body { background: white; height: auto; display: block; }
+              .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; }
+              .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
           </style>
         </head>
         <body>
           <div class="card-wrapper">
+            
             <div class="card front">
               <div class="front-header">
-                 ${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}
+                 ${finalLogo ? `<img src="${finalLogo}" class="front-logo" />` : ''}
                  <div class="church-title">${churchName}</div>
               </div>
               <div class="front-body">
                  <div class="photo-frame">
-                    ${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
+                    ${finalPhoto ? `<img src="${finalPhoto}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
                  </div>
                  <div class="member-info">
                     <span class="label">Membro</span>
@@ -296,29 +310,44 @@ export default function MembersPage() {
                <div class="back-body">
                    <div>
                        <div class="data-row">
-                           <div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span></div>
-                           <div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span></div>
+                           <div class="data-col">
+                               <span class="data-label">Data de Nascimento</span>
+                               <span class="data-value">${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span>
+                           </div>
+                           <div class="data-col" style="text-align:right">
+                               <span class="data-label">Desde</span>
+                               <span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span>
+                           </div>
                        </div>
                        <div class="data-row" style="border:none">
-                           <div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div>
+                           <div class="data-col">
+                               <span class="data-label">Validade</span>
+                               <span class="data-value">INDETERMINADA</span>
+                           </div>
                        </div>
                    </div>
-                   <div class="signature-box"><div style="height:25px"></div><div class="line"></div><div class="sig-label">Pastor Presidente</div></div>
+
+                   <div class="signature-box">
+                       <div style="height:25px"></div> 
+                       <div class="line"></div>
+                       <div class="sig-label">Pastor Presidente</div>
+                   </div>
+                   
                    <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;">
                        <span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span>
                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" style="width:35px; height:35px; opacity:0.8;" />
                    </div>
                </div>
             </div>
+
           </div>
-          <script>setTimeout(function(){ window.print(); }, 500);</script>
+          <script>window.onload = function() { setTimeout(function(){ window.print(); }, 1500); }</script>
         </body>
       </html>
     `;
 
     printWindow.document.write(html);
     printWindow.document.close();
-    setPrinting(false);
   };
 
   if (loading && members.length === 0) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
@@ -329,9 +358,7 @@ export default function MembersPage() {
       <div className="max-w-6xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
         <div><h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Users className="text-blue-600"/> Membros</h1><p className="text-sm text-gray-500">{members.length} membros cadastrados</p></div>
         <div className="flex gap-2 w-full md:w-auto">
-            <button onClick={handlePrintExecute} disabled={printing} className="flex-1 md:flex-none justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition shadow-sm">
-                {printing ? <Loader2 className="animate-spin" size={20}/> : <Printer size={20}/>} <span className="hidden md:inline">Imprimir Lista</span>
-            </button>
+            <button onClick={() => setShowPrintModal(true)} className="flex-1 md:flex-none justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition shadow-sm"><Printer size={20}/> <span className="hidden md:inline">Imprimir Lista</span></button>
             <button onClick={() => handleOpenEdit()} className="flex-1 md:flex-none justify-center bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition shadow-lg shadow-blue-200"><PlusCircle size={20}/> Novo Membro</button>
         </div>
       </div>
@@ -351,6 +378,7 @@ export default function MembersPage() {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
+                            {/* IMAGEM DA TABELA COM CORREÇÃO */}
                             {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
                         </div>
                         <div className="flex flex-col">
@@ -375,29 +403,32 @@ export default function MembersPage() {
         {totalPages > 1 && (<div className="p-4 border-t border-gray-100 flex justify-center gap-4 items-center"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={20}/></button><span className="text-sm font-bold text-gray-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={20}/></button></div>)}
       </div>
 
-      {/* --- MODAL 1: VISUALIZAÇÃO (SÓ CARTEIRINHA) --- */}
+      {/* --- MODAL 1: VISUALIZAÇÃO RÁPIDA (COM CARTEIRINHA) --- */}
       {showViewModal && viewMember && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 relative">
                 <button onClick={() => setShowViewModal(false)} className="absolute top-4 right-4 z-10 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full transition"><X size={18}/></button>
                 
+                {/* Capa Colorida */}
                 <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white/30 shadow-lg relative z-10 overflow-hidden">
+                        {/* IMAGEM DO MODAL COM CORREÇÃO */}
                         {viewMember.photoUrl ? <img src={getDirectImageUrl(viewMember.photoUrl)} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
                     
+                    {/* BOTÃO CARTEIRINHA */}
                     <div className="absolute bottom-4 left-0 right-0 px-4 z-20 flex justify-center">
-                         <button onClick={() => handlePrintCard(viewMember)} disabled={printing} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-xs font-bold border border-white/30" title="Imprimir Carteirinha">
-                            {printing ? <Loader2 className="animate-spin" size={14}/> : <CreditCard size={16}/>} Carteirinha
+                         <button onClick={() => handlePrintCard(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-xs font-bold border border-white/30" title="Imprimir Carteirinha">
+                            <CreditCard size={16}/> Carteirinha
                          </button>
                     </div>
                 </div>
 
                 <div className="p-6 space-y-5">
-                    {/* DADOS DETALHADOS */}
+                    {/* DADOS DETALHADOS (MANTIDOS) */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                             <span className="text-[10px] text-gray-400 font-bold uppercase">Status</span>
@@ -432,7 +463,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* --- RESTANTE DOS MODAIS (MANTIDOS) --- */}
+      {/* --- RESTANTE DOS MODAIS (MANTIDOS IGUAIS) --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
@@ -443,6 +474,7 @@ export default function MembersPage() {
                 <form onSubmit={handleSave} className="p-6 space-y-6">
                     {/* DADOS PESSOAIS */}
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Link da Foto (URL)</label><div className="relative"><Camera className="absolute left-3 top-3 text-gray-400" size={16}/><input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white" placeholder="https://..." /></div></div><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label><input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Telefone</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Sexo</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="male">Masculino</option><option value="female">Feminino</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Estado Civil</label><div className="relative"><Heart className="absolute left-3 top-3 text-pink-400" size={16}/><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white appearance-none"><option value="single">Solteiro(a)</option><option value="married">Casado(a)</option><option value="divorced">Divorciado(a)</option><option value="widowed">Viúvo(a)</option></select></div></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Nascimento</label><input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div></div></div>
+                    
                     {/* DADOS ECLESIÁSTICOS */}
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -457,15 +489,38 @@ export default function MembersPage() {
                             </select>
                         </div>
                         <div><label className="text-[10px] font-bold text-gray-400 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-xl border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-50" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-bold text-gray-700">É Dizimista?</span></div></div></div></div>
-                    
+
                     {userRole === 'admin' && (
                         <div className="bg-purple-50 p-4 rounded-2xl border border-purple-100 animate-in fade-in">
                             <h3 className="text-xs font-bold text-purple-700 uppercase mb-3 flex items-center gap-2">
                                 <ShieldCheck size={14}/> Permissões de Acesso (Login)
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div onClick={() => togglePermission('secretary')} className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${formData.permissions.includes('secretary') ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'}`}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.permissions.includes('secretary') ? 'bg-white' : 'bg-gray-100 border-gray-300'}`}>{formData.permissions.includes('secretary') && <div className="w-3 h-3 bg-purple-600 rounded-sm" />}</div><div><span className="block text-xs font-bold uppercase">Secretaria</span><span className={`text-[10px] ${formData.permissions.includes('secretary') ? 'text-purple-200' : 'text-gray-400'}`}>Acessa e edita membros</span></div></div>
-                                <div onClick={() => togglePermission('financial')} className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${formData.permissions.includes('financial') ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'}`}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.permissions.includes('financial') ? 'bg-white' : 'bg-gray-100 border-gray-300'}`}>{formData.permissions.includes('financial') && <div className="w-3 h-3 bg-purple-600 rounded-sm" />}</div><div><span className="block text-xs font-bold uppercase">Tesouraria</span><span className={`text-[10px] ${formData.permissions.includes('financial') ? 'text-purple-200' : 'text-gray-400'}`}>Acessa dízimos e ofertas</span></div></div>
+                                <div 
+                                    onClick={() => togglePermission('secretary')}
+                                    className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${formData.permissions.includes('secretary') ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'}`}
+                                >
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.permissions.includes('secretary') ? 'bg-white' : 'bg-gray-100 border-gray-300'}`}>
+                                        {formData.permissions.includes('secretary') && <div className="w-3 h-3 bg-purple-600 rounded-sm" />}
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold uppercase">Secretaria</span>
+                                        <span className={`text-[10px] ${formData.permissions.includes('secretary') ? 'text-purple-200' : 'text-gray-400'}`}>Acessa e edita membros</span>
+                                    </div>
+                                </div>
+
+                                <div 
+                                    onClick={() => togglePermission('financial')}
+                                    className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${formData.permissions.includes('financial') ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-200' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'}`}
+                                >
+                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.permissions.includes('financial') ? 'bg-white' : 'bg-gray-100 border-gray-300'}`}>
+                                        {formData.permissions.includes('financial') && <div className="w-3 h-3 bg-purple-600 rounded-sm" />}
+                                    </div>
+                                    <div>
+                                        <span className="block text-xs font-bold uppercase">Tesouraria</span>
+                                        <span className={`text-[10px] ${formData.permissions.includes('financial') ? 'text-purple-200' : 'text-gray-400'}`}>Acessa dízimos e ofertas</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -474,7 +529,14 @@ export default function MembersPage() {
                         <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Briefcase size={14}/> Ministérios & Departamentos</h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                             {ministryOptions.map(dept => (
-                                <div key={dept.id} onClick={() => toggleMinistry(dept.id!)} className={`p-2 rounded-lg border text-xs font-bold cursor-pointer transition flex items-center gap-2 ${formData.selectedMinistries.includes(dept.id!) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'}`}><div className={`w-3 h-3 rounded-full border ${formData.selectedMinistries.includes(dept.id!) ? 'bg-white border-white' : 'bg-transparent border-gray-300'}`}></div>{dept.name}</div>
+                                <div 
+                                    key={dept.id} 
+                                    onClick={() => toggleMinistry(dept.id!)}
+                                    className={`p-2 rounded-lg border text-xs font-bold cursor-pointer transition flex items-center gap-2 ${formData.selectedMinistries.includes(dept.id!) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'}`}
+                                >
+                                    <div className={`w-3 h-3 rounded-full border ${formData.selectedMinistries.includes(dept.id!) ? 'bg-white border-white' : 'bg-transparent border-gray-300'}`}></div>
+                                    {dept.name}
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -490,7 +552,26 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL ACESSO (SENHA) */}
+      {/* MODAL IMPRESSÃO LISTA */}
+      {showPrintModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95">
+                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-3xl"><h3 className="font-bold text-gray-800 flex items-center gap-2"><Printer size={18} className="text-blue-600"/> Visualização de Impressão</h3><button onClick={() => setShowPrintModal(false)} className="bg-white p-2 rounded-full shadow-sm text-gray-400 hover:text-red-500 transition"><X size={20}/></button></div>
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-100">
+                    <div className="bg-white shadow-lg p-8 max-w-lg mx-auto min-h-[400px] text-center rounded-xl border border-gray-200">
+                        {/* LOGO DO MODAL DE IMPRESSÃO COM CORREÇÃO */}
+                        <div className="flex justify-center mb-4">{logoUrl ? (<img src={getDirectImageUrl(logoUrl)} alt="Logo" className="h-16 w-16 object-contain" />) : (<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-400"><Building2 size={32}/></div>)}</div>
+                        <h2 className="text-xl font-bold uppercase text-gray-800 border-b pb-4 mb-4">{churchName}</h2>
+                        <div className="text-left space-y-2"><p className="text-sm font-bold text-gray-500 uppercase mb-2">Resumo:</p><div className="flex justify-between text-sm border-b border-gray-100 pb-2"><span>Total de Membros:</span><span className="font-bold">{filteredMembers.length}</span></div></div>
+                        <p className="text-xs text-gray-400 mt-8">Clique em "Imprimir Agora" para gerar a lista com fotos (se houver).</p>
+                    </div>
+                </div>
+                <div className="p-4 border-t border-gray-100 bg-white rounded-b-3xl flex gap-3"><button onClick={() => setShowPrintModal(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50">Voltar</button><button onClick={handlePrintExecute} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center justify-center gap-2"><Printer size={20}/> Imprimir Agora</button></div>
+            </div>
+        </div>
+      )}
+
+      {/* MODAL ACESSO (SENHA) (MANTIDO) */}
       {showAccessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
