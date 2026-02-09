@@ -405,7 +405,7 @@ export default function LoginPage() {
       </main>
       <footer className="w-full p-6 md:px-10 md:py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] md:text-xs text-gray-400 border-t border-gray-200 bg-white">
           <div className="flex gap-6 font-medium"><a href="#" className="hover:text-blue-600">Privacidade</a><a href="#" className="hover:text-blue-600">Termos</a></div>
-          <div className="font-medium text-center md:text-right">COPYRIGHT © {new Date().getFullYear()} SEBASTEC SYSTEMS.</div>
+          <div className="font-medium text-center md:text-right">COPYRIGHT © {new Date().getFullYear()} SEBASTEC SYSTEM.</div>
       </footer>
     </div>
   );
