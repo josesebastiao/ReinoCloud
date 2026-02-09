@@ -16,7 +16,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { setChurchData } = useChurch(); 
   
-  // Controle de Abas
+  // Controle de Abas (Email ou Telefone)
   const [method, setMethod] = useState<'email' | 'phone'>('email');
 
   // Estados Gerais
@@ -47,7 +47,7 @@ export default function LoginPage() {
       // 2. BUSCA DADOS DO USUÁRIO NO BANCO
       let userData = null;
 
-      // Tenta pelo ID (Padrão)
+      // Tenta pelo ID (Padrão e mais seguro)
       const userDocRef = doc(db, "members", user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -55,19 +55,29 @@ export default function LoginPage() {
           userData = userDocSnap.data();
       } else {
           // Se não achou pelo ID, procura pelo E-MAIL ou TELEFONE
-          let q;
+          let querySnapshot;
+
           if (user.email) {
-             q = query(collection(db, "members"), where("email", "==", user.email));
+             const q = query(collection(db, "members"), where("email", "==", user.email));
+             querySnapshot = await getDocs(q);
           } else if (user.phoneNumber) {
-             // Normaliza telefone se necessário (o firebase retorna com +244...)
-             q = query(collection(db, "members"), where("phone", "==", user.phoneNumber));
+             // --- LÓGICA INTELIGENTE DE TELEFONE ---
+             
+             // 1. Tenta formato internacional exato (+244923...)
+             const q1 = query(collection(db, "members"), where("phone", "==", user.phoneNumber));
+             querySnapshot = await getDocs(q1);
+
+             // 2. Se não achou, tenta sem o código do país (caso a secretaria tenha salvo só 923...)
+             if (querySnapshot.empty) {
+                 // Remove o +244 ou +55 para tentar achar o número local
+                 const localPhone = user.phoneNumber.replace('+244', '').replace('+55', '').trim();
+                 const q2 = query(collection(db, "members"), where("phone", "==", localPhone));
+                 querySnapshot = await getDocs(q2);
+             }
           }
 
-          if (q) {
-             const querySnapshot = await getDocs(q);
-             if (!querySnapshot.empty) {
-                 userData = querySnapshot.docs[0].data();
-             }
+          if (querySnapshot && !querySnapshot.empty) {
+              userData = querySnapshot.docs[0].data();
           }
       }
 
@@ -92,9 +102,9 @@ export default function LoginPage() {
           }
       }
 
+      // AQUI ESTÁ A TRAVA DE SEGURANÇA
+      // Se depois de tudo isso userData continuar null, o login é barrado.
       if (!userData) {
-        // Se entrou mas não tem cadastro, podemos mandar para uma tela de "Complete seu cadastro"
-        // Por enquanto, vamos dar erro
         throw new Error("Usuário sem cadastro no sistema. Fale com a secretaria.");
       }
       
@@ -175,6 +185,8 @@ export default function LoginPage() {
   };
 
   // --- LOGIN POR TELEFONE ---
+  
+  // Inicializa o reCAPTCHA (Necessário para SMS)
   const setupRecaptcha = () => {
     if (!(window as any).recaptchaVerifier) {
       (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
@@ -189,8 +201,8 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
+    // Normalização para Angola (Adiciona +244 se faltar)
     let formattedPhone = phone.trim();
-    // Adiciona +244 se não tiver +, assumindo Angola como padrão
     if (!formattedPhone.startsWith('+')) {
         formattedPhone = `+244${formattedPhone}`; 
     }
@@ -198,12 +210,16 @@ export default function LoginPage() {
     try {
       setupRecaptcha();
       const appVerifier = (window as any).recaptchaVerifier;
+      
       const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
       setConfirmationResult(confirmation);
       setStep('verify_code');
+      // alert("SMS enviado! Verifique seu celular.");
+
     } catch (err: any) {
       console.error(err);
       setError("Erro ao enviar SMS. Verifique o número.");
+      // Limpa o recaptcha se falhar para tentar de novo
       if ((window as any).recaptchaVerifier) {
           (window as any).recaptchaVerifier.clear();
           (window as any).recaptchaVerifier = null;
@@ -275,7 +291,7 @@ export default function LoginPage() {
                     <form onSubmit={handleResetPassword} className="space-y-5">
                         {error && <div className="p-3 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100">{error}</div>}
                         <div className="space-y-1">
-                            <label className="text-xs font-bold text-gray-700 uppercase tracking-wide ml-1">E-mail</label>
+                            <label className="text-xs font-bold text-gray-700 uppercase tracking-wide ml-1">E-mail Cadastrado</label>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail size={18} className="text-gray-400 group-focus-within:text-blue-600 transition" /></div>
                                 <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900" placeholder="exemplo@igreja.com" />
@@ -288,7 +304,7 @@ export default function LoginPage() {
                 )}
               </>
           ) : (
-              // --- TELA DE LOGIN ---
+              // --- TELA DE LOGIN (COM ABAS) ---
               <>
                 <div className="text-center mb-6">
                     <h2 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo!</h2>
@@ -352,7 +368,7 @@ export default function LoginPage() {
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone size={18} className="text-gray-400 group-focus-within:text-blue-600 transition" /></div>
                                         <input required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900" placeholder="923 000 000" />
                                     </div>
-                                    <p className="text-[10px] text-gray-400 mt-1 ml-1">Para Angola, basta digitar o número (9xx...).</p>
+                                    <p className="text-[10px] text-gray-400 mt-1 ml-1">Basta digitar o número (9xx...). O código +244 é automático.</p>
                                 </div>
                                 <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] disabled:opacity-70">
                                     {loading ? <Loader2 className="animate-spin" size={20} /> : <>Receber Código SMS <MessageSquare size={18}/></>}
