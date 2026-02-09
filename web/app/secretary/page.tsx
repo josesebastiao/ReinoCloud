@@ -260,7 +260,7 @@ export default function SecretaryPage() {
                             ) : documents.length === 0 ? (
                                 <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                                     <FolderOpen size={32} className="mx-auto mb-2 opacity-20"/>
-                                    <p className="text-xs">Nenhum arquivo cadastrado.</p>
+                                    <p className="text-xs">Nenhu arquivo cadastrado.</p>
                                 </div>
                             ) : (
                                 documents.map(doc => (
