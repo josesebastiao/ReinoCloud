@@ -7,10 +7,12 @@ import { generalScaleService } from "../../services/generalScaleService";
 import { Member } from "../../types/member"; 
 import { db } from "../../lib/firebase"; 
 import { doc, getDoc } from "firebase/firestore";
+// IMPORTANTE: Adicionei o helper aqui também
+import { getDirectImageUrl } from "../../utils/imageHelper";
 
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
-  User, X, Building2, Loader2, ShieldCheck, CalendarRange, Plus, Trash2, Save, Clock 
+  User, X, Building2, Loader2, ShieldCheck, CalendarRange, Plus, Trash2, Save, Clock, Baby, ScrollText 
 } from "lucide-react";
 
 interface ScaleRow {
@@ -34,7 +36,8 @@ export default function ServicesPage() {
   const [printing, setPrinting] = useState(false); 
   const [saving, setSaving] = useState(false);
   
-  const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | 'scale' | null>(null);
+  // ADICIONADO 'certificate'
+  const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | 'scale' | 'certificate' | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [search, setSearch] = useState("");
   const [obs, setObs] = useState(""); 
@@ -94,7 +97,6 @@ export default function ServicesPage() {
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
-  // --- FUNÇÕES DA ESCALA ---
   const handleSaveScale = async () => {
       if(!churchId) return;
       if(scaleData.rows.length === 0) return alert("Adicione pelo menos uma linha na escala.");
@@ -140,46 +142,27 @@ export default function ServicesPage() {
       setScaleData({ ...scaleData, rows: newRows });
   };
 
-  // --- CORREÇÃO DE LINKS DO DRIVE ---
-  const getDriveDirectLink = (url: string) => {
-      if (url && url.includes('drive.google.com') && url.includes('/file/d/')) {
-          const id = url.split('/file/d/')[1].split('/')[0];
-          return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
-      }
-      return url;
-  };
-
-  const toDataURL = async (url: string) => {
-    try {
-        const directUrl = getDriveDirectLink(url);
-        const res = await fetch(directUrl);
-        const blob = await res.blob();
-        return new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-        });
-    } catch (e) { return ""; }
-  };
-
   // --- IMPRESSÃO ---
   const handlePrint = async () => {
     setPrinting(true); 
     
-    // 1. Converte Logo
-    let finalLogo = "";
-    if (logoUrl) finalLogo = await toDataURL(logoUrl);
-    
-    // 2. Converte Assinatura (AQUI ESTAVA O ERRO ANTES)
-    let finalSignature = "";
-    if (signatureUrl) finalSignature = await toDataURL(signatureUrl);
+    // 1. Pega os links diretos usando o helper (isso corrige o erro da logo)
+    const directLogoUrl = getDirectImageUrl(logoUrl);
+    const directSigUrl = getDirectImageUrl(signatureUrl);
 
-    const printWindow = window.open('', '', 'width=1100,height=700');
+    // Configura a janela
+    const isLandscape = selectedDoc === 'certificate';
+    const width = isLandscape ? 1123 : 900;
+    const height = isLandscape ? 794 : 1000;
+
+    const printWindow = window.open('', '', `width=${width},height=${height}`);
     if (!printWindow) { setPrinting(false); return alert("Permita pop-ups!"); }
 
     let docContent = "";
+    let htmlContent = "";
     const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
+    // --- CASO 1: ESCALA ---
     if (selectedDoc === 'scale') {
         const rowsHtml = scaleData.rows.map(row => {
             let dateDisplay = row.date;
@@ -193,11 +176,87 @@ export default function ServicesPage() {
         }).join('');
 
         docContent = `
-            <div class="header">${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}<h2 style="margin:0;text-transform:uppercase;font-size:24px;font-weight:900;">${churchName}</h2><h3 style="margin:5px 0 20px 0;text-transform:uppercase;font-size:18px;border-bottom:2px solid #000;display:inline-block;padding-bottom:5px;">${scaleData.title}</h3></div>
+            <div class="header">${directLogoUrl ? `<img src="${directLogoUrl}" class="logo" />` : ''}<h2 style="margin:0;text-transform:uppercase;font-size:24px;font-weight:900;">${churchName}</h2><h3 style="margin:5px 0 20px 0;text-transform:uppercase;font-size:18px;border-bottom:2px solid #000;display:inline-block;padding-bottom:5px;">${scaleData.title}</h3></div>
             <div style="margin:0 0 20px 0;text-align:left;font-size:14px;">${scaleData.theme ? `<p style="margin:5px 0;"><strong>TEMA DO MÊS:</strong> ${scaleData.theme}</p>` : ''}${scaleData.text ? `<p style="margin:5px 0;"><strong>TEXTO BASE:</strong> <em>${scaleData.text}</em></p>` : ''}</div>
             <table><thead><tr><th style="width:80px;">DATA</th><th>CULTO</th><th>DIRIGENTE</th><th>LOUVOR</th><th>PREGADOR</th><th>OBS / TEXTO</th></tr></thead><tbody>${rowsHtml}</tbody></table>
             <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
         `;
+        
+        htmlContent = `<html><head><title>Escala</title><style>body{font-family:'Times New Roman';padding:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px}th{background:#f0f0f0}.logo{max-height:80px}</style></head><body>${docContent}<script>setTimeout(()=>window.print(),800)</script></body></html>`;
+    
+    // --- CASO 2: CERTIDÃO DE CRIANÇA ---
+    } else if (selectedDoc === 'certificate') {
+        if (!selectedMember) return;
+        
+        const fatherName = prompt("Nome do Pai (Deixe em branco se não houver):") || "_____________________________";
+        const motherName = prompt("Nome da Mãe (Deixe em branco se não houver):") || "_____________________________";
+
+        htmlContent = `
+          <html>
+            <head>
+              <title>Certidão - ${selectedMember.fullName}</title>
+              <style>
+                @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:wght@400;700&display=swap');
+                @page { size: A4 landscape; margin: 0; }
+                body { margin: 0; padding: 0; font-family: 'Playfair Display', serif; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .certificate-container { width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; background-color: #fff; padding: 40px; box-sizing: border-box; }
+                .border-outer { width: 100%; height: 100%; border: 2px solid #d4af37; padding: 5px; position: relative; }
+                .border-inner { width: 100%; height: 100%; border: 1px solid #d4af37; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(250,248,240,1) 100%); position: relative; }
+                .corner { position: absolute; width: 60px; height: 60px; border-color: #d4af37; border-style: double; }
+                .tl { top: 10px; left: 10px; border-width: 4px 0 0 4px; }
+                .tr { top: 10px; right: 10px; border-width: 4px 4px 0 0; }
+                .bl { bottom: 10px; left: 10px; border-width: 0 0 4px 4px; }
+                .br { bottom: 10px; right: 10px; border-width: 0 4px 4px 0; }
+                .logo { height: 80px; margin-bottom: 20px; object-fit: contain; }
+                .church-header { font-size: 24px; font-weight: bold; text-transform: uppercase; color: #333; letter-spacing: 2px; }
+                .cert-title { font-family: 'Great Vibes', cursive; font-size: 80px; color: #d4af37; margin: 10px 0 30px 0; line-height: 1; }
+                .content-text { font-size: 20px; color: #555; text-align: center; max-width: 80%; line-height: 1.8; margin-bottom: 40px; }
+                .child-name { font-size: 36px; font-weight: bold; color: #000; border-bottom: 1px solid #ddd; padding: 0 20px; display: inline-block; margin: 0 10px; }
+                .parents-block { display: flex; justify-content: center; gap: 40px; width: 80%; margin-bottom: 50px; flex-wrap: wrap; }
+                .parent-line { flex: 1; text-align: center; }
+                .parent-name { font-size: 22px; font-weight: bold; border-bottom: 1px solid #999; padding-bottom: 5px; display: block; min-width: 250px; }
+                .parent-label { font-size: 12px; text-transform: uppercase; color: #777; margin-top: 5px; letter-spacing: 1px; }
+                .footer-row { display: flex; justify-content: space-between; width: 80%; margin-top: auto; padding-bottom: 40px; }
+                .signature { text-align: center; position: relative; width: 300px; }
+                .sig-line { width: 100%; border-bottom: 1px solid #333; margin-bottom: 10px; margin-top: 5px; }
+                .sig-text { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+                .sig-img { position: absolute; bottom: 30px; left: 0; right: 0; margin: auto; height: 60px; object-fit: contain; }
+                .date-place { font-size: 16px; font-style: italic; color: #555; margin-top: 20px; }
+              </style>
+            </head>
+            <body>
+              <div class="certificate-container">
+                <div class="border-outer">
+                  <div class="border-inner">
+                    <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+                    ${directLogoUrl ? `<img src="${directLogoUrl}" class="logo" />` : ''}
+                    <div class="church-header">${churchName}</div>
+                    <div class="cert-title">Certificado de Apresentação</div>
+                    <div class="content-text">
+                      Certificamos que a criança<br/><span class="child-name">${selectedMember.fullName}</span><br/>
+                      foi apresentada ao Senhor e dedicada a Deus, conforme os princípios cristãos, em cerimônia realizada nesta igreja.
+                    </div>
+                    <div class="parents-block">
+                        <div class="parent-line"><span class="parent-name">${fatherName}</span><div class="parent-label">Pai</div></div>
+                        <div class="parent-line"><span class="parent-name">${motherName}</span><div class="parent-label">Mãe</div></div>
+                    </div>
+                    <div class="date-place">${selectedMember.address?.city || "Cidade"}, ${today}</div>
+                    <div class="footer-row">
+                        <div class="signature"><div style="height:40px"></div><div class="sig-line"></div><div class="sig-text">Secretaria</div></div>
+                        <div class="signature">
+                           ${directSigUrl ? `<img src="${directSigUrl}" class="sig-img" />` : ''}
+                           <div style="height:40px"></div><div class="sig-line"></div><div class="sig-text">Pastor Presidente</div>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <script>setTimeout(function(){ window.print(); }, 1000);</script>
+            </body>
+          </html>
+        `;
+
+    // --- CASO 3: CARTAS (RECOMENDAÇÃO E TRANSFERÊNCIA) ---
     } else {
         if (!selectedMember) return;
 
@@ -219,7 +278,7 @@ export default function ServicesPage() {
 
         docContent = `
           <div class="header">
-            ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
+            ${directLogoUrl ? `<img src="${directLogoUrl}" class="logo" />` : ''}
             <div style="font-size: 22px; font-weight: bold; text-transform: uppercase;">${churchName}</div>
           </div>
           
@@ -233,99 +292,43 @@ export default function ServicesPage() {
           
           <p style="text-align: right; margin-top: 60px;">${today}</p>
         `;
+
+        htmlContent = `
+          <html>
+            <head>
+              <title>Carta - ${churchName}</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; color: #000; margin: 0; }
+                .header { margin-bottom: 20px; padding-bottom: 10px; }
+                .logo { max-width: 100px; max-height: 100px; object-fit: contain; margin: 0 auto 10px; display: block; }
+                .content { font-size: 18px; line-height: 1.6; text-align: justify; margin: 40px 0; min-height: 200px; }
+                .footer { margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 40px; width: 100%; box-sizing: border-box; }
+                .signature-block { width: 40%; text-align: center; display: flex; flex-direction: column; align-items: center; position: relative; }
+                .signature-line { width: 100%; border-top: 1px solid #000; padding-top: 5px; font-weight: bold; font-size: 14px; margin-top: 5px; }
+                .signature-img { height: 70px; object-fit: contain; display: block; margin-bottom: -15px; z-index: 10; }
+                .signature-placeholder { height: 70px; width: 100%; }
+                .meta { font-size: 10px; color: #999; margin-top: 60px; text-align: center; width: 100%; }
+                @media print { .no-print { display: none !important; } @page { margin: 2cm; size: A4; } body { padding: 0; } }
+                .floating-btn { position: fixed; top: 15px; left: 15px; background: #000; color: #fff; padding: 10px 20px; border-radius: 50px; font-family: sans-serif; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 9999; font-size: 14px; border: none; cursor: pointer; }
+              </style>
+            </head>
+            <body>
+              <button onclick="window.close()" class="floating-btn no-print">← Fechar</button>
+              ${docContent}
+              <div class="footer">
+                <div class="signature-block">
+                    ${directSigUrl ? `<img src="${directSigUrl}" class="signature-img" />` : '<div class="signature-placeholder"></div>'}
+                    <div class="signature-line">Pastor / Responsável</div>
+                </div>
+                <div class="signature-block"><div class="signature-placeholder"></div><div class="signature-line">Secretaria</div></div>
+              </div>
+              <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
+              <script>setTimeout(function() { window.print(); }, 1000);</script>
+            </body>
+          </html>
+        `;
     }
-
-    const htmlContent = `
-      <html>
-        <head>
-          <title>Documento - ${churchName}</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: 'Times New Roman', serif; padding: 40px; text-align: center; color: #000; margin: 0; }
-            .header { margin-bottom: 20px; padding-bottom: 10px; }
-            .logo { max-width: 100px; max-height: 100px; object-fit: contain; margin: 0 auto 10px; display: block; }
-            .content { font-size: 18px; line-height: 1.6; text-align: justify; margin: 40px 0; min-height: 200px; }
-            
-            .footer { 
-                margin-top: 50px; 
-                display: flex; 
-                justify-content: space-between; 
-                align-items: flex-end; 
-                padding: 0 40px;
-                width: 100%;
-                box-sizing: border-box;
-            }
-            .signature-block { 
-                width: 40%; 
-                text-align: center;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                position: relative;
-            }
-            .signature-line {
-                width: 100%;
-                border-top: 1px solid #000;
-                padding-top: 5px;
-                font-weight: bold;
-                font-size: 14px;
-                margin-top: 5px;
-            }
-            .signature-img { 
-                height: 70px; 
-                object-fit: contain; 
-                display: block;
-                margin-bottom: -15px; 
-                z-index: 10;
-            }
-            .signature-placeholder { height: 70px; width: 100%; }
-
-            .meta { font-size: 10px; color: #999; margin-top: 60px; text-align: center; width: 100%; }
-            
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            td, th { border: 1px solid #000; padding: 6px; font-size: 13px; text-align: left; vertical-align: top; }
-            th { background: #f0f0f0; }
-
-            @media print {
-               .no-print { display: none !important; }
-               @page { margin: 2cm; size: A4; }
-               body { padding: 0; }
-            }
-            .floating-btn {
-               position: fixed; top: 15px; left: 15px;
-               background: #000; color: #fff;
-               padding: 10px 20px; border-radius: 50px;
-               font-family: sans-serif; font-weight: bold;
-               box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-               z-index: 9999; font-size: 14px; border: none; cursor: pointer;
-            }
-          </style>
-        </head>
-        <body>
-          <button onclick="window.close()" class="floating-btn no-print">← Fechar</button>
-
-          ${docContent}
-          
-          <div class="footer">
-            <div class="signature-block">
-                ${finalSignature ? `<img src="${finalSignature}" class="signature-img" />` : '<div class="signature-placeholder"></div>'}
-                <div class="signature-line">Pastor / Responsável</div>
-            </div>
-
-            <div class="signature-block">
-                <div class="signature-placeholder"></div>
-                <div class="signature-line">Secretaria</div>
-            </div>
-          </div>
-
-          <div class="meta">Gerado digitalmente pelo sistema ReinoCloud</div>
-          
-          <script>
-             setTimeout(function() { window.print(); }, 800);
-          </script>
-        </body>
-      </html>
-    `;
     
     printWindow.document.write(htmlContent);
     printWindow.document.close();
@@ -345,23 +348,25 @@ export default function ServicesPage() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16">
           {!selectedDoc ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4">
+            // --- MENU DE OPÇÕES (Certificado adicionado aqui) ---
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4">
                 <div onClick={() => { setSelectedDoc('recommendation'); setSelectedMember(null); }} className="bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-blue-200 transition hover:-translate-y-1"><div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4"><FileBadge size={28}/></div><h3 className="text-lg font-bold text-gray-800">Recomendação</h3><p className="text-xs text-gray-500 mt-2">Para membros visitantes.</p></div>
                 <div onClick={() => { setSelectedDoc('transfer'); setSelectedMember(null); }} className="bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-orange-200 transition hover:-translate-y-1"><div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-4"><ArrowRightLeft size={28}/></div><h3 className="text-lg font-bold text-gray-800">Transferência</h3><p className="text-xs text-gray-500 mt-2">Mudança definitiva.</p></div>
+                <div onClick={() => { setSelectedDoc('certificate'); setSelectedMember(null); }} className="bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-purple-200 transition hover:-translate-y-1"><div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-4"><Baby size={28}/></div><h3 className="text-lg font-bold text-gray-800">Certidão Criança</h3><p className="text-xs text-gray-500 mt-2">Apresentação de bebê.</p></div>
                 <div onClick={() => { setSelectedDoc('scale'); }} className="bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-green-200 transition hover:-translate-y-1"><div className="w-14 h-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-4"><CalendarRange size={28}/></div><h3 className="text-lg font-bold text-gray-800">Gerador de Escalas</h3><p className="text-xs text-gray-500 mt-2">Cultos, pregadores e louvor.</p></div>
             </div>
           ) : (
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-bottom-4 overflow-hidden">
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
                     <h2 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
-                        {selectedDoc === 'scale' ? <CalendarRange className="text-green-600"/> : <FileBadge className="text-blue-500"/>}
-                        {selectedDoc === 'scale' ? 'Gerador de Escala' : 'Emitir Carta'}
+                        {selectedDoc === 'scale' ? <CalendarRange className="text-green-600"/> : selectedDoc === 'certificate' ? <ScrollText className="text-purple-600"/> : <FileBadge className="text-blue-500"/>}
+                        {selectedDoc === 'scale' ? 'Gerador de Escala' : selectedDoc === 'certificate' ? 'Emitir Certidão' : 'Emitir Carta'}
                     </h2>
                     <button onClick={() => setSelectedDoc(null)} className="text-gray-500 hover:text-red-500 font-bold text-sm bg-white border border-gray-200 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-1 transition"><X size={16}/> FECHAR</button>
                 </div>
 
                 {selectedDoc === 'scale' ? (
-                    // --- MODO ESCALA ---
+                    // --- MODO ESCALA (Mantido) ---
                     <div className="flex flex-col lg:flex-row h-[800px]">
                         <div className="w-full lg:w-72 bg-gray-50 border-r border-gray-100 flex flex-col">
                             <div className="p-4 border-b border-gray-100 font-bold text-xs text-gray-400 uppercase flex items-center gap-2"><Clock size={14}/> Histórico de Escalas</div>
@@ -389,7 +394,7 @@ export default function ServicesPage() {
                         </div>
                     </div>
                 ) : (
-                    // --- MODO CARTA ---
+                    // --- MODO DOCUMENTOS (Cartas e Certidões) ---
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
                         <div className={`${selectedMember ? 'hidden md:block' : 'block'}`}>
                             <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Selecione o Membro</label>
@@ -399,7 +404,28 @@ export default function ServicesPage() {
                         <div className={`flex flex-col h-full ${!selectedMember ? 'hidden md:flex' : 'flex'}`}>
                             <label className="text-xs font-bold text-gray-400 uppercase mb-2 flex justify-between items-center"><span>Pré-visualização</span>{selectedMember && <button onClick={() => setSelectedMember(null)} className="md:hidden text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-lg text-xs">← Voltar</button>}</label>
                             <div className="flex-1 bg-gray-100 rounded-xl p-4 md:p-6 border border-gray-200 flex flex-col items-center">
-                                {selectedMember ? (<div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200"><div className="flex justify-center mb-3">{logoUrl ? <img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" /> : <Building2 size={32} className="text-gray-400"/>}</div><h3 className="text-sm font-bold text-gray-800 uppercase border-b pb-2 mb-3">{churchName}</h3><div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">{selectedMember.fullName}</div><textarea placeholder="Observação extra (ex: mudou-se para Lisboa)" value={obs} onChange={e => setObs(e.target.value)} className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300" rows={3}/><button onClick={handlePrint} disabled={printing} className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-wait">{printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} {printing ? "Gerando..." : "Imprimir"}</button></div>) : (<div className="text-center py-20 text-gray-400"><ShieldCheck size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Selecione um membro.</p></div>)}
+                                {selectedMember ? (
+                                    <div className="bg-white p-6 shadow-md w-full max-w-sm mx-auto rounded-lg text-center animate-in zoom-in border border-gray-200">
+                                        <div className="flex justify-center mb-3">{logoUrl ? <img src={getDirectImageUrl(logoUrl)} alt="Logo" className="h-16 w-16 object-contain" /> : <Building2 size={32} className="text-gray-400"/>}</div>
+                                        <h3 className="text-sm font-bold text-gray-800 uppercase border-b pb-2 mb-3">{churchName}</h3>
+                                        <div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">{selectedMember.fullName}</div>
+                                        
+                                        {/* Título do Documento */}
+                                        <p className="text-xs text-gray-500 font-bold uppercase mb-4">
+                                            {selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : selectedDoc === 'transfer' ? 'CARTA DE TRANSFERÊNCIA' : 'CERTIDÃO DE APRESENTAÇÃO'}
+                                        </p>
+
+                                        {selectedDoc !== 'certificate' && (
+                                            <textarea placeholder="Observação extra (ex: mudou-se para Lisboa)" value={obs} onChange={e => setObs(e.target.value)} className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300" rows={3}/>
+                                        )}
+                                        
+                                        <button onClick={handlePrint} disabled={printing} className="w-full bg-gray-900 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition shadow-lg flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-wait">
+                                            {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} {printing ? "Gerando..." : "Imprimir"}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-20 text-gray-400"><ShieldCheck size={40} className="mx-auto mb-2 opacity-20"/><p className="text-sm">Selecione um membro.</p></div>
+                                )}
                             </div>
                         </div>
                     </div>

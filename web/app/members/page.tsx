@@ -9,7 +9,7 @@ import { createSystemUser } from "../../services/adminAuthService";
 import { getDirectImageUrl } from "../../utils/imageHelper"; 
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
-  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard, ScrollText 
+  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, CreditCard 
 } from "lucide-react";
 
 export default function MembersPage() {
@@ -181,6 +181,7 @@ export default function MembersPage() {
         </tr>
     `).join('');
 
+    // IMPORTANTE: Usa o helper para garantir que a logo carregue
     const finalLogo = getDirectImageUrl(logoUrl);
     const logoHtml = finalLogo ? `<img src="${finalLogo}" style="height: 60px; margin-bottom: 10px;" />` : '';
 
@@ -188,145 +189,13 @@ export default function MembersPage() {
         <html><head><title>Lista de Membros</title><style>body{font-family:sans-serif;padding:20px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px;text-align:left}th{background:#f9fafb;padding:8px;border-bottom:2px solid #eee}</style></head>
         <body>${logoHtml}<h1>${churchName}</h1><p>Relatório de Membros • ${today}</p>
         <table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
-        <script>setTimeout(() => window.print(), 500);</script></body></html>
+        <script>setTimeout(() => window.print(), 1000);</script></body></html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
   };
 
-  // --- IMPRESSÃO DE CERTIDÃO DE CRIANÇA (NOVO) ---
-  const handlePrintCertificate = (member: Member) => {
-    // Pergunta o nome dos pais na hora
-    const fatherName = prompt("Nome do Pai (Deixe em branco se não houver):") || "_____________________________";
-    const motherName = prompt("Nome da Mãe (Deixe em branco se não houver):") || "_____________________________";
-    
-    const printWindow = window.open('', '', 'width=1123,height=794'); // A4 Landscape Pixels
-    if (!printWindow) return;
-
-    const finalLogo = getDirectImageUrl(logoUrl);
-    const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    const html = `
-      <html>
-        <head>
-          <title>Certidão de Apresentação - ${member.fullName}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:wght@400;700&display=swap');
-            @page { size: A4 landscape; margin: 0; }
-            body { 
-                margin: 0; padding: 0; 
-                font-family: 'Playfair Display', serif; 
-                background: #fff;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .certificate-container {
-                width: 100%; height: 100vh;
-                display: flex; justify-content: center; align-items: center;
-                background-color: #fff;
-                padding: 40px;
-                box-sizing: border-box;
-            }
-            .border-outer {
-                width: 100%; height: 100%;
-                border: 2px solid #d4af37; /* Gold */
-                padding: 5px;
-                position: relative;
-            }
-            .border-inner {
-                width: 100%; height: 100%;
-                border: 1px solid #d4af37;
-                display: flex; flex-direction: column; align-items: center; justify-content: center;
-                background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(250,248,240,1) 100%);
-                position: relative;
-            }
-            .corner {
-                position: absolute; width: 60px; height: 60px;
-                border-color: #d4af37; border-style: double;
-            }
-            .tl { top: 10px; left: 10px; border-width: 4px 0 0 4px; }
-            .tr { top: 10px; right: 10px; border-width: 4px 4px 0 0; }
-            .bl { bottom: 10px; left: 10px; border-width: 0 0 4px 4px; }
-            .br { bottom: 10px; right: 10px; border-width: 0 4px 4px 0; }
-
-            .logo { height: 80px; margin-bottom: 20px; object-fit: contain; }
-            .church-header { font-size: 24px; font-weight: bold; text-transform: uppercase; color: #333; letter-spacing: 2px; }
-            .cert-title { 
-                font-family: 'Great Vibes', cursive; 
-                font-size: 80px; 
-                color: #d4af37; 
-                margin: 10px 0 30px 0; 
-                line-height: 1;
-            }
-            .content-text { font-size: 20px; color: #555; text-align: center; max-width: 80%; line-height: 1.8; margin-bottom: 40px; }
-            .child-name { font-size: 36px; font-weight: bold; color: #000; border-bottom: 1px solid #ddd; padding: 0 20px; display: inline-block; margin: 0 10px; }
-            .parents-block { display: flex; justify-content: center; gap: 40px; width: 80%; margin-bottom: 50px; flex-wrap: wrap; }
-            .parent-line { flex: 1; text-align: center; }
-            .parent-name { font-size: 22px; font-weight: bold; border-bottom: 1px solid #999; padding-bottom: 5px; display: block; min-width: 250px; }
-            .parent-label { font-size: 12px; text-transform: uppercase; color: #777; margin-top: 5px; letter-spacing: 1px; }
-            
-            .footer-row { display: flex; justify-content: space-between; width: 80%; margin-top: auto; padding-bottom: 40px; }
-            .signature { text-align: center; }
-            .sig-line { width: 300px; border-bottom: 1px solid #333; margin-bottom: 10px; }
-            .sig-text { font-size: 14px; font-weight: bold; text-transform: uppercase; }
-            .date-place { font-size: 16px; font-style: italic; color: #555; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="certificate-container">
-            <div class="border-outer">
-              <div class="border-inner">
-                <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
-                
-                ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
-                <div class="church-header">${churchName}</div>
-                
-                <div class="cert-title">Certificado de Apresentação</div>
-                
-                <div class="content-text">
-                  Certificamos que a criança<br/>
-                  <span class="child-name">${member.fullName}</span><br/>
-                  foi apresentada ao Senhor e dedicada a Deus, conforme os princípios cristãos, em cerimônia realizada nesta igreja.
-                </div>
-
-                <div class="parents-block">
-                    <div class="parent-line">
-                        <span class="parent-name">${fatherName}</span>
-                        <div class="parent-label">Pai</div>
-                    </div>
-                    <div class="parent-line">
-                        <span class="parent-name">${motherName}</span>
-                        <div class="parent-label">Mãe</div>
-                    </div>
-                </div>
-
-                <div class="date-place">
-                    ${member.address?.city || "Cidade"}, ${today}
-                </div>
-
-                <div class="footer-row">
-                    <div class="signature">
-                       <div class="sig-line"></div>
-                       <div class="sig-text">Secretaria</div>
-                    </div>
-                    <div class="signature">
-                       <div class="sig-line"></div>
-                       <div class="sig-text">Pastor Presidente</div>
-                    </div>
-                </div>
-
-              </div>
-            </div>
-          </div>
-          <script>window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }</script>
-        </body>
-      </html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
-  };
-
-  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0) ---
+  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0 - AJUSTADO) ---
   const handlePrintCard = (member: Member) => {
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) return;
@@ -334,6 +203,11 @@ export default function MembersPage() {
     const finalLogo = getDirectImageUrl(logoUrl);
     const finalPhoto = getDirectImageUrl(member.photoUrl);
     
+    // Formatação da data de batismo
+    const baptismText = member.baptismDate 
+        ? new Date(member.baptismDate).toLocaleDateString('pt-BR') 
+        : '---';
+
     const html = `
       <html>
         <head>
@@ -374,6 +248,8 @@ export default function MembersPage() {
             .member-info { display: flex; flex-direction: column; justify-content: center; }
             .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; }
             .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; }
+            
+            /* AQUI: Mudança para Data de Batismo */
             .role-badge { 
                 background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2);
                 padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; 
@@ -424,10 +300,10 @@ export default function MembersPage() {
                  <div class="member-info">
                     <span class="label">Membro</span>
                     <span class="name">${member.fullName}</span>
-                    <span class="role-badge">${translateRole(member.role)}</span>
+                    <span class="role-badge">Batismo: ${baptismText}</span>
                  </div>
               </div>
-              <div class="front-footer">Cartão de Identificação</div>
+              <div class="front-footer">Cartão de Membro</div>
             </div>
 
             <div class="card back">
@@ -465,7 +341,10 @@ export default function MembersPage() {
             </div>
 
           </div>
-          <script>window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }</script>
+          <script>
+            // Aumentei o tempo para 1000ms (1 segundo) para dar tempo da logo carregar
+            window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }
+          </script>
         </body>
       </html>
     `;
@@ -526,36 +405,29 @@ export default function MembersPage() {
         {totalPages > 1 && (<div className="p-4 border-t border-gray-100 flex justify-center gap-4 items-center"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={20}/></button><span className="text-sm font-bold text-gray-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={20}/></button></div>)}
       </div>
 
-      {/* --- MODAL 1: VISUALIZAÇÃO RÁPIDA (COM CARTEIRINHA E CERTIDÃO) --- */}
+      {/* --- MODAL 1: VISUALIZAÇÃO RÁPIDA (SÓ CARTEIRINHA) --- */}
       {showViewModal && viewMember && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 relative">
                 <button onClick={() => setShowViewModal(false)} className="absolute top-4 right-4 z-10 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full transition"><X size={18}/></button>
                 
-                {/* Capa Colorida */}
                 <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white/30 shadow-lg relative z-10 overflow-hidden">
-                        {/* IMAGEM DO MODAL COM CORREÇÃO */}
                         {viewMember.photoUrl ? <img src={getDirectImageUrl(viewMember.photoUrl)} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
                     
-                    {/* BOTÕES DE DOCUMENTOS */}
-                    <div className="absolute bottom-4 left-0 right-0 px-4 z-20 flex justify-center gap-2">
-                         <button onClick={() => handlePrintCard(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-[10px] font-bold border border-white/30" title="Imprimir Carteirinha">
-                            <CreditCard size={14}/> Carteirinha
-                         </button>
-                         {/* BOTÃO DA CERTIDÃO (NOVO) */}
-                         <button onClick={() => handlePrintCertificate(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-[10px] font-bold border border-white/30" title="Imprimir Certidão">
-                            <ScrollText size={14}/> Certidão Criança
+                    <div className="absolute bottom-4 left-0 right-0 px-4 z-20 flex justify-center">
+                         <button onClick={() => handlePrintCard(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-xs font-bold border border-white/30" title="Imprimir Carteirinha">
+                            <CreditCard size={16}/> Carteirinha
                          </button>
                     </div>
                 </div>
 
                 <div className="p-6 space-y-5">
-                    {/* DADOS DETALHADOS (MANTIDOS) */}
+                    {/* DADOS DETALHADOS */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                             <span className="text-[10px] text-gray-400 font-bold uppercase">Status</span>
@@ -590,7 +462,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* --- RESTANTE DOS MODAIS (MANTIDOS IGUAIS) --- */}
+      {/* --- RESTANTE DOS MODAIS (CADASTRO E ACESSO - MANTIDOS) --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
@@ -686,7 +558,6 @@ export default function MembersPage() {
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-3xl"><h3 className="font-bold text-gray-800 flex items-center gap-2"><Printer size={18} className="text-blue-600"/> Visualização de Impressão</h3><button onClick={() => setShowPrintModal(false)} className="bg-white p-2 rounded-full shadow-sm text-gray-400 hover:text-red-500 transition"><X size={20}/></button></div>
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-100">
                     <div className="bg-white shadow-lg p-8 max-w-lg mx-auto min-h-[400px] text-center rounded-xl border border-gray-200">
-                        {/* LOGO DO MODAL DE IMPRESSÃO COM CORREÇÃO */}
                         <div className="flex justify-center mb-4">{logoUrl ? (<img src={getDirectImageUrl(logoUrl)} alt="Logo" className="h-16 w-16 object-contain" />) : (<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-400"><Building2 size={32}/></div>)}</div>
                         <h2 className="text-xl font-bold uppercase text-gray-800 border-b pb-4 mb-4">{churchName}</h2>
                         <div className="text-left space-y-2"><p className="text-sm font-bold text-gray-500 uppercase mb-2">Resumo:</p><div className="flex justify-between text-sm border-b border-gray-100 pb-2"><span>Total de Membros:</span><span className="font-bold">{filteredMembers.length}</span></div></div>
@@ -698,7 +569,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL ACESSO (SENHA) (MANTIDO) */}
+      {/* MODAL ACESSO (SENHA) */}
       {showAccessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
