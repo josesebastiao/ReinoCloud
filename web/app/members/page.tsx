@@ -6,6 +6,7 @@ import { ministryService } from "../../services/ministryService";
 import { Member } from "../../types/member"; 
 import { Ministry } from "../../types/ministry";
 import { createSystemUser } from "../../services/adminAuthService";
+import { getDirectImageUrl } from "../../utils/imageHelper"; // <--- A MÁGICA AQUI
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
   MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard 
@@ -164,6 +165,7 @@ export default function MembersPage() {
   const openAccessModal = (member: Member) => { if(!member.email) { alert("Este membro precisa de um e-mail."); return; } setSelectedMemberForAccess(member); setNewPassword(""); setShowAccessModal(true); };
   const handleCreateAccess = async (e: React.FormEvent) => { e.preventDefault(); if(!selectedMemberForAccess?.email) return; setCreatingAccess(true); try { await createSystemUser(selectedMemberForAccess.email, newPassword); alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); setShowAccessModal(false); } catch (error: any) { alert("Erro: " + error.message); } finally { setCreatingAccess(false); } };
 
+  // --- IMPRESSÃO DE LISTA (CORRIGIDA) ---
   const handlePrintExecute = () => {
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) return;
@@ -179,7 +181,9 @@ export default function MembersPage() {
         </tr>
     `).join('');
 
-    const logoHtml = logoUrl ? `<img src="${logoUrl}" style="height: 60px; margin-bottom: 10px;" />` : '';
+    // Converte a logo antes de inserir no HTML
+    const finalLogo = getDirectImageUrl(logoUrl);
+    const logoHtml = finalLogo ? `<img src="${finalLogo}" style="height: 60px; margin-bottom: 10px;" />` : '';
 
     const html = `
         <html><head><title>Lista de Membros</title><style>body{font-family:sans-serif;padding:20px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px;text-align:left}th{background:#f9fafb;padding:8px;border-bottom:2px solid #eee}</style></head>
@@ -191,13 +195,13 @@ export default function MembersPage() {
     printWindow.document.close();
   };
 
-  // --- NOVA FUNÇÃO: IMPRIMIR CARTEIRINHA ---
+  // --- IMPRESSÃO DE CARTEIRINHA (CORRIGIDA) ---
   const handlePrintCard = (member: Member) => {
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) return;
 
-    // Converte URL para Base64 (Opcional, mas ajuda na impressão)
-    // Aqui usaremos as URLs diretas, mas garantiremos o CSS de background
+    const finalLogo = getDirectImageUrl(logoUrl);
+    const finalPhoto = getDirectImageUrl(member.photoUrl);
     
     const html = `
       <html>
@@ -207,31 +211,16 @@ export default function MembersPage() {
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
             body { font-family: 'Inter', sans-serif; background: #f0f0f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
             .page-break { page-break-after: always; }
-            
-            /* Container para Frente e Verso */
             .card-wrapper { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
-            
-            /* Estilo Base do Cartão (Tamanho CR80: 85.6mm x 54mm) */
             .card {
-              width: 324px; height: 204px; /* Pixels aproximados para impressão (scale) */
-              background: #fff;
-              border-radius: 12px;
-              position: relative;
-              overflow: hidden;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-              border: 1px solid #ddd;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
+              width: 324px; height: 204px; 
+              background: #fff; border-radius: 12px; position: relative; overflow: hidden;
+              box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 1px solid #ddd;
+              -webkit-print-color-adjust: exact; print-color-adjust: exact;
             }
-
-            /* --- FRENTE --- */
             .card.front {
               background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-              color: white;
-              display: flex;
-              flex-direction: row;
-              align-items: center;
-              padding: 15px;
+              color: white; display: flex; flex-direction: row; align-items: center; padding: 15px;
             }
             .card-bg-pattern {
                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -239,39 +228,17 @@ export default function MembersPage() {
                opacity: 0.1; pointer-events: none;
             }
             .photo-area {
-               width: 80px; height: 80px;
-               background: #fff;
-               border-radius: 50%;
-               border: 3px solid rgba(255,255,255,0.5);
-               overflow: hidden;
-               flex-shrink: 0;
-               margin-right: 15px;
-               z-index: 10;
+               width: 80px; height: 80px; background: #fff; border-radius: 50%;
+               border: 3px solid rgba(255,255,255,0.5); overflow: hidden; flex-shrink: 0; margin-right: 15px; z-index: 10;
             }
             .photo-area img { width: 100%; height: 100%; object-fit: cover; }
             .info-area { z-index: 10; flex: 1; }
             .church-name { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; margin-bottom: 5px; }
             .member-name { font-size: 16px; font-weight: 800; line-height: 1.2; margin-bottom: 5px; text-transform: uppercase; }
-            .member-role { 
-              display: inline-block; 
-              background: rgba(255,255,255,0.2); 
-              padding: 4px 8px; 
-              border-radius: 4px; 
-              font-size: 9px; 
-              font-weight: bold; 
-              text-transform: uppercase; 
-            }
+            .member-role { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; }
             .logo-corner { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; object-fit: contain; z-index: 10; opacity: 0.8; }
-
-            /* --- VERSO --- */
             .card.back {
-              background: #fff;
-              color: #333;
-              padding: 20px;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              border: 1px solid #ccc;
+              background: #fff; color: #333; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #ccc;
             }
             .back-header { text-align: center; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
             .back-header h3 { margin: 0; font-size: 12px; text-transform: uppercase; color: #1e3a8a; }
@@ -281,7 +248,6 @@ export default function MembersPage() {
             .signature-line { border-bottom: 1px solid #333; width: 80%; margin: 0 auto 5px auto; }
             .signature-label { font-size: 8px; font-weight: bold; text-transform: uppercase; color: #555; }
             .qr-placeholder { position: absolute; bottom: 10px; right: 10px; width: 40px; height: 40px; opacity: 0.5; }
-
             @media print {
               body { background: white; height: auto; display: block; }
               .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; }
@@ -291,55 +257,33 @@ export default function MembersPage() {
         </head>
         <body>
           <div class="card-wrapper">
-            
             <div class="card front">
               <div class="card-bg-pattern"></div>
-              ${logoUrl ? `<img src="${logoUrl}" class="logo-corner" />` : ''}
-              
+              ${finalLogo ? `<img src="${finalLogo}" class="logo-corner" />` : ''}
               <div class="photo-area">
-                 ${member.photoUrl ? `<img src="${member.photoUrl}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
+                 ${finalPhoto ? `<img src="${finalPhoto}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
               </div>
-              
               <div class="info-area">
                  <div class="church-name">${churchName}</div>
                  <div class="member-name">${member.fullName}</div>
                  <div class="member-role">${translateRole(member.role)}</div>
               </div>
             </div>
-
             <div class="card back">
-               <div class="back-header">
-                 <h3>Dados do Membro</h3>
-               </div>
-               
+               <div class="back-header"><h3>Dados do Membro</h3></div>
                <div class="data-grid">
-                  <div class="data-item">
-                    <strong>Admissão/Batismo</strong>
-                    <span>${member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : '---'}</span>
-                  </div>
-                  <div class="data-item">
-                    <strong>Nascimento</strong>
-                    <span>${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span>
-                  </div>
-                  <div class="data-item">
-                    <strong>Validade</strong>
-                    <span>Indeterminada</span>
-                  </div>
+                  <div class="data-item"><strong>Admissão/Batismo</strong><span>${member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : '---'}</span></div>
+                  <div class="data-item"><strong>Nascimento</strong><span>${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span></div>
+                  <div class="data-item"><strong>Validade</strong><span>Indeterminada</span></div>
                </div>
-
                <div class="signature-area">
                   <div style="height: 30px;"></div> <div class="signature-line"></div>
                   <div class="signature-label">Pastor Presidente</div>
                </div>
-               
                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" class="qr-placeholder" />
             </div>
-
           </div>
-          <script>
-             // Aguarda carregar imagens antes de imprimir
-             window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }
-          </script>
+          <script>window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }</script>
         </body>
       </html>
     `;
@@ -376,7 +320,8 @@ export default function MembersPage() {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                            {member.photoUrl ? (<img src={member.photoUrl} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
+                            {/* IMAGEM DA TABELA COM CORREÇÃO */}
+                            {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
                         </div>
                         <div className="flex flex-col">
                             <span className="font-bold text-gray-800">{member.fullName}</span>
@@ -410,7 +355,8 @@ export default function MembersPage() {
                 <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white/30 shadow-lg relative z-10 overflow-hidden">
-                        {viewMember.photoUrl ? <img src={viewMember.photoUrl} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
+                        {/* IMAGEM DO MODAL COM CORREÇÃO */}
+                        {viewMember.photoUrl ? <img src={getDirectImageUrl(viewMember.photoUrl)} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
@@ -424,6 +370,7 @@ export default function MembersPage() {
                 </div>
 
                 <div className="p-6 space-y-5">
+                    {/* DADOS DETALHADOS (MANTIDOS) */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                             <span className="text-[10px] text-gray-400 font-bold uppercase">Status</span>
@@ -554,7 +501,8 @@ export default function MembersPage() {
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-3xl"><h3 className="font-bold text-gray-800 flex items-center gap-2"><Printer size={18} className="text-blue-600"/> Visualização de Impressão</h3><button onClick={() => setShowPrintModal(false)} className="bg-white p-2 rounded-full shadow-sm text-gray-400 hover:text-red-500 transition"><X size={20}/></button></div>
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-100">
                     <div className="bg-white shadow-lg p-8 max-w-lg mx-auto min-h-[400px] text-center rounded-xl border border-gray-200">
-                        <div className="flex justify-center mb-4">{logoUrl ? (<img src={logoUrl} alt="Logo" className="h-16 w-16 object-contain" />) : (<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-400"><Building2 size={32}/></div>)}</div>
+                        {/* LOGO DO MODAL DE IMPRESSÃO COM CORREÇÃO */}
+                        <div className="flex justify-center mb-4">{logoUrl ? (<img src={getDirectImageUrl(logoUrl)} alt="Logo" className="h-16 w-16 object-contain" />) : (<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-gray-400"><Building2 size={32}/></div>)}</div>
                         <h2 className="text-xl font-bold uppercase text-gray-800 border-b pb-4 mb-4">{churchName}</h2>
                         <div className="text-left space-y-2"><p className="text-sm font-bold text-gray-500 uppercase mb-2">Resumo:</p><div className="flex justify-between text-sm border-b border-gray-100 pb-2"><span>Total de Membros:</span><span className="font-bold">{filteredMembers.length}</span></div></div>
                         <p className="text-xs text-gray-400 mt-8">Clique em "Imprimir Agora" para gerar a lista com fotos (se houver).</p>
@@ -565,7 +513,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL ACESSO (SENHA) */}
+      {/* MODAL ACESSO (SENHA) (MANTIDO) */}
       {showAccessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
