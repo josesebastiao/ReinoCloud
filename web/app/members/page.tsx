@@ -6,10 +6,10 @@ import { ministryService } from "../../services/ministryService";
 import { Member } from "../../types/member"; 
 import { Ministry } from "../../types/ministry";
 import { createSystemUser } from "../../services/adminAuthService";
-import { getDirectImageUrl } from "../../utils/imageHelper"; // <--- A MÁGICA AQUI
+import { getDirectImageUrl } from "../../utils/imageHelper"; 
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
-  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard 
+  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard, ScrollText 
 } from "lucide-react";
 
 export default function MembersPage() {
@@ -165,7 +165,7 @@ export default function MembersPage() {
   const openAccessModal = (member: Member) => { if(!member.email) { alert("Este membro precisa de um e-mail."); return; } setSelectedMemberForAccess(member); setNewPassword(""); setShowAccessModal(true); };
   const handleCreateAccess = async (e: React.FormEvent) => { e.preventDefault(); if(!selectedMemberForAccess?.email) return; setCreatingAccess(true); try { await createSystemUser(selectedMemberForAccess.email, newPassword); alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); setShowAccessModal(false); } catch (error: any) { alert("Erro: " + error.message); } finally { setCreatingAccess(false); } };
 
-  // --- IMPRESSÃO DE LISTA (CORRIGIDA) ---
+  // --- IMPRESSÃO DE LISTA ---
   const handlePrintExecute = () => {
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) return;
@@ -181,7 +181,6 @@ export default function MembersPage() {
         </tr>
     `).join('');
 
-    // Converte a logo antes de inserir no HTML
     const finalLogo = getDirectImageUrl(logoUrl);
     const logoHtml = finalLogo ? `<img src="${finalLogo}" style="height: 60px; margin-bottom: 10px;" />` : '';
 
@@ -195,7 +194,139 @@ export default function MembersPage() {
     printWindow.document.close();
   };
 
-  // --- IMPRESSÃO DE CARTEIRINHA (CORRIGIDA) ---
+  // --- IMPRESSÃO DE CERTIDÃO DE CRIANÇA (NOVO) ---
+  const handlePrintCertificate = (member: Member) => {
+    // Pergunta o nome dos pais na hora
+    const fatherName = prompt("Nome do Pai (Deixe em branco se não houver):") || "_____________________________";
+    const motherName = prompt("Nome da Mãe (Deixe em branco se não houver):") || "_____________________________";
+    
+    const printWindow = window.open('', '', 'width=1123,height=794'); // A4 Landscape Pixels
+    if (!printWindow) return;
+
+    const finalLogo = getDirectImageUrl(logoUrl);
+    const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    const html = `
+      <html>
+        <head>
+          <title>Certidão de Apresentação - ${member.fullName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:wght@400;700&display=swap');
+            @page { size: A4 landscape; margin: 0; }
+            body { 
+                margin: 0; padding: 0; 
+                font-family: 'Playfair Display', serif; 
+                background: #fff;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .certificate-container {
+                width: 100%; height: 100vh;
+                display: flex; justify-content: center; align-items: center;
+                background-color: #fff;
+                padding: 40px;
+                box-sizing: border-box;
+            }
+            .border-outer {
+                width: 100%; height: 100%;
+                border: 2px solid #d4af37; /* Gold */
+                padding: 5px;
+                position: relative;
+            }
+            .border-inner {
+                width: 100%; height: 100%;
+                border: 1px solid #d4af37;
+                display: flex; flex-direction: column; align-items: center; justify-content: center;
+                background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(250,248,240,1) 100%);
+                position: relative;
+            }
+            .corner {
+                position: absolute; width: 60px; height: 60px;
+                border-color: #d4af37; border-style: double;
+            }
+            .tl { top: 10px; left: 10px; border-width: 4px 0 0 4px; }
+            .tr { top: 10px; right: 10px; border-width: 4px 4px 0 0; }
+            .bl { bottom: 10px; left: 10px; border-width: 0 0 4px 4px; }
+            .br { bottom: 10px; right: 10px; border-width: 0 4px 4px 0; }
+
+            .logo { height: 80px; margin-bottom: 20px; object-fit: contain; }
+            .church-header { font-size: 24px; font-weight: bold; text-transform: uppercase; color: #333; letter-spacing: 2px; }
+            .cert-title { 
+                font-family: 'Great Vibes', cursive; 
+                font-size: 80px; 
+                color: #d4af37; 
+                margin: 10px 0 30px 0; 
+                line-height: 1;
+            }
+            .content-text { font-size: 20px; color: #555; text-align: center; max-width: 80%; line-height: 1.8; margin-bottom: 40px; }
+            .child-name { font-size: 36px; font-weight: bold; color: #000; border-bottom: 1px solid #ddd; padding: 0 20px; display: inline-block; margin: 0 10px; }
+            .parents-block { display: flex; justify-content: center; gap: 40px; width: 80%; margin-bottom: 50px; flex-wrap: wrap; }
+            .parent-line { flex: 1; text-align: center; }
+            .parent-name { font-size: 22px; font-weight: bold; border-bottom: 1px solid #999; padding-bottom: 5px; display: block; min-width: 250px; }
+            .parent-label { font-size: 12px; text-transform: uppercase; color: #777; margin-top: 5px; letter-spacing: 1px; }
+            
+            .footer-row { display: flex; justify-content: space-between; width: 80%; margin-top: auto; padding-bottom: 40px; }
+            .signature { text-align: center; }
+            .sig-line { width: 300px; border-bottom: 1px solid #333; margin-bottom: 10px; }
+            .sig-text { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+            .date-place { font-size: 16px; font-style: italic; color: #555; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="certificate-container">
+            <div class="border-outer">
+              <div class="border-inner">
+                <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+                
+                ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
+                <div class="church-header">${churchName}</div>
+                
+                <div class="cert-title">Certificado de Apresentação</div>
+                
+                <div class="content-text">
+                  Certificamos que a criança<br/>
+                  <span class="child-name">${member.fullName}</span><br/>
+                  foi apresentada ao Senhor e dedicada a Deus, conforme os princípios cristãos, em cerimônia realizada nesta igreja.
+                </div>
+
+                <div class="parents-block">
+                    <div class="parent-line">
+                        <span class="parent-name">${fatherName}</span>
+                        <div class="parent-label">Pai</div>
+                    </div>
+                    <div class="parent-line">
+                        <span class="parent-name">${motherName}</span>
+                        <div class="parent-label">Mãe</div>
+                    </div>
+                </div>
+
+                <div class="date-place">
+                    ${member.address?.city || "Cidade"}, ${today}
+                </div>
+
+                <div class="footer-row">
+                    <div class="signature">
+                       <div class="sig-line"></div>
+                       <div class="sig-text">Secretaria</div>
+                    </div>
+                    <div class="signature">
+                       <div class="sig-line"></div>
+                       <div class="sig-text">Pastor Presidente</div>
+                    </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+          <script>window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }</script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0) ---
   const handlePrintCard = (member: Member) => {
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) return;
@@ -208,46 +339,69 @@ export default function MembersPage() {
         <head>
           <title>Carteirinha - ${member.fullName}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
-            body { font-family: 'Inter', sans-serif; background: #f0f0f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .page-break { page-break-after: always; }
-            .card-wrapper { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');
+            body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; }
+            
+            /* CR80 Size Scaled */
             .card {
               width: 324px; height: 204px; 
               background: #fff; border-radius: 12px; position: relative; overflow: hidden;
-              box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 1px solid #ddd;
+              box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd;
               -webkit-print-color-adjust: exact; print-color-adjust: exact;
             }
+
+            /* FRENTE */
             .card.front {
-              background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-              color: white; display: flex; flex-direction: row; align-items: center; padding: 15px;
+              background: linear-gradient(120deg, #0f172a 0%, #1e3a8a 100%);
+              color: white; display: flex; flex-direction: column;
             }
-            .card-bg-pattern {
-               position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-               background-image: url('https://www.transparenttextures.com/patterns/cubes.png');
-               opacity: 0.1; pointer-events: none;
+            .front-header {
+                display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
             }
-            .photo-area {
-               width: 80px; height: 80px; background: #fff; border-radius: 50%;
-               border: 3px solid rgba(255,255,255,0.5); overflow: hidden; flex-shrink: 0; margin-right: 15px; z-index: 10;
+            .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+            .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+            
+            .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; }
+            .photo-frame {
+               width: 75px; height: 75px; border-radius: 12px; background: #fff;
+               border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0;
+               box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             }
-            .photo-area img { width: 100%; height: 100%; object-fit: cover; }
-            .info-area { z-index: 10; flex: 1; }
-            .church-name { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; margin-bottom: 5px; }
-            .member-name { font-size: 16px; font-weight: 800; line-height: 1.2; margin-bottom: 5px; text-transform: uppercase; }
-            .member-role { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; }
-            .logo-corner { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; object-fit: contain; z-index: 10; opacity: 0.8; }
+            .photo-frame img { width: 100%; height: 100%; object-fit: cover; }
+            
+            .member-info { display: flex; flex-direction: column; justify-content: center; }
+            .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; }
+            .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; }
+            .role-badge { 
+                background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2);
+                padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; 
+                text-transform: uppercase; width: fit-content;
+            }
+
+            .front-footer {
+                background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right;
+                font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8;
+            }
+
+            /* VERSO */
             .card.back {
-              background: #fff; color: #333; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #ccc;
+              background: #fff; color: #333; display: flex; flex-direction: column;
+              background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px;
             }
-            .back-header { text-align: center; border-bottom: 2px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
-            .back-header h3 { margin: 0; font-size: 12px; text-transform: uppercase; color: #1e3a8a; }
-            .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 9px; }
-            .data-item strong { display: block; color: #888; font-size: 7px; uppercase; }
-            .signature-area { text-align: center; margin-top: 10px; }
-            .signature-line { border-bottom: 1px solid #333; width: 80%; margin: 0 auto 5px auto; }
-            .signature-label { font-size: 8px; font-weight: bold; text-transform: uppercase; color: #555; }
-            .qr-placeholder { position: absolute; bottom: 10px; right: 10px; width: 40px; height: 40px; opacity: 0.5; }
+            .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+            
+            .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; }
+            .data-col { display: flex; flex-direction: column; }
+            .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; }
+            .data-value { font-size: 9px; font-weight: 600; color: #000; }
+
+            .signature-box { text-align: center; margin-top: 10px; }
+            .sig-img { height: 25px; object-fit: contain; margin-bottom: -5px; }
+            .line { height: 1px; background: #000; width: 100%; margin: 2px auto; }
+            .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; }
+
             @media print {
               body { background: white; height: auto; display: block; }
               .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; }
@@ -257,31 +411,59 @@ export default function MembersPage() {
         </head>
         <body>
           <div class="card-wrapper">
+            
             <div class="card front">
-              <div class="card-bg-pattern"></div>
-              ${finalLogo ? `<img src="${finalLogo}" class="logo-corner" />` : ''}
-              <div class="photo-area">
-                 ${finalPhoto ? `<img src="${finalPhoto}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
+              <div class="front-header">
+                 ${finalLogo ? `<img src="${finalLogo}" class="front-logo" />` : ''}
+                 <div class="church-title">${churchName}</div>
               </div>
-              <div class="info-area">
-                 <div class="church-name">${churchName}</div>
-                 <div class="member-name">${member.fullName}</div>
-                 <div class="member-role">${translateRole(member.role)}</div>
+              <div class="front-body">
+                 <div class="photo-frame">
+                    ${finalPhoto ? `<img src="${finalPhoto}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
+                 </div>
+                 <div class="member-info">
+                    <span class="label">Membro</span>
+                    <span class="name">${member.fullName}</span>
+                    <span class="role-badge">${translateRole(member.role)}</span>
+                 </div>
               </div>
+              <div class="front-footer">Cartão de Identificação</div>
             </div>
+
             <div class="card back">
-               <div class="back-header"><h3>Dados do Membro</h3></div>
-               <div class="data-grid">
-                  <div class="data-item"><strong>Admissão/Batismo</strong><span>${member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : '---'}</span></div>
-                  <div class="data-item"><strong>Nascimento</strong><span>${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span></div>
-                  <div class="data-item"><strong>Validade</strong><span>Indeterminada</span></div>
+               <div class="back-body">
+                   <div>
+                       <div class="data-row">
+                           <div class="data-col">
+                               <span class="data-label">Data de Nascimento</span>
+                               <span class="data-value">${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span>
+                           </div>
+                           <div class="data-col" style="text-align:right">
+                               <span class="data-label">Desde</span>
+                               <span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span>
+                           </div>
+                       </div>
+                       <div class="data-row" style="border:none">
+                           <div class="data-col">
+                               <span class="data-label">Validade</span>
+                               <span class="data-value">INDETERMINADA</span>
+                           </div>
+                       </div>
+                   </div>
+
+                   <div class="signature-box">
+                       <div style="height:25px"></div> 
+                       <div class="line"></div>
+                       <div class="sig-label">Pastor Presidente</div>
+                   </div>
+                   
+                   <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;">
+                       <span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span>
+                       <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" style="width:35px; height:35px; opacity:0.8;" />
+                   </div>
                </div>
-               <div class="signature-area">
-                  <div style="height: 30px;"></div> <div class="signature-line"></div>
-                  <div class="signature-label">Pastor Presidente</div>
-               </div>
-               <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" class="qr-placeholder" />
             </div>
+
           </div>
           <script>window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }</script>
         </body>
@@ -320,7 +502,6 @@ export default function MembersPage() {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                            {/* IMAGEM DA TABELA COM CORREÇÃO */}
                             {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
                         </div>
                         <div className="flex flex-col">
@@ -345,7 +526,7 @@ export default function MembersPage() {
         {totalPages > 1 && (<div className="p-4 border-t border-gray-100 flex justify-center gap-4 items-center"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={20}/></button><span className="text-sm font-bold text-gray-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={20}/></button></div>)}
       </div>
 
-      {/* --- MODAL 1: VISUALIZAÇÃO RÁPIDA (COM CARTEIRINHA) --- */}
+      {/* --- MODAL 1: VISUALIZAÇÃO RÁPIDA (COM CARTEIRINHA E CERTIDÃO) --- */}
       {showViewModal && viewMember && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 relative">
@@ -361,10 +542,14 @@ export default function MembersPage() {
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
                     
-                    {/* BOTÃO CARTEIRINHA */}
-                    <div className="absolute bottom-4 right-4 z-20">
-                         <button onClick={() => handlePrintCard(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-xs font-bold border border-white/30" title="Imprimir Carteirinha">
-                            <CreditCard size={16}/> Carteirinha
+                    {/* BOTÕES DE DOCUMENTOS */}
+                    <div className="absolute bottom-4 left-0 right-0 px-4 z-20 flex justify-center gap-2">
+                         <button onClick={() => handlePrintCard(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-[10px] font-bold border border-white/30" title="Imprimir Carteirinha">
+                            <CreditCard size={14}/> Carteirinha
+                         </button>
+                         {/* BOTÃO DA CERTIDÃO (NOVO) */}
+                         <button onClick={() => handlePrintCertificate(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-[10px] font-bold border border-white/30" title="Imprimir Certidão">
+                            <ScrollText size={14}/> Certidão Criança
                          </button>
                     </div>
                 </div>
@@ -405,7 +590,7 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* --- MODAL 2: CADASTRO/EDIÇÃO (FORMULÁRIO) --- */}
+      {/* --- RESTANTE DOS MODAIS (MANTIDOS IGUAIS) --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
