@@ -1,26 +1,38 @@
 // web/utils/imageHelper.ts
 
 export const getDirectImageUrl = (url?: string | null) => {
-  if (!url) return "/default-avatar.png"; // Ou null, se preferir tratar no componente
+  if (!url) return undefined; // Retorna undefined para não quebrar componentes de imagem
 
-  // 1. Verifica se é um link do Google Drive
-  if (url.includes("drive.google.com") || url.includes("docs.google.com")) {
-    // Tenta extrair o ID do arquivo
-    // Padrão comum: /file/d/ID_DO_ARQUIVO/view
-    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  const cleanUrl = url.trim();
+
+  // 1. Lógica para o Google Drive
+  if (cleanUrl.includes("drive.google.com") || cleanUrl.includes("docs.google.com")) {
+    let fileId = "";
+
+    // Padrão 1: /file/d/ID_DO_ARQUIVO/view
+    const match1 = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
     
-    if (match && match[1]) {
-      const fileId = match[1];
-      // Retorna o link direto da thumbnail em alta resolução (sz=w1000 = largura 1000px)
-      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    // Padrão 2: id=ID_DO_ARQUIVO
+    const match2 = cleanUrl.match(/id=([a-zA-Z0-9_-]+)/);
+
+    if (match1 && match1[1]) {
+      fileId = match1[1];
+    } else if (match2 && match2[1]) {
+      fileId = match2[1];
+    }
+
+    if (fileId) {
+      // Método "Universal" de exportação de visualização
+      // Funciona melhor para imagens .webp, .png e .jpg
+      return `https://drive.google.com/uc?export=view&id=${fileId}`;
     }
   }
 
-  // 2. Se for link do Dropbox (ajuste comum: dl=0 para raw=1)
-  if (url.includes("dropbox.com")) {
-    return url.replace("?dl=0", "").replace("?dl=1", "") + "?raw=1";
+  // 2. Dropbox
+  if (cleanUrl.includes("dropbox.com")) {
+    return cleanUrl.replace("?dl=0", "").replace("?dl=1", "") + "?raw=1";
   }
 
-  // 3. Se for outro link normal (internet), retorna ele mesmo
-  return url;
+  // 3. Imgur e outros (retorna o link original)
+  return cleanUrl;
 };
