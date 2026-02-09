@@ -10,7 +10,7 @@ import { collection, query, where, orderBy, limit, getDocs } from "firebase/fire
 import { MemberDashboard } from "../components/MemberDashboard"; 
 import { 
   Users, Calendar, TrendingUp, ArrowRight, 
-  Clock, Loader2, AlertCircle, Eye, EyeOff, Building2, UserCheck, UserX 
+  Clock, Loader2, Eye, EyeOff, Building2, UserCheck, UserX, Smartphone, LayoutDashboard 
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -22,6 +22,9 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ active: 0, inactive: 0, total: 0 });
   const [balance, setBalance] = useState(0);
   const [nextEvents, setNextEvents] = useState<any[]>([]);
+  
+  // NOVO ESTADO: Controla qual visão está ativa (Gestão ou Membro)
+  const [viewMode, setViewMode] = useState<'management' | 'member'>('management');
 
   useEffect(() => {
     let isMounted = true;
@@ -36,11 +39,14 @@ export default function Dashboard() {
             }
         }
 
+        // Se for membro comum, força o modo membro sempre
         if (userRole === 'member') {
+            setViewMode('member');
             setLoading(false);
             return;
         }
 
+        // Se for líder/admin, carrega os dados do painel de gestão
         await loadDashboardData();
     };
     
@@ -82,10 +88,27 @@ export default function Dashboard() {
 
   if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={40}/></div>;
 
-  if (userRole === 'member') {
-      return <MemberDashboard />;
+  // --- RENDERIZAÇÃO CONDICIONAL ---
+
+  // 1. VISÃO DO MEMBRO (APP)
+  if (viewMode === 'member') {
+      return (
+        <>
+            {/* Botão Flutuante para Voltar à Gestão (Apenas para Líderes/Admins) */}
+            {userRole !== 'member' && (
+                <button 
+                    onClick={() => setViewMode('management')}
+                    className="fixed bottom-6 left-6 z-[100] bg-slate-800 text-white px-5 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-slate-900 transition border border-slate-700 animate-in fade-in slide-in-from-bottom-4"
+                >
+                    <LayoutDashboard size={16}/> Voltar para Gestão
+                </button>
+            )}
+            <MemberDashboard />
+        </>
+      );
   }
 
+  // 2. VISÃO DE GESTÃO (GRÁFICOS)
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
@@ -104,7 +127,15 @@ export default function Dashboard() {
                 )}
                 <div>
                     <p className="text-blue-200 font-medium mb-1 text-sm md:text-base">Bem-vindo, {userName}</p>
-                    <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight">{churchName}</h1>
+                    <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight mb-2">{churchName}</h1>
+                    
+                    {/* BOTÃO MÁGICO: ALTERNAR PARA VISÃO DE MEMBRO */}
+                    <button 
+                        onClick={() => setViewMode('member')}
+                        className="bg-white/10 hover:bg-white/20 text-white text-[10px] md:text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 transition border border-white/10 font-medium"
+                    >
+                        <Smartphone size={14}/> Ver meu App (Membro)
+                    </button>
                 </div>
             </div>
             
@@ -126,7 +157,7 @@ export default function Dashboard() {
       {/* CARDS */}
       <div className="max-w-6xl mx-auto px-4 pt-[165px] md:pt-0 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
-        {/* CARD MEMBRESIA (AJUSTADO) */}
+        {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
             <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
@@ -140,7 +171,6 @@ export default function Dashboard() {
                     </div>
                 </div>
                 
-                {/* Rodapé Fixo com Detalhes */}
                 <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                     <div className="flex gap-3">
                         <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg" title="Membros Ativos">
@@ -194,7 +224,7 @@ export default function Dashboard() {
             <div className="flex-1 space-y-3 overflow-y-auto max-h-[140px] pr-2 custom-scrollbar">
                 {nextEvents.length === 0 ? (
                     <div className="text-center py-4 text-gray-300">
-                        <p className="text-xs">Nenhu evento futuro.</p>
+                        <p className="text-xs">Nenhum evento futuro.</p>
                         <Link href="/agenda" className="text-blue-500 text-xs font-bold mt-1 block hover:underline">Agendar</Link>
                     </div>
                 ) : (
