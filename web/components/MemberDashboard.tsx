@@ -4,8 +4,9 @@ import { useChurch } from "../contexts/ChurchContext";
 import { postService, Post, Comment } from "../services/postService";
 import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
-import { generalScaleService } from "../services/generalScaleService";
+import { generalScaleService } from "../services/generalScaleService"; // Lê do Gerador de Escalas
 import { ministryService } from "../services/ministryService";
+import { scaleService } from "../services/scaleService"; // Lê dos Departamentos
 import { prayerService, PrayerRequest } from "../services/prayerService";
 import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
@@ -14,7 +15,7 @@ import {
   CreditCard, DollarSign, Heart, LogOut, X, Loader2, Send, Building2, MessageCircle, CalendarX, MessageSquare, Book, CheckCircle2 
 } from "lucide-react";
 
-// Lista de Livros
+// Lista de Livros (Mantida)
 const BIBLE_BOOKS = [
   "Gênesis", "Êxodo", "Levítico", "Números", "Deuteronômio", "Josué", "Juízes", "Rute", "1 Samuel", "2 Samuel", "1 Reis", "2 Reis", "1 Crônicas", "2 Crônicas", "Esdras", "Neemias", "Ester", "Jó", "Salmos", "Provérbios", "Eclesiastes", "Cânticos", "Isaías", "Jeremias", "Lamentações", "Ezequiel", "Daniel", "Oseias", "Joel", "Amós", "Obadias", "Jonas", "Miqueias", "Naum", "Habacuque", "Sofonias", "Ageu", "Zacarias", "Malaquias",
   "Mateus", "Marcos", "Lucas", "João", "Atos", "Romanos", "1 Coríntios", "2 Coríntios", "Gálatas", "Efésios", "Filipenses", "Colossenses", "1 Tessalonicenses", "2 Tessalonicenses", "1 Timóteo", "2 Timóteo", "Tito", "Filemom", "Hebreus", "Tiago", "1 Pedro", "2 Pedro", "1 João", "2 João", "3 João", "Judas", "Apocalipse"
@@ -29,7 +30,7 @@ export function MemberDashboard() {
   // DADOS
   const [posts, setPosts] = useState<Post[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
-  const [myScales, setMyScales] = useState<any[]>([]); // <--- ONDE AS ESCALAS FICAM
+  const [myScales, setMyScales] = useState<any[]>([]); 
   const [myContributions, setMyContributions] = useState<any[]>([]);
 
   // MODAIS
@@ -69,18 +70,17 @@ export function MemberDashboard() {
     }
   }, [churchId, user]);
 
-  // --- INTELIGÊNCIA DE NOMES (CORREÇÃO DO BUG) ---
-  const isMentioned = (targetText: any, member: Member) => {
-      if (!targetText || typeof targetText !== 'string') return false;
-      
+  // --- FUNÇÃO PARA COMPARAR NOMES (Usada na Escala Geral) ---
+  const isNameMatch = (targetText: string, member: Member) => {
+      if (!targetText) return false;
       const text = targetText.toLowerCase().trim();
       const fullName = member.fullName.toLowerCase().trim();
       const firstName = fullName.split(' ')[0];
 
-      // 1. Match Exato ou Contido
-      if (text === fullName || text.includes(fullName) || fullName.includes(text)) return true;
+      // 1. Contém nome completo ou vice-versa
+      if (text.includes(fullName) || fullName.includes(text)) return true;
       
-      // 2. Match Primeiro Nome (com cuidado)
+      // 2. É igual ao primeiro nome
       if (text === firstName) return true;
 
       return false;
@@ -93,85 +93,69 @@ export function MemberDashboard() {
         const allMembers = await memberService.listByChurch(churchId);
         const me = allMembers.find(m => m.email === user?.email);
         
-        if (me) {
+        if (me && me.id) {
             setMemberData(me);
-            if (me.id) {
-                const allTrans = await financeService.listByChurch(churchId);
-                const mine = allTrans.filter(t => t.memberId === me.id && t.type === 'income');
-                setMyContributions(mine);
-            }
+            
+            // Finanças
+            const allTrans = await financeService.listByChurch(churchId);
+            const mine = allTrans.filter(t => t.memberId === me.id && t.type === 'income');
+            setMyContributions(mine);
 
-            // --- BUSCA ESCALAS CORRIGIDA ---
+            // --- PROCESSAMENTO DE ESCALAS ---
             const scalesFound: any[] = [];
             
-            // 1. Escalas Gerais (Cultos Principais)
+            // 1. ESCALAS GERAIS (Vindas de Services > Page.tsx)
+            // Aqui buscamos por NOME, pois o gerador salva strings
             const generalScales = await generalScaleService.listByChurch(churchId);
             generalScales.forEach((scale: any) => {
-                if (scale.rows) {
+                if (scale.rows && Array.isArray(scale.rows)) {
                     scale.rows.forEach((row: any) => {
-                        if (isMentioned(row.leader, me) || isMentioned(row.preacher, me) || isMentioned(row.music, me)) {
+                        // Verifica se o nome do membro está em alguma coluna
+                        if (isNameMatch(row.leader, me) || isNameMatch(row.preacher, me) || isNameMatch(row.music, me)) {
                             scalesFound.push({
                                 date: row.date,
-                                event: row.event,
-                                obs: `${isMentioned(row.leader, me) ? 'Dirigente' : ''} ${isMentioned(row.preacher, me) ? 'Pregador' : ''} ${isMentioned(row.music, me) ? 'Louvor' : ''}`.trim()
+                                event: row.event || scale.title, // Usa o evento da linha ou o título da escala
+                                obs: `${isNameMatch(row.leader, me) ? 'Dirigente' : ''} ${isNameMatch(row.preacher, me) ? 'Pregador' : ''} ${isNameMatch(row.music, me) ? 'Louvor' : ''}`.trim()
                             });
                         }
                     });
                 }
             });
 
-            // 2. Escalas de Ministérios (Coral, Louvor, etc)
+            // 2. ESCALAS DE MINISTÉRIOS (Vindas de Ministries > [id] > Page.tsx)
+            // Aqui buscamos por ID, pois a gestão de equipe salva IDs
             const ministries = await ministryService.listByChurch(churchId);
-            ministries.forEach((min: any) => {
-                if (min.scales) {
-                    min.scales.forEach((scale: any) => {
-                        // Verifica se 'people' existe
-                        if (!scale.people) return;
-
-                        // Normaliza: Transforma Objeto ou Array em Lista de Nomes
-                        let peopleValues: string[] = [];
+            
+            for (const min of ministries) {
+                if (min.id) {
+                    try {
+                        const minScales = await scaleService.listByMinistry(min.id);
                         
-                        if (Array.isArray(scale.people)) {
-                            // Se for Array ["Jonas", "Maria"]
-                            peopleValues = scale.people;
-                        } else {
-                            // Se for Objeto {"Violão": "Jonas"}
-                            peopleValues = Object.values(scale.people);
-                        }
-
-                        // Procura o membro na lista normalizada
-                        const memberInScale = peopleValues.some((personName: any) => isMentioned(personName, me));
-
-                        if (memberInScale) {
-                             // Tenta descobrir a função (role)
-                             let role = "Escalado";
-                             
-                             if (!Array.isArray(scale.people)) {
-                                // Se for objeto, pega a chave (Ex: Guitarra)
-                                const entry = Object.entries(scale.people).find(([key, val]) => isMentioned(val as string, me));
-                                if (entry) role = entry[0];
-                             }
-
-                             scalesFound.push({
-                                 date: scale.date,
-                                 event: min.name, // Nome do Ministério (Ex: Coral)
-                                 obs: `${scale.title} - ${role}` // Ex: Culto de Benção - Escalado
-                             });
-                        }
-                    });
+                        minScales.forEach((scale: any) => {
+                            // Verifica se o ID do membro está no array 'members'
+                            if (scale.members && Array.isArray(scale.members) && scale.members.includes(me.id)) {
+                                scalesFound.push({
+                                    date: scale.date,
+                                    event: min.name, // Nome do Ministério (Ex: Coral)
+                                    obs: scale.title // Título da Escala (Ex: Culto de Benção)
+                                });
+                            }
+                        });
+                    } catch (err) {
+                        console.warn(`Erro ao ler escalas do ministério ${min.name}`, err);
+                    }
                 }
-            });
+            }
 
-            // Ordena por data
+            // Ordena por data (Mais recente primeiro)
             scalesFound.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             
-            // Filtra apenas datas futuras ou hoje
+            // FILTRA DATAS PASSADAS (Remove o fantasma de 2026 se a data estiver errada, ou esconde escalas antigas)
             const today = new Date(); 
             today.setHours(0,0,0,0);
             
-            // Corrige problema de fuso horário comparando strings YYYY-MM-DD
             const validScales = scalesFound.filter(s => {
-                // Cria data ajustada para meio-dia para evitar problemas de timezone UTC
+                // Adiciona hora para garantir comparação correta de dia
                 const sDate = new Date(s.date + "T12:00:00");
                 return sDate >= today;
             });
@@ -195,25 +179,10 @@ export function MemberDashboard() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
+  // --- MANTENDO O RESTANTE DO CÓDIGO (Logout, Imagem, Interações, Modais) ---
   const handleLogout = () => { auth.signOut(); window.location.href = "/login"; };
-  
-  const getFirstName = () => {
-      if (memberData?.fullName) return memberData.fullName.split(' ')[0];
-      if (userName) return userName.split(' ')[0];
-      return "Irmão(ã)";
-  };
-
-  const getImageUrl = (url?: string) => {
-      if (!url) return null;
-      if (url.includes('drive.google.com') && url.includes('/file/d/')) {
-          const id = url.split('/file/d/')[1].split('/')[0];
-          return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
-      }
-      return url;
-  };
-
-  // --- INTERAÇÕES, BÍBLIA, ORAÇÃO, DISPONIBILIDADE (Mantidos para brevidade) ---
-  // (O código dessas funções permanece idêntico ao anterior que funcionava)
+  const getFirstName = () => { if (memberData?.fullName) return memberData.fullName.split(' ')[0]; if (userName) return userName.split(' ')[0]; return "Irmão(ã)"; };
+  const getImageUrl = (url?: string) => { if (!url) return null; if (url.includes('drive.google.com') && url.includes('/file/d/')) { const id = url.split('/file/d/')[1].split('/')[0]; return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`; } return url; };
   const handleLike = async (post: Post) => { if (!user?.uid || !post.id) return; const isLiked = post.likes?.includes(user.uid) || false; const updatedPosts = posts.map(p => { if (p.id === post.id) { const newLikes = isLiked ? (p.likes || []).filter(id => id !== user.uid) : [...(p.likes || []), user.uid]; return { ...p, likes: newLikes }; } return p; }); setPosts(updatedPosts); await postService.toggleLike(post.id, user.uid, isLiked); };
   const toggleComments = async (postId: string) => { if (expandedPostId === postId) { setExpandedPostId(null); return; } setExpandedPostId(postId); if (!postComments[postId]) { setLoadingCommentsId(postId); const comments = await postService.getComments(postId); setPostComments(prev => ({ ...prev, [postId]: comments })); setLoadingCommentsId(null); } };
   const handleInputChange = (postId: string, text: string) => setCommentInputs(prev => ({ ...prev, [postId]: text }));
