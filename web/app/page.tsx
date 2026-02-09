@@ -23,7 +23,7 @@ export default function Dashboard() {
   const [balance, setBalance] = useState(0);
   const [nextEvents, setNextEvents] = useState<any[]>([]);
   
-  // NOVO ESTADO: Controla qual visão está ativa (Gestão ou Membro)
+  // Controle de Visão (Gestão vs Membro)
   const [viewMode, setViewMode] = useState<'management' | 'member'>('management');
 
   useEffect(() => {
@@ -39,14 +39,12 @@ export default function Dashboard() {
             }
         }
 
-        // Se for membro comum, força o modo membro sempre
         if (userRole === 'member') {
             setViewMode('member');
             setLoading(false);
             return;
         }
 
-        // Se for líder/admin, carrega os dados do painel de gestão
         await loadDashboardData();
     };
     
@@ -88,13 +86,10 @@ export default function Dashboard() {
 
   if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={40}/></div>;
 
-  // --- RENDERIZAÇÃO CONDICIONAL ---
-
-  // 1. VISÃO DO MEMBRO (APP)
+  // --- MODO VISÃO DO MEMBRO ---
   if (viewMode === 'member') {
       return (
         <>
-            {/* Botão Flutuante para Voltar à Gestão (Apenas para Líderes/Admins) */}
             {userRole !== 'member' && (
                 <button 
                     onClick={() => setViewMode('management')}
@@ -108,34 +103,34 @@ export default function Dashboard() {
       );
   }
 
-  // 2. VISÃO DE GESTÃO (GRÁFICOS)
+  // --- MODO VISÃO DE GESTÃO ---
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+    <div className="min-h-screen bg-gray-50 pb-24 font-sans relative">
       
+      {/* BOTÃO FLUTUANTE PARA IR PARA O APP (CANTO INFERIOR DIREITO) */}
+      <button 
+          onClick={() => setViewMode('member')}
+          className="fixed bottom-6 right-6 z-50 bg-blue-600 text-white px-5 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-blue-700 transition hover:scale-105 border-2 border-white/20 animate-in zoom-in slide-in-from-bottom-4"
+      >
+          <Smartphone size={18}/> Ver meu App
+      </button>
+
       {/* BANNER AZUL */}
-      <div className="md:static fixed top-28 left-0 right-0 bg-[#1D4ED8] pt-6 pb-10 px-6 md:px-10 shadow-lg rounded-b-[2.5rem] z-40 h-[180px]">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+      <div className="md:static fixed top-28 left-0 right-0 bg-[#1D4ED8] pt-6 pb-10 px-6 md:px-10 shadow-lg rounded-b-[2.5rem] z-40 md:min-h-[200px] md:h-auto h-[180px]">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6 h-full">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
-                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl p-1.5 backdrop-blur-sm border border-white/20 shadow-inner">
+                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl p-1.5 backdrop-blur-sm border border-white/20 shadow-inner shrink-0">
                         <img src={logoUrl} alt="Logo" className="w-full h-full object-contain rounded-xl" />
                     </div>
                 ) : (
-                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl flex items-center justify-center text-blue-100 border border-white/20">
+                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl flex items-center justify-center text-blue-100 border border-white/20 shrink-0">
                         <Building2 size={32}/>
                     </div>
                 )}
-                <div>
+                <div className="flex flex-col items-start">
                     <p className="text-blue-200 font-medium mb-1 text-sm md:text-base">Bem-vindo, {userName}</p>
-                    <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight mb-2">{churchName}</h1>
-                    
-                    {/* BOTÃO MÁGICO: ALTERNAR PARA VISÃO DE MEMBRO */}
-                    <button 
-                        onClick={() => setViewMode('member')}
-                        className="bg-white/10 hover:bg-white/20 text-white text-[10px] md:text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 transition border border-white/10 font-medium"
-                    >
-                        <Smartphone size={14}/> Ver meu App (Membro)
-                    </button>
+                    <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight">{churchName}</h1>
                 </div>
             </div>
             
@@ -155,7 +150,7 @@ export default function Dashboard() {
       </div>
 
       {/* CARDS */}
-      <div className="max-w-6xl mx-auto px-4 pt-[165px] md:pt-0 md:-mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 pt-[165px] md:pt-8 md:mt-0 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
         
         {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
