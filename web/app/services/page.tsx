@@ -32,7 +32,7 @@ export default function ServicesPage() {
   
   // ESTADOS DE DADOS DA IGREJA
   const [customTexts, setCustomTexts] = useState({ recommendation: "", transfer: "" });
-  const [churchCity, setChurchCity] = useState("Cidade"); // <--- Estado para a cidade da igreja
+  const [churchCity, setChurchCity] = useState("Cidade"); 
 
   const [loading, setLoading] = useState(false);
   const [printing, setPrinting] = useState(false); 
@@ -61,7 +61,7 @@ export default function ServicesPage() {
   useEffect(() => {
     if (churchId) {
         loadMembers();
-        loadChurchData(); // <--- Função renomeada para indicar que carrega mais dados
+        loadChurchData(); 
         if(selectedDoc === 'scale') loadHistory();
     }
   }, [churchId, selectedDoc]);
@@ -82,12 +82,10 @@ export default function ServicesPage() {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
               const data = docSnap.data();
-              // Carrega textos
               setCustomTexts({
                   recommendation: data.textRecommendation || "",
                   transfer: data.textTransfer || ""
               });
-              // Carrega a cidade da igreja para usar nos documentos
               if (data.city) {
                   setChurchCity(data.city);
               }
@@ -151,9 +149,18 @@ export default function ServicesPage() {
 
   // --- IMPRESSÃO ---
   const handlePrint = async () => {
+    // 1. PERGUNTA OS DADOS PRIMEIRO (Evita que a janela de impressão bloqueie o prompt)
+    let fatherName = "_____________________________";
+    let motherName = "_____________________________";
+
+    if (selectedDoc === 'certificate') {
+        fatherName = prompt("Nome do Pai (Deixe em branco se não houver):") || "_____________________________";
+        motherName = prompt("Nome da Mãe (Deixe em branco se não houver):") || "_____________________________";
+    }
+
     setPrinting(true); 
     
-    // Pega links diretos e tratados pelo Helper
+    // Pega links diretos
     const directLogo = getDirectImageUrl(logoUrl);
     const directSignature = getDirectImageUrl(signatureUrl);
 
@@ -195,9 +202,7 @@ export default function ServicesPage() {
     } else if (selectedDoc === 'certificate') {
         if (!selectedMember) return;
         
-        const fatherName = prompt("Nome do Pai (Deixe em branco se não houver):") || "_____________________________";
-        const motherName = prompt("Nome da Mãe (Deixe em branco se não houver):") || "_____________________________";
-
+        // Aqui usamos as variáveis que pegamos lá no começo da função
         htmlContent = `
           <html>
             <head>
