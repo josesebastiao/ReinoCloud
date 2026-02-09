@@ -7,9 +7,10 @@ import { Member } from "../../types/member";
 import { Ministry } from "../../types/ministry";
 import { createSystemUser } from "../../services/adminAuthService";
 import { getDirectImageUrl } from "../../utils/imageHelper"; 
+// AQUI ESTAVA O ERRO: Adicionei 'User' na lista abaixo
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
-  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, CreditCard 
+  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard 
 } from "lucide-react";
 
 export default function MembersPage() {
@@ -181,7 +182,6 @@ export default function MembersPage() {
         </tr>
     `).join('');
 
-    // IMPORTANTE: Usa o helper para garantir que a logo carregue
     const finalLogo = getDirectImageUrl(logoUrl);
     const logoHtml = finalLogo ? `<img src="${finalLogo}" style="height: 60px; margin-bottom: 10px;" />` : '';
 
@@ -195,7 +195,7 @@ export default function MembersPage() {
     printWindow.document.close();
   };
 
-  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0 - AJUSTADO) ---
+  // --- IMPRESSÃO DE CARTEIRINHA ---
   const handlePrintCard = (member: Member) => {
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) return;
@@ -249,7 +249,6 @@ export default function MembersPage() {
             .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; }
             .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; }
             
-            /* AQUI: Mudança para Data de Batismo */
             .role-badge { 
                 background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2);
                 padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; 
@@ -342,7 +341,6 @@ export default function MembersPage() {
 
           </div>
           <script>
-            // Aumentei o tempo para 1000ms (1 segundo) para dar tempo da logo carregar
             window.onload = function() { setTimeout(function(){ window.print(); }, 1000); }
           </script>
         </body>
@@ -411,14 +409,17 @@ export default function MembersPage() {
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 relative">
                 <button onClick={() => setShowViewModal(false)} className="absolute top-4 right-4 z-10 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full transition"><X size={18}/></button>
                 
+                {/* Capa Colorida */}
                 <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white/30 shadow-lg relative z-10 overflow-hidden">
+                        {/* IMAGEM DO MODAL COM CORREÇÃO */}
                         {viewMember.photoUrl ? <img src={getDirectImageUrl(viewMember.photoUrl)} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
                     
+                    {/* BOTÃO CARTEIRINHA */}
                     <div className="absolute bottom-4 left-0 right-0 px-4 z-20 flex justify-center">
                          <button onClick={() => handlePrintCard(viewMember)} className="bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-xs font-bold border border-white/30" title="Imprimir Carteirinha">
                             <CreditCard size={16}/> Carteirinha
@@ -427,7 +428,7 @@ export default function MembersPage() {
                 </div>
 
                 <div className="p-6 space-y-5">
-                    {/* DADOS DETALHADOS */}
+                    {/* DADOS DETALHADOS (MANTIDOS) */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
                             <span className="text-[10px] text-gray-400 font-bold uppercase">Status</span>
