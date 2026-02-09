@@ -7,7 +7,6 @@ import { generalScaleService } from "../../services/generalScaleService";
 import { Member } from "../../types/member"; 
 import { db } from "../../lib/firebase"; 
 import { doc, getDoc } from "firebase/firestore";
-// IMPORTANTE: Helper de imagem para garantir links funcionais
 import { getDirectImageUrl } from "../../utils/imageHelper";
 
 import { 
@@ -30,7 +29,10 @@ export default function ServicesPage() {
   
   const [members, setMembers] = useState<Member[]>([]);
   const [savedScales, setSavedScales] = useState<any[]>([]); 
+  
+  // ESTADOS DE DADOS DA IGREJA
   const [customTexts, setCustomTexts] = useState({ recommendation: "", transfer: "" });
+  const [churchCity, setChurchCity] = useState("Cidade"); // <--- Estado para a cidade da igreja
 
   const [loading, setLoading] = useState(false);
   const [printing, setPrinting] = useState(false); 
@@ -59,7 +61,7 @@ export default function ServicesPage() {
   useEffect(() => {
     if (churchId) {
         loadMembers();
-        loadChurchCustomTexts();
+        loadChurchData(); // <--- Função renomeada para indicar que carrega mais dados
         if(selectedDoc === 'scale') loadHistory();
     }
   }, [churchId, selectedDoc]);
@@ -73,17 +75,22 @@ export default function ServicesPage() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const loadChurchCustomTexts = async () => {
+  const loadChurchData = async () => {
       if (!churchId) return;
       try {
           const docRef = doc(db, "churches", churchId);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
               const data = docSnap.data();
+              // Carrega textos
               setCustomTexts({
                   recommendation: data.textRecommendation || "",
                   transfer: data.textTransfer || ""
               });
+              // Carrega a cidade da igreja para usar nos documentos
+              if (data.city) {
+                  setChurchCity(data.city);
+              }
           }
       } catch (e) { console.error(e); }
   };
@@ -146,7 +153,7 @@ export default function ServicesPage() {
   const handlePrint = async () => {
     setPrinting(true); 
     
-    // Pega links diretos (Sem conversão Base64 para evitar erro de CORS)
+    // Pega links diretos e tratados pelo Helper
     const directLogo = getDirectImageUrl(logoUrl);
     const directSignature = getDirectImageUrl(signatureUrl);
 
@@ -184,11 +191,10 @@ export default function ServicesPage() {
         
         htmlContent = `<html><head><title>Escala</title><style>body{font-family:'Times New Roman';padding:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px}th{background:#f0f0f0}.logo{max-height:80px}</style></head><body>${docContent}<script>setTimeout(()=>window.print(),1000)</script></body></html>`;
     
-    // --- CASO 2: CERTIDÃO DE CRIANÇA (COM INPUTS) ---
+    // --- CASO 2: CERTIDÃO DE CRIANÇA ---
     } else if (selectedDoc === 'certificate') {
         if (!selectedMember) return;
         
-        // AQUI ESTÁ A SOLICITAÇÃO DOS NOMES
         const fatherName = prompt("Nome do Pai (Deixe em branco se não houver):") || "_____________________________";
         const motherName = prompt("Nome da Mãe (Deixe em branco se não houver):") || "_____________________________";
 
@@ -241,7 +247,9 @@ export default function ServicesPage() {
                         <div class="parent-line"><span class="parent-name">${fatherName}</span><div class="parent-label">Pai</div></div>
                         <div class="parent-line"><span class="parent-name">${motherName}</span><div class="parent-label">Mãe</div></div>
                     </div>
-                    <div class="date-place">${selectedMember.address?.city || "Cidade"}, ${today}</div>
+                    
+                    <div class="date-place">${churchCity}, ${today}</div>
+
                     <div class="footer-row">
                         <div class="signature"><div style="height:40px"></div><div class="sig-line"></div><div class="sig-text">Secretaria</div></div>
                         <div class="signature">
@@ -291,7 +299,7 @@ export default function ServicesPage() {
             <p style="margin-top: 20px;">Sem mais para o momento, subscrevemo-nos em Cristo.</p>
           </div>
           
-          <p style="text-align: right; margin-top: 60px;">${today}</p>
+          <p style="text-align: right; margin-top: 60px;">${churchCity}, ${today}</p>
         `;
 
         htmlContent = `
@@ -367,7 +375,7 @@ export default function ServicesPage() {
                 </div>
 
                 {selectedDoc === 'scale' ? (
-                    // --- MODO ESCALA (Mantido) ---
+                    // --- MODO ESCALA ---
                     <div className="flex flex-col lg:flex-row h-[800px]">
                         <div className="w-full lg:w-72 bg-gray-50 border-r border-gray-100 flex flex-col">
                             <div className="p-4 border-b border-gray-100 font-bold text-xs text-gray-400 uppercase flex items-center gap-2"><Clock size={14}/> Histórico de Escalas</div>
