@@ -14,7 +14,7 @@ export default function SecretaryPage() {
   
   // ESTADOS DO ARQUIVO DIGITAL
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
-  const [isAddingDoc, setIsAddingDoc] = useState(false); // Alterna entre Lista e Formulário
+  const [isAddingDoc, setIsAddingDoc] = useState(false);
   const [documents, setDocuments] = useState<ChurchDoc[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [savingDoc, setSavingDoc] = useState(false);
@@ -22,9 +22,10 @@ export default function SecretaryPage() {
   // FORMULÁRIO NOVO DOC
   const [newDocData, setNewDocData] = useState({ name: "", link: "" });
 
-  // Carregar documentos ao abrir a página (ou quando o churchId mudar)
+  // Carregar documentos ao abrir
   useEffect(() => {
-    if (churchId && hasPermission('secretary')) {
+    if (churchId) {
+        // Carrega documentos se tiver permissão, mas não bloqueia a página se não tiver
         loadDocuments();
     }
   }, [churchId]);
@@ -32,9 +33,11 @@ export default function SecretaryPage() {
   const loadDocuments = async () => {
       if(!churchId) return;
       setLoadingDocs(true);
-      const docs = await documentService.listByChurch(churchId);
-      setDocuments(docs);
-      setLoadingDocs(false);
+      try {
+        const docs = await documentService.listByChurch(churchId);
+        setDocuments(docs);
+      } catch (error) { console.error(error); }
+      finally { setLoadingDocs(false); }
   };
 
   const handleSaveDoc = async (e: React.FormEvent) => {
@@ -50,7 +53,6 @@ export default function SecretaryPage() {
               date: new Date().toISOString()
           });
           
-          // Limpa e recarrega
           setNewDocData({ name: "", link: "" });
           setIsAddingDoc(false);
           await loadDocuments();
@@ -68,6 +70,7 @@ export default function SecretaryPage() {
       }
   };
 
+  // LISTA DE SERVIÇOS (MÓDULOS)
   const modules = [
     {
       title: "Membros",
@@ -77,7 +80,7 @@ export default function SecretaryPage() {
       bg: "bg-blue-50",
       border: "hover:border-blue-300",
       link: "/members",
-      show: hasPermission('secretary')
+      show: true // Sempre visível na secretaria
     },
     {
       title: "Agenda Pastoral",
@@ -87,7 +90,7 @@ export default function SecretaryPage() {
       bg: "bg-purple-50",
       border: "hover:border-purple-300",
       link: "/agenda",
-      show: hasPermission('secretary') || hasPermission('financial') || userRole === 'leader'
+      show: true
     },
     {
       title: "Livro de Atas",
@@ -96,8 +99,8 @@ export default function SecretaryPage() {
       color: "text-indigo-600",
       bg: "bg-indigo-50",
       border: "hover:border-indigo-300",
-      link: "/secretary/minutes",
-      show: hasPermission('secretary')
+      link: "/secretary/minutes", // Rota precisa existir ou criar depois
+      show: true
     },
     {
       title: "Estatísticas",
@@ -106,8 +109,8 @@ export default function SecretaryPage() {
       color: "text-green-600",
       bg: "bg-green-50",
       border: "hover:border-green-300",
-      link: "/reports",
-      show: hasPermission('secretary')
+      link: "/reports", // Rota futura
+      show: true
     },
     {
       title: "Serviços & Doc.",
@@ -116,8 +119,8 @@ export default function SecretaryPage() {
       color: "text-orange-600",
       bg: "bg-orange-50",
       border: "hover:border-orange-300",
-      link: "/services",
-      show: hasPermission('secretary')
+      link: "/services", // Rota futura
+      show: true
     },
     {
       title: "Arquivo Digital",
@@ -128,14 +131,25 @@ export default function SecretaryPage() {
       border: "hover:border-red-300",
       link: "#", 
       action: () => setIsDocModalOpen(true),
-      show: hasPermission('secretary')
+      show: true
     }
   ];
 
-  const visibleModules = modules.filter(mod => {
-      if (userRole === 'admin') return true;
-      return mod.show;
-  });
+  // Se não for secretaria/admin/pastor, bloqueia tudo
+  if (userRole !== 'admin' && userRole !== 'pastor' && userRole !== 'secretary' && !hasPermission('secretary')) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-4">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400">
+                <Lock size={40}/>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800">Acesso Restrito</h1>
+            <p className="text-gray-500 mt-2 max-w-md">Esta área é exclusiva para a equipe de secretaria.</p>
+            <Link href="/" className="mt-8 px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition">
+                Voltar ao Início
+            </Link>
+        </div>
+      );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
@@ -154,61 +168,48 @@ export default function SecretaryPage() {
 
       {/* GRID DE MÓDULOS */}
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16">
-        
-        {visibleModules.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {visibleModules.map((mod, index) => (
-                    <div key={index} onClick={mod.action ? mod.action : undefined}>
-                        {mod.action ? (
-                            <div className={`cursor-pointer bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-start gap-4 transition duration-300 group ${mod.border} hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden h-full`}>
-                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${mod.bg} ${mod.color} shadow-inner`}>
-                                    {mod.icon}
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-700 transition">{mod.title}</h3>
-                                    <p className="text-sm text-gray-400 mt-1 leading-relaxed">{mod.desc}</p>
-                                </div>
-                                <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
-                                    <ArrowRight className="text-gray-300" size={24}/>
-                                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {modules.map((mod, index) => (
+                <div key={index} onClick={mod.action ? mod.action : undefined}>
+                    {mod.action ? (
+                        <div className={`cursor-pointer bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-start gap-4 transition duration-300 group ${mod.border} hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden h-full`}>
+                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${mod.bg} ${mod.color} shadow-inner`}>
+                                {mod.icon}
                             </div>
-                        ) : (
-                            <Link href={mod.link} className={`bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-start gap-4 transition duration-300 group ${mod.border} hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden h-full`}>
-                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${mod.bg} ${mod.color} shadow-inner`}>
-                                    {mod.icon}
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-700 transition">{mod.title}</h3>
-                                    <p className="text-sm text-gray-400 mt-1 leading-relaxed">{mod.desc}</p>
-                                </div>
-                                <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
-                                    <ArrowRight className="text-gray-300" size={24}/>
-                                </div>
-                            </Link>
-                        )}
-                    </div>
-                ))}
-            </div>
-        ) : (
-            <div className="bg-white p-10 rounded-3xl shadow-sm text-center border border-gray-100">
-                <div className="w-16 h-16 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Lock size={32}/>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-700 transition">{mod.title}</h3>
+                                <p className="text-sm text-gray-400 mt-1 leading-relaxed">{mod.desc}</p>
+                            </div>
+                            <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
+                                <ArrowRight className="text-gray-300" size={24}/>
+                            </div>
+                        </div>
+                    ) : (
+                        <Link href={mod.link} className={`bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-start gap-4 transition duration-300 group ${mod.border} hover:shadow-2xl hover:-translate-y-1 relative overflow-hidden h-full`}>
+                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${mod.bg} ${mod.color} shadow-inner`}>
+                                {mod.icon}
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-xl font-bold text-gray-800 group-hover:text-blue-700 transition">{mod.title}</h3>
+                                <p className="text-sm text-gray-400 mt-1 leading-relaxed">{mod.desc}</p>
+                            </div>
+                            <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
+                                <ArrowRight className="text-gray-300" size={24}/>
+                            </div>
+                        </Link>
+                    )}
                 </div>
-                <h3 className="text-lg font-bold text-gray-800">Acesso Restrito</h3>
-                <p className="text-gray-500 mt-2">Você não possui permissões de secretaria habilitadas.</p>
-                <Link href="/" className="inline-block mt-4 text-blue-600 font-bold hover:underline">Voltar ao Início</Link>
-            </div>
-        )}
+            ))}
+        </div>
 
         <div className="mt-12 text-center">
             <p className="text-sm text-gray-400">
                 Precisa de ajuda? Consulte o <span className="font-bold text-blue-600 cursor-pointer hover:underline">Manual do Secretário</span>.
             </p>
         </div>
-
       </div>
 
-      {/* --- MODAL ARQUIVO DIGITAL (FUNCIONAL) --- */}
+      {/* --- MODAL ARQUIVO DIGITAL --- */}
       {isDocModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 animate-in zoom-in-95">
@@ -220,18 +221,15 @@ export default function SecretaryPage() {
                 </div>
                 
                 {isAddingDoc ? (
-                    // --- MODO ADICIONAR ---
                     <form onSubmit={handleSaveDoc} className="space-y-4 animate-in slide-in-from-right-4">
                         <div className="bg-red-50 p-4 rounded-xl border border-red-100 mb-2">
                             <h3 className="text-sm font-bold text-red-700 mb-1">Novo Documento</h3>
                             <p className="text-xs text-red-500">Cole o link do Google Drive, Dropbox ou OneDrive.</p>
                         </div>
-                        
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Nome do Documento</label>
                             <input required type="text" value={newDocData.name} onChange={e => setNewDocData({...newDocData, name: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 ring-red-100" placeholder="Ex: Contrato de Aluguel 2026"/>
                         </div>
-                        
                         <div>
                             <label className="text-xs font-bold text-gray-500 uppercase">Link (URL)</label>
                             <div className="relative mt-1">
@@ -239,7 +237,6 @@ export default function SecretaryPage() {
                                 <input required type="url" value={newDocData.link} onChange={e => setNewDocData({...newDocData, link: e.target.value})} className="w-full pl-10 p-3 border rounded-xl outline-none focus:ring-2 ring-red-100" placeholder="https://drive.google.com/..."/>
                             </div>
                         </div>
-
                         <div className="flex gap-2 pt-2">
                             <button type="button" onClick={() => setIsAddingDoc(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition">Cancelar</button>
                             <button type="submit" disabled={savingDoc} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition flex justify-center items-center gap-2">
@@ -248,19 +245,17 @@ export default function SecretaryPage() {
                         </div>
                     </form>
                 ) : (
-                    // --- MODO LISTA ---
                     <>
                         <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl mb-6 text-sm text-blue-700">
                             💡 <strong>Dica SaaS:</strong> Para não lotar o sistema, armazene arquivos pesados no Google Drive da igreja e cadastre apenas o link aqui.
                         </div>
-
                         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar min-h-[150px]">
                             {loadingDocs ? (
                                 <div className="text-center py-8 text-gray-400"><Loader2 className="animate-spin inline mr-2"/> Carregando arquivos...</div>
                             ) : documents.length === 0 ? (
                                 <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                                     <FolderOpen size={32} className="mx-auto mb-2 opacity-20"/>
-                                    <p className="text-xs">Nenhu arquivo cadastrado.</p>
+                                    <p className="text-xs">Nenhum arquivo cadastrado.</p>
                                 </div>
                             ) : (
                                 documents.map(doc => (
@@ -273,18 +268,13 @@ export default function SecretaryPage() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
-                                            <a href={doc.link} target="_blank" className="text-xs font-bold text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition">
-                                                Abrir ↗
-                                            </a>
-                                            <button onClick={() => handleDeleteDoc(doc.id!)} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition opacity-0 group-hover:opacity-100">
-                                                <Trash2 size={16}/>
-                                            </button>
+                                            <a href={doc.link} target="_blank" className="text-xs font-bold text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-600 hover:text-white transition">Abrir ↗</a>
+                                            <button onClick={() => handleDeleteDoc(doc.id!)} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition opacity-0 group-hover:opacity-100"><Trash2 size={16}/></button>
                                         </div>
                                     </div>
                                 ))
                             )}
                         </div>
-
                         <button onClick={() => setIsAddingDoc(true)} className="w-full mt-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition flex justify-center items-center gap-2">
                             <Plus size={20}/> Adicionar Novo Arquivo
                         </button>

@@ -8,7 +8,7 @@ import { Transaction } from "../../types/finance";
 import { Member } from "../../types/member";
 import { 
   TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, 
-  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2, Edit 
+  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2, Edit, Lock 
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
@@ -16,18 +16,18 @@ export default function FinancialPage() {
   const router = useRouter();
   
   // 1. Contexto e Segurança
-  const { formatMoney, churchName, logoUrl, userRole, hasPermission, loading: authLoading } = useChurch();
+  const { formatMoney, churchName, logoUrl, userRole, hasPermission, churchId, loading: authLoading } = useChurch();
   
-  const [churchId, setChurchId] = useState("");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [members, setMembers] = useState<Member[]>([]); 
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
-  // 2. Trava de Segurança
+  // 2. TRAVA DE SEGURANÇA BLINDADA
   useEffect(() => {
     if (!authLoading) {
-        if (userRole !== 'admin' && !hasPermission('financial') && userRole !== 'treasurer') {
+        // Se NÃO for Admin, Pastor ou Tesoureiro, expulsa
+        if (userRole !== 'admin' && userRole !== 'pastor' && userRole !== 'treasurer' && !hasPermission('financial')) {
             router.push('/'); 
         }
     }
@@ -45,7 +45,7 @@ export default function FinancialPage() {
   
   // MODAL E EDIÇÃO
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null); // ID do lançamento em edição
+  const [editingId, setEditingId] = useState<string | null>(null); 
   
   const [newTrans, setNewTrans] = useState({
     amount: "", 
@@ -61,14 +61,10 @@ export default function FinancialPage() {
 
   // 3. Carregar Dados Seguro
   useEffect(() => {
-    const idSalvo = localStorage.getItem("churchId");
-    if (!idSalvo) {
-        if (!authLoading) router.push("/login");
-        return; 
+    if (churchId && !authLoading) {
+        carregarDados(churchId);
     }
-    setChurchId(idSalvo);
-    carregarDados(idSalvo);
-  }, [authLoading, router]);
+  }, [churchId, authLoading]);
 
   const carregarDados = async (id: string) => {
     setDataLoading(true);
@@ -77,6 +73,7 @@ export default function FinancialPage() {
          financeService.listByChurch(id),
          memberService.listByChurch(id)
       ]);
+      // Ordenação segura (garantindo que date existe)
       listaFinancas.sort((a: any,b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setTransactions(listaFinancas);
       setMembers(listaMembros);
@@ -116,7 +113,6 @@ export default function FinancialPage() {
   // --- ABRIR MODAL (NOVO OU EDIÇÃO) ---
   const handleOpenModal = (trans?: Transaction) => {
       if (trans) {
-          // Modo Edição
           setEditingId(trans.id || null);
           setNewTrans({
               amount: trans.amount.toString(),
@@ -127,7 +123,6 @@ export default function FinancialPage() {
               description: trans.description || ""
           });
       } else {
-          // Modo Novo
           setEditingId(null);
           setNewTrans({ 
             amount: "", type: "income", date: new Date().toISOString().split('T')[0], 
@@ -139,6 +134,7 @@ export default function FinancialPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!churchId) return;
     setLoading(true);
     
     try {
@@ -171,19 +167,6 @@ export default function FinancialPage() {
         memberName: memberName || null
       };
 
-      if (!navigator.onLine) {
-         if (editingId) {
-             alert("Edição não disponível offline.");
-         } else {
-             financeService.create(payload);
-             alert("Salvo no dispositivo! Será enviado quando a internet voltar.");
-         }
-         setIsModalOpen(false);
-         setLoading(false);
-         setTimeout(() => carregarDados(churchId), 500);
-         return; 
-      }
-
       if (editingId) {
           await financeService.update(editingId, payload);
       } else {
@@ -197,20 +180,17 @@ export default function FinancialPage() {
         console.error(error); 
         alert("Erro ao salvar."); 
     } finally { 
-        if(navigator.onLine) setLoading(false); 
+        setLoading(false); 
     }
   };
 
   const handleDelete = async (id: string) => {
     if(confirm("Excluir este lançamento permanentemente?")) {
-      if (!navigator.onLine) {
-          financeService.delete(id);
-          alert("Exclusão agendada (Offline).");
-          setTimeout(() => carregarDados(churchId), 500);
-      } else {
-          await financeService.delete(id);
-          carregarDados(churchId);
-      }
+        await financeService.delete(id);
+        // CORREÇÃO AQUI: Verifica se churchId existe antes de chamar
+        if (churchId) {
+            carregarDados(churchId);
+        }
     }
   };
 
@@ -301,10 +281,19 @@ export default function FinancialPage() {
   ];
   const COLORS = ['#10b981', '#ef4444']; 
 
-  // Loading Inicial
-  if (authLoading || (dataLoading && transactions.length === 0)) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
+  // Loading Inicial ou Bloqueio
+  if (authLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  if (userRole !== 'admin' && !hasPermission('financial') && userRole !== 'treasurer') return null;
+  // Se não tiver permissão, nem renderiza o resto (segurança extra visual)
+  if (userRole !== 'admin' && userRole !== 'pastor' && userRole !== 'treasurer' && !hasPermission('financial')) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-4">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 text-gray-400"><Lock size={40}/></div>
+            <h1 className="text-2xl font-bold text-gray-800">Acesso Restrito</h1>
+            <p className="text-gray-500 mt-2 max-w-md">Esta área é exclusiva para a tesouraria.</p>
+        </div>
+      );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans print:p-0 print:bg-white">
@@ -400,7 +389,6 @@ export default function FinancialPage() {
                 <div className="w-full h-48 md:h-40 md:w-64 relative">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                            {/* Aumentei os raios para caber o texto no meio */}
                             <Pie data={chartData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
                                 {chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
                             </Pie>

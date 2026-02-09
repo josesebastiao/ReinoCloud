@@ -9,12 +9,15 @@ import { Ministry } from "../../types/ministry";
 import { Member } from "../../types/member";
 import { 
   Users, Plus, Pencil, Trash2, Music, Heart, BookOpen, 
-  Mic2, X, Search, UserPlus, UserMinus, ShieldCheck, Star, Calendar, ArrowRight, Lock 
+  Mic2, X, Search, UserPlus, UserMinus, ShieldCheck, Star, Calendar, ArrowRight, Lock, Loader2 
 } from "lucide-react";
 
 export default function Ministries() {
   const router = useRouter();
-  const { user, userRole, hasPermission } = useChurch(); 
+  
+  // Pegamos o 'loading' do auth para garantir que não vamos redirecionar antes da hora
+  const { user, userRole, hasPermission, loading: authLoading } = useChurch(); 
+  
   const [churchId, setChurchId] = useState("");
   
   // Dados
@@ -33,17 +36,33 @@ export default function Ministries() {
   const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
   const [searchMember, setSearchMember] = useState("");
 
+  // --- 1. BLINDAGEM DE ROTA ---
+  useEffect(() => {
+    if (!authLoading) {
+        // Lista de quem PODE entrar nesta página
+        const allowedRoles = ['admin', 'pastor', 'leader', 'secretary'];
+        
+        // CORREÇÃO: Garante que userRole é string para o .includes()
+        const currentRole = userRole || "";
+        const isAllowed = allowedRoles.includes(currentRole) || hasPermission('secretary');
+
+        // Se for membro comum, manda para a home
+        if (!isAllowed) {
+            router.push("/");
+        }
+    }
+  }, [userRole, authLoading, hasPermission, router]);
+
+  // --- 2. CARREGAMENTO DE DADOS ---
   useEffect(() => {
     const idSalvo = localStorage.getItem("churchId");
-    if (!idSalvo) {
-      router.push("/login");
-      return;
-    }
-    setChurchId(idSalvo);
-    if (user) {
+    
+    // Só carrega se tiver ID, Usuário e o Auth já tiver terminado
+    if (idSalvo && user && !authLoading) {
+        setChurchId(idSalvo);
         carregarDados(idSalvo);
     }
-  }, [router, user]);
+  }, [user, authLoading]);
 
   const carregarDados = async (id: string) => {
     try {
@@ -54,19 +73,22 @@ export default function Ministries() {
 
         setAllMembers(listaMembros);
 
-        // --- LÓGICA DE PERMISSÃO ---
+        // --- LÓGICA DE FILTRO (LÍDER VÊ APENAS O SEU) ---
+        // Encontra o cadastro do usuário logado na lista de membros
         const me = listaMembros.find(m => m.email === user?.email);
+        
         const canViewAll = userRole === 'admin' || userRole === 'pastor' || userRole === 'secretary' || hasPermission('secretary');
 
         if (canViewAll) {
+            // Admin vê tudo
             setMinistries(listaMin);
+        } else if (userRole === 'leader' && me) {
+            // Líder vê apenas onde ele é o líder (leaderId == me.id)
+            const myMinistries = listaMin.filter(m => m.leaderId === me.id);
+            setMinistries(myMinistries);
         } else {
-            if (me) {
-                const myMinistries = listaMin.filter(m => m.leaderId === me.id);
-                setMinistries(myMinistries);
-            } else {
-                setMinistries([]);
-            }
+            // Caso de borda
+            setMinistries([]);
         }
 
     } catch(e) { console.error(e); }
@@ -170,6 +192,9 @@ export default function Ministries() {
   // Permissão para CRIAR/EDITAR ministérios (Só Admin/Pastor)
   const canManageStructure = userRole === 'admin' || userRole === 'pastor';
 
+  // Se estiver carregando auth, mostra loader
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600"/></div>;
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
@@ -221,7 +246,7 @@ export default function Ministries() {
             {ministries.map((m, index) => (
               <div key={m.id} className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition duration-300 group relative flex flex-col">
                 
-                {/* Ações de Edição (Só Admin/Pastor) - CORREÇÃO AQUI: Sempre visível no mobile, hover no desktop */}
+                {/* Ações de Edição (Só Admin/Pastor) */}
                 {canManageStructure && (
                     <div className="absolute top-4 right-4 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10">
                       <button onClick={() => abrirModal(m)} className="p-2 text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition"><Pencil size={16} /></button>
@@ -235,7 +260,6 @@ export default function Ministries() {
                         {getRandomIcon(index)}
                     </div>
                     <div>
-                        {/* Clicar no nome abre a Agenda (Escalas) */}
                         <Link href={`/ministries/${m.id}`} className="hover:text-blue-600 transition cursor-pointer">
                             <h3 className="text-xl font-bold text-gray-800 leading-tight">{m.name}</h3>
                         </Link>
@@ -255,7 +279,7 @@ export default function Ministries() {
                     </div>
                 )}
 
-                {/* BOTÕES DE AÇÃO CLAROS */}
+                {/* BOTÕES DE AÇÃO */}
                 <div className="mt-auto pt-4 border-t border-gray-50 flex gap-2">
                   <button 
                     onClick={() => abrirGestaoEquipe(m)}
@@ -277,9 +301,9 @@ export default function Ministries() {
           </div>
       </div>
 
-      {/* --- MODAIS DE GESTÃO (Mantidos) --- */}
+      {/* --- MODAIS DE GESTÃO --- */}
       
-      {/* Modal 1: Criar/Editar (Só renderiza se for Admin/Pastor para economizar) */}
+      {/* Modal 1: Criar/Editar (Só renderiza se for Admin/Pastor) */}
       {isModalOpen && canManageStructure && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95">
