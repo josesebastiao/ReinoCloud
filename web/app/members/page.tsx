@@ -361,8 +361,8 @@ export default function MembersPage() {
                         <div className="flex flex-col">
                             <span className="font-bold text-gray-800 flex items-center gap-2">
                                 {member.fullName}
-                                {member.permissions && member.permissions.includes('secretary') && <Shield size={14} className="text-blue-500 fill-blue-100" title="Acesso Secretaria"/>}
-                                {member.permissions && member.permissions.includes('financial') && <Shield size={14} className="text-green-500 fill-green-100" title="Acesso Tesouraria"/>}
+                                {member.permissions && member.permissions.includes('secretary') && <span title="Acesso Secretaria"><Shield size={14} className="text-blue-500 fill-blue-100"/></span>}
+                                {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100"/></span>}
                             </span>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
