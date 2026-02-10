@@ -180,13 +180,13 @@ export default function LoginPage() {
   };
 
   return (
-    // AQUI ESTÁ O AJUSTE: h-screen para travar a altura e overflow-hidden para não scrollar
-    <div className="h-screen w-full flex flex-col justify-between bg-slate-50 text-gray-600 font-sans selection:bg-blue-100 overflow-hidden">
+    // AJUSTE: min-h-screen para mobile (rola se precisar) e md:h-screen para PC (trava altura)
+    <div className="min-h-screen md:h-screen w-full flex flex-col justify-between bg-slate-50 text-gray-600 font-sans selection:bg-blue-100 md:overflow-hidden">
       
       <div id="recaptcha-container"></div>
 
       {/* CABEÇALHO COMPACTO */}
-      <header className="w-full px-6 py-4 md:p-6 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500 shrink-0">
+      <header className="w-full px-6 py-6 md:py-4 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500 shrink-0 justify-center md:justify-start">
          <img src="/icon.svg" alt="ReinoCloud Logo" className="w-10 h-10 object-contain" /> 
          <div>
             <h1 className="text-lg md:text-xl font-bold text-blue-900 tracking-tight leading-none">ReinoCloud</h1>
@@ -195,9 +195,9 @@ export default function LoginPage() {
       </header>
 
       {/* CARD CENTRAL - COM SCROLL INTERNO SE PRECISAR */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 overflow-y-auto">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 w-full md:overflow-y-auto py-4">
         {/* max-h ajustado para telas pequenas */}
-        <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-xl shadow-gray-200/50 p-6 md:p-8 border border-gray-100 transition-all duration-300 my-auto">
+        <div className="w-full max-w-[380px] bg-white rounded-3xl shadow-xl shadow-gray-200/50 p-6 md:p-8 border border-gray-100 transition-all duration-300 md:my-auto">
           
           {isResetMode ? (
               <>
@@ -326,7 +326,7 @@ export default function LoginPage() {
       </main>
       
       {/* FOOTER COMPACTO */}
-      <footer className="w-full px-6 py-4 md:px-10 md:py-6 flex flex-col md:flex-row justify-between items-center gap-2 text-[10px] text-gray-400 border-t border-gray-200 bg-white shrink-0">
+      <footer className="w-full px-6 py-6 md:py-4 flex flex-col md:flex-row justify-center md:justify-between items-center gap-2 text-[10px] text-gray-400 border-t border-gray-200 bg-white shrink-0">
           <div className="flex gap-4 font-medium"><a href="#" className="hover:text-blue-600">Privacidade</a><a href="#" className="hover:text-blue-600">Termos</a></div>
           <div className="font-medium text-center md:text-right">COPYRIGHT © {new Date().getFullYear()} SEBASTEC SYSTEM.</div>
       </footer>
