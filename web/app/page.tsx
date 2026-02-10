@@ -91,7 +91,6 @@ export default function Dashboard() {
       return (
         <>
             {userRole !== 'member' && (
-                // Botão de voltar também centralizado, para manter a consistência
                 <button 
                     onClick={() => setViewMode('management')}
                     className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-slate-900 transition border border-slate-700 animate-in fade-in slide-in-from-bottom-4"
@@ -108,11 +107,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans relative">
       
-      {/* BOTÃO CENTRAL FLUTUANTE (FAB) 
-          Posicionado: bottom-2 (levemente acima da borda)
-          Centralizado: left-1/2 -translate-x-1/2
-          Visual: Redondo, Azul, Grande, com Sombra
-      */}
+      {/* BOTÃO CENTRAL FLUTUANTE (FAB) */}
       <button 
           onClick={() => setViewMode('member')}
           className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl shadow-blue-900/40 flex items-center justify-center hover:scale-110 transition border-4 border-gray-50 animate-in zoom-in md:hidden"
@@ -121,7 +116,7 @@ export default function Dashboard() {
           <Smartphone size={24}/>
       </button>
 
-      {/* Botão Desktop (Mantido no topo para telas grandes) */}
+      {/* Botão Desktop */}
       <button 
           onClick={() => setViewMode('member')}
           className="hidden md:flex fixed top-24 right-4 z-50 bg-white text-blue-600 px-4 py-2 rounded-full shadow-lg font-bold text-[10px] items-center gap-2 hover:bg-blue-50 transition border border-blue-100"
@@ -168,15 +163,16 @@ export default function Dashboard() {
         
         {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
-            <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
                     <div className="flex justify-between items-start mb-4">
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Membresia Total</span>
                         <div className="bg-blue-50 text-blue-600 p-2 rounded-xl"><Users size={20}/></div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        <h2 className="text-5xl font-extrabold text-gray-800">{stats.total}</h2>
-                        <span className="text-sm font-bold text-gray-400">Membros</span>
+                        {/* Tipografia de Banco aplicada aqui também para manter o visual limpo */}
+                        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900">{stats.total}</h2>
+                        <span className="text-sm font-medium text-gray-500">Membros</span>
                     </div>
                 </div>
                 
@@ -198,20 +194,21 @@ export default function Dashboard() {
             </div>
         )}
 
-        {/* CARD CAIXA */}
+        {/* CARD SALDO (CAIXA) */}
         {canSee(['treasurer']) && (
-            <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
                 <div>
                     <div className="flex justify-between items-start mb-4">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Caixa Atual</span>
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo em Conta</span>
                         <div className="bg-green-50 text-green-600 p-2 rounded-xl"><TrendingUp size={20}/></div>
                     </div>
                     
                     <div className="flex items-center gap-3 mb-1">
-                        <h2 className={`text-3xl font-extrabold tracking-tight ${balance < 0 ? 'text-red-600' : 'text-gray-800'}`}>
+                        {/* Tipografia de Banco aplicada no Dinheiro (Verde) */}
+                        <h2 className={`text-3xl md:text-4xl font-bold tracking-tight ${balance < 0 ? 'text-red-500' : 'text-green-600'}`}>
                             {showBalance ? formatMoney(balance) : "••••••••"}
                         </h2>
-                        <button onClick={() => setShowBalance(!showBalance)} className="text-gray-400 hover:text-blue-600 transition">
+                        <button onClick={() => setShowBalance(!showBalance)} className="text-gray-400 hover:text-green-600 transition">
                             {showBalance ? <EyeOff size={18}/> : <Eye size={18}/>}
                         </button>
                     </div>
@@ -225,7 +222,7 @@ export default function Dashboard() {
         )}
 
         {/* CARD AGENDA */}
-        <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col h-full min-h-[220px]">
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col h-full min-h-[220px]">
             <div className="flex justify-between items-center mb-4">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Próximos Eventos</span>
                 <Calendar size={18} className="text-gray-300"/>
