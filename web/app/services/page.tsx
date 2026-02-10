@@ -149,7 +149,7 @@ export default function ServicesPage() {
 
   // --- IMPRESSÃO ---
   const handlePrint = async () => {
-    // 1. PERGUNTA OS DADOS PRIMEIRO (Evita que a janela de impressão bloqueie o prompt)
+    // 1. PERGUNTA OS DADOS PRIMEIRO
     let fatherName = "_____________________________";
     let motherName = "_____________________________";
 
@@ -165,6 +165,7 @@ export default function ServicesPage() {
     const directSignature = getDirectImageUrl(signatureUrl);
 
     // Configura a janela
+    // Se for certificado, largura maior para paisagem
     const isLandscape = selectedDoc === 'certificate';
     const width = isLandscape ? 1123 : 900;
     const height = isLandscape ? 794 : 1000;
@@ -196,47 +197,61 @@ export default function ServicesPage() {
             <div style="margin-top:40px;font-size:12px;text-align:left;"><p style="font-weight:bold;text-decoration:underline;">Observações Importantes:</p><ul style="margin-top:5px;"><li>Em caso de indisponibilidade, o escalado deve comunicar a liderança com antecedência.</li><li>Não é permitida a troca de escala sem autorização prévia.</li></ul></div>
         `;
         
-        htmlContent = `<html><head><title>Escala</title><style>body{font-family:'Times New Roman';padding:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px}th{background:#f0f0f0}.logo{max-height:80px}</style></head><body>${docContent}<script>setTimeout(()=>window.print(),1000)</script></body></html>`;
+        htmlContent = `<html><head><title>Escala</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:'Times New Roman';padding:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px}th{background:#f0f0f0}.logo{max-height:80px} .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${docContent}<script>setTimeout(()=>window.print(),1000)</script></body></html>`;
     
     // --- CASO 2: CERTIDÃO DE CRIANÇA ---
     } else if (selectedDoc === 'certificate') {
         if (!selectedMember) return;
         
-        // Aqui usamos as variáveis que pegamos lá no começo da função
         htmlContent = `
           <html>
             <head>
               <title>Certidão - ${selectedMember.fullName}</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
                 @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:wght@400;700&display=swap');
+                
+                /* FORÇA MODO PAISAGEM NA IMPRESSÃO */
                 @page { size: A4 landscape; margin: 0; }
+                
                 body { margin: 0; padding: 0; font-family: 'Playfair Display', serif; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                .certificate-container { width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; background-color: #fff; padding: 40px; box-sizing: border-box; }
+                .certificate-container { width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; background-color: #fff; padding: 20px; box-sizing: border-box; }
                 .border-outer { width: 100%; height: 100%; border: 2px solid #d4af37; padding: 5px; position: relative; }
                 .border-inner { width: 100%; height: 100%; border: 1px solid #d4af37; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(250,248,240,1) 100%); position: relative; }
-                .corner { position: absolute; width: 60px; height: 60px; border-color: #d4af37; border-style: double; }
+                .corner { position: absolute; width: 40px; height: 40px; border-color: #d4af37; border-style: double; }
                 .tl { top: 10px; left: 10px; border-width: 4px 0 0 4px; }
                 .tr { top: 10px; right: 10px; border-width: 4px 4px 0 0; }
                 .bl { bottom: 10px; left: 10px; border-width: 0 0 4px 4px; }
                 .br { bottom: 10px; right: 10px; border-width: 0 4px 4px 0; }
-                .logo { height: 80px; margin-bottom: 20px; object-fit: contain; }
-                .church-header { font-size: 24px; font-weight: bold; text-transform: uppercase; color: #333; letter-spacing: 2px; }
-                .cert-title { font-family: 'Great Vibes', cursive; font-size: 80px; color: #d4af37; margin: 10px 0 30px 0; line-height: 1; }
-                .content-text { font-size: 20px; color: #555; text-align: center; max-width: 80%; line-height: 1.8; margin-bottom: 40px; }
-                .child-name { font-size: 36px; font-weight: bold; color: #000; border-bottom: 1px solid #ddd; padding: 0 20px; display: inline-block; margin: 0 10px; }
-                .parents-block { display: flex; justify-content: center; gap: 40px; width: 80%; margin-bottom: 50px; flex-wrap: wrap; }
-                .parent-line { flex: 1; text-align: center; }
-                .parent-name { font-size: 22px; font-weight: bold; border-bottom: 1px solid #999; padding-bottom: 5px; display: block; min-width: 250px; }
-                .parent-label { font-size: 12px; text-transform: uppercase; color: #777; margin-top: 5px; letter-spacing: 1px; }
-                .footer-row { display: flex; justify-content: space-between; width: 80%; margin-top: auto; padding-bottom: 40px; }
-                .signature { text-align: center; position: relative; width: 300px; }
-                .sig-line { width: 100%; border-bottom: 1px solid #333; margin-bottom: 10px; margin-top: 5px; }
-                .sig-text { font-size: 14px; font-weight: bold; text-transform: uppercase; }
-                .sig-img { position: absolute; bottom: 30px; left: 0; right: 0; margin: auto; height: 60px; object-fit: contain; }
-                .date-place { font-size: 16px; font-style: italic; color: #555; margin-top: 20px; }
+                .logo { height: 60px; margin-bottom: 10px; object-fit: contain; }
+                .church-header { font-size: 18px; font-weight: bold; text-transform: uppercase; color: #333; letter-spacing: 2px; text-align:center; }
+                .cert-title { font-family: 'Great Vibes', cursive; font-size: 60px; color: #d4af37; margin: 5px 0 20px 0; line-height: 1; text-align:center; }
+                .content-text { font-size: 16px; color: #555; text-align: center; max-width: 90%; line-height: 1.6; margin-bottom: 30px; }
+                .child-name { font-size: 28px; font-weight: bold; color: #000; border-bottom: 1px solid #ddd; padding: 0 10px; display: inline-block; margin: 0 5px; }
+                .parents-block { display: flex; justify-content: center; gap: 20px; width: 90%; margin-bottom: 30px; flex-wrap: wrap; }
+                .parent-line { flex: 1; text-align: center; min-width: 200px; }
+                .parent-name { font-size: 18px; font-weight: bold; border-bottom: 1px solid #999; padding-bottom: 5px; display: block; }
+                .parent-label { font-size: 10px; text-transform: uppercase; color: #777; margin-top: 5px; letter-spacing: 1px; }
+                .footer-row { display: flex; justify-content: space-between; width: 90%; margin-top: auto; padding-bottom: 30px; }
+                .signature { text-align: center; position: relative; width: 40%; }
+                .sig-line { width: 100%; border-bottom: 1px solid #333; margin-bottom: 5px; margin-top: 5px; }
+                .sig-text { font-size: 12px; font-weight: bold; text-transform: uppercase; }
+                .sig-img { position: absolute; bottom: 25px; left: 0; right: 0; margin: auto; height: 50px; object-fit: contain; }
+                .date-place { font-size: 14px; font-style: italic; color: #555; margin-top: 10px; }
+
+                /* BOTÃO FLUTUANTE */
+                .close-btn {
+                    position: fixed; top: 15px; left: 15px; z-index: 9999;
+                    background: #ef4444; color: white; border: none;
+                    padding: 10px 20px; border-radius: 50px; font-weight: bold;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
+                    text-decoration: none; font-size: 14px;
+                }
+                @media print { .close-btn { display: none; } }
               </style>
             </head>
             <body>
+              <button onclick="window.close()" class="close-btn">← FECHAR</button>
               <div class="certificate-container">
                 <div class="border-outer">
                   <div class="border-inner">
@@ -323,12 +338,12 @@ export default function ServicesPage() {
                 .signature-img { height: 70px; object-fit: contain; display: block; margin-bottom: -15px; z-index: 10; }
                 .signature-placeholder { height: 70px; width: 100%; }
                 .meta { font-size: 10px; color: #999; margin-top: 60px; text-align: center; width: 100%; }
-                @media print { .no-print { display: none !important; } @page { margin: 2cm; size: A4; } body { padding: 0; } }
-                .floating-btn { position: fixed; top: 15px; left: 15px; background: #000; color: #fff; padding: 10px 20px; border-radius: 50px; font-family: sans-serif; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 9999; font-size: 14px; border: none; cursor: pointer; }
+                .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; }
+                @media print { .no-print { display: none !important; } .close-btn { display: none; } @page { margin: 2cm; size: A4; } body { padding: 0; } }
               </style>
             </head>
             <body>
-              <button onclick="window.close()" class="floating-btn no-print">← Fechar</button>
+              <button onclick="window.close()" class="close-btn no-print">← FECHAR</button>
               ${docContent}
               <div class="footer">
                 <div class="signature-block">
