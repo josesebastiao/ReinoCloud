@@ -79,11 +79,28 @@ export default function MembersPage() {
       }
   };
 
+  const convertImageToBase64 = async (url: string) => {
+      if (!url) return "";
+      if (url.startsWith("data:")) return url;
+      try {
+          const directUrl = getDirectImageUrl(url);
+          if (!directUrl) return "";
+          const response = await fetch(directUrl);
+          const blob = await response.blob();
+          return new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+          });
+      } catch (error) {
+          console.warn("Erro ao converter imagem:", error);
+          return "";
+      }
+  };
+
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  // --- AÇÕES ---
 
   const handleOpenView = (member: Member) => {
       setViewMember(member);
@@ -131,7 +148,6 @@ export default function MembersPage() {
 
   const togglePermission = (permission: string) => {
       if (userRole !== 'admin') return; 
-
       if (formData.permissions.includes(permission)) {
           setFormData({ ...formData, permissions: formData.permissions.filter(p => p !== permission) });
       } else {
@@ -168,18 +184,14 @@ export default function MembersPage() {
   const openAccessModal = (member: Member) => { if(!member.email) { alert("Este membro precisa de um e-mail."); return; } setSelectedMemberForAccess(member); setNewPassword(""); setShowAccessModal(true); };
   const handleCreateAccess = async (e: React.FormEvent) => { e.preventDefault(); if(!selectedMemberForAccess?.email) return; setCreatingAccess(true); try { await createSystemUser(selectedMemberForAccess.email, newPassword); alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); setShowAccessModal(false); } catch (error: any) { alert("Erro: " + error.message); } finally { setCreatingAccess(false); } };
 
-  // --- IMPRESSÃO DE LISTA (COM ORDENAÇÃO A-Z E BOTÃO DE FECHAR) ---
   const handlePrintExecute = async () => {
     setPrinting(true);
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) { setPrinting(false); return; }
     
     const today = new Date().toLocaleDateString('pt-BR');
-    
-    // LOGO: Usa o link direto tratado
-    const directLogo = getDirectImageUrl(logoUrl);
-    const logoHtml = directLogo ? `<img src="${directLogo}" style="height: 60px; margin-bottom: 10px;" />` : '';
-
+    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
+    const logoHtml = base64Logo ? `<img src="${base64Logo}" style="height: 60px; margin-bottom: 10px;" />` : '';
     const sortedMembers = [...filteredMembers].sort((a, b) => a.fullName.localeCompare(b.fullName));
 
     const rows = sortedMembers.map((m, index) => `
@@ -193,156 +205,25 @@ export default function MembersPage() {
     `).join('');
 
     const html = `
-        <html>
-        <head>
-            <title>Lista de Membros</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body { font-family: sans-serif; padding: 20px; text-align: center; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }
-                th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; }
-                
-                .close-btn {
-                    position: fixed; top: 15px; left: 15px; z-index: 9999;
-                    background: #ef4444; color: white; border: none;
-                    padding: 10px 20px; border-radius: 50px; font-weight: bold;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
-                    text-decoration: none; font-size: 14px;
-                }
-                @media print { .close-btn { display: none; } }
-            </style>
-        </head>
-        <body>
-            <button onclick="window.close()" class="close-btn">← FECHAR</button>
-            
-            ${logoHtml}
-            <h1>${churchName}</h1>
-            <p>Relatório de Membros • ${today}</p>
-            <table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
-            
-            <script>setTimeout(() => window.print(), 1000);</script>
-        </body>
-        </html>
+        <html><head><title>Lista de Membros</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body { font-family: sans-serif; padding: 20px; text-align: center; } table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; } th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${logoHtml}<h1>${churchName}</h1><p>Relatório de Membros • ${today}</p><table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(() => window.print(), 500);</script></body></html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
     setPrinting(false);
   };
 
-  // --- IMPRESSÃO DE CARTEIRINHA (CORRIGIDA: FOTO e LOGO) ---
   const handlePrintCard = async (member: Member) => {
     setPrinting(true);
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) { setPrinting(false); return; }
 
-    // FOTO E LOGO: Usando o link direto tratado pelo Helper
-    // Isso evita bloqueios de CORS e faz a imagem aparecer
-    const directLogo = getDirectImageUrl(logoUrl);
-    const directPhoto = getDirectImageUrl(member.photoUrl);
-    
-    const baptismText = member.baptismDate 
-        ? new Date(member.baptismDate).toLocaleDateString('pt-BR') 
-        : '---';
+    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
+    const base64Photo = member.photoUrl ? await convertImageToBase64(member.photoUrl) : "";
+    const baptismText = member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : '---';
 
     const html = `
-      <html>
-        <head>
-          <title>Carteirinha - ${member.fullName}</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');
-            body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-            .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; }
-            .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            
-            /* FRENTE */
-            .card.front { background: linear-gradient(120deg, #0f172a 0%, #1e3a8a 100%); color: white; display: flex; flex-direction: column; }
-            .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-            .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
-            .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-            .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; }
-            .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
-            .photo-frame img { width: 100%; height: 100%; object-fit: cover; }
-            .member-info { display: flex; flex-direction: column; justify-content: center; }
-            .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; }
-            .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; }
-            .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; }
-            .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; }
-
-            /* VERSO */
-            .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; }
-            .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
-            .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; }
-            .data-col { display: flex; flex-direction: column; }
-            .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; }
-            .data-value { font-size: 9px; font-weight: 600; color: #000; }
-            .signature-box { text-align: center; margin-top: 10px; }
-            .line { height: 1px; background: #000; width: 100%; margin: 2px auto; }
-            .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; }
-
-            /* BOTÃO FLUTUANTE DE FECHAR (SÓ APARECE NA TELA) */
-            .close-btn {
-                position: fixed; top: 15px; left: 15px; z-index: 9999;
-                background: #ef4444; color: white; border: none;
-                padding: 10px 20px; border-radius: 50px; font-weight: bold;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
-                text-decoration: none; font-size: 14px;
-            }
-
-            @media print { 
-                body { background: white; height: auto; display: block; } 
-                .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } 
-                .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
-                .close-btn { display: none !important; }
-            }
-          </style>
-        </head>
-        <body>
-          <button onclick="window.close()" class="close-btn">← FECHAR</button>
-
-          <div class="card-wrapper">
-            <div class="card front">
-              <div class="front-header">
-                 ${directLogo ? `<img src="${directLogo}" class="front-logo" />` : ''}
-                 <div class="church-title">${churchName}</div>
-              </div>
-              <div class="front-body">
-                 <div class="photo-frame">
-                    ${directPhoto ? `<img src="${directPhoto}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
-                 </div>
-                 <div class="member-info">
-                    <span class="label">Membro</span>
-                    <span class="name">${member.fullName}</span>
-                    <span class="role-badge">Batismo: ${baptismText}</span>
-                 </div>
-              </div>
-              <div class="front-footer">Cartão de Membro</div>
-            </div>
-
-            <div class="card back">
-               <div class="back-body">
-                   <div>
-                       <div class="data-row">
-                           <div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span></div>
-                           <div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span></div>
-                       </div>
-                       <div class="data-row" style="border:none">
-                           <div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div>
-                       </div>
-                   </div>
-                   <div class="signature-box"><div style="height:25px"></div><div class="line"></div><div class="sig-label">Pastor Presidente</div></div>
-                   <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;">
-                       <span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span>
-                       <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" style="width:35px; height:35px; opacity:0.8;" />
-                   </div>
-               </div>
-            </div>
-          </div>
-          <script>setTimeout(function(){ window.print(); }, 1000);</script>
-        </body>
-      </html>
+      <html><head><title>Carteirinha - ${member.fullName}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap'); body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .card.front { background: linear-gradient(120deg, #0f172a 0%, #1e3a8a 100%); color: white; display: flex; flex-direction: column; } .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); } .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); } .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; } .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); } .photo-frame img { width: 100%; height: 100%; object-fit: cover; } .member-info { display: flex; flex-direction: column; justify-content: center; } .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; } .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; } .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; } .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; } .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; } .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; } .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; } .data-col { display: flex; flex-direction: column; } .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; } .data-value { font-size: 9px; font-weight: 600; color: #000; } .signature-box { text-align: center; margin-top: 10px; } .line { height: 1px; background: #000; width: 100%; margin: 2px auto; } .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .close-btn { display: none !important; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button><div class="card-wrapper"><div class="card front"><div class="front-header">${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}<div class="church-title">${churchName}</div></div><div class="front-body"><div class="photo-frame">${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}</div><div class="member-info"><span class="label">Membro</span><span class="name">${member.fullName}</span><span class="role-badge">Batismo: ${baptismText}</span></div></div><div class="front-footer">Cartão de Membro</div></div><div class="card back"><div class="back-body"><div><div class="data-row"><div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span></div><div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span></div></div><div class="data-row" style="border:none"><div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div></div></div><div class="signature-box"><div style="height:25px"></div><div class="line"></div><div class="sig-label">Pastor Presidente</div></div><div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;"><span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" style="width:35px; height:35px; opacity:0.8;" /></div></div></div></div><script>setTimeout(function(){ window.print(); }, 500);</script></body></html>
     `;
-
     printWindow.document.write(html);
     printWindow.document.close();
     setPrinting(false);
@@ -365,43 +246,93 @@ export default function MembersPage() {
 
       <div className="max-w-6xl mx-auto mb-6 relative"><Search className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" placeholder="Buscar por nome..." className="w-full pl-10 p-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-100" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}/></div>
 
-      {/* TABELA DE MEMBROS (COM BLINDAGEM VISUAL) */}
-      <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr><th className="p-4 text-xs font-bold text-gray-500 uppercase">Nome</th><th className="p-4 text-xs font-bold text-gray-500 uppercase">Contato</th><th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Ações</th></tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {currentMembers.map(member => (
-                <tr key={member.id} onClick={() => handleOpenView(member)} className="hover:bg-blue-50/50 transition group cursor-pointer">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                            {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
+      {/* --- LISTA DE MEMBROS (HÍBRIDA: TABELA NO PC, CARDS NO CELULAR) --- */}
+      <div className="max-w-6xl mx-auto">
+        
+        {/* VERSÃO DESKTOP (TABELA) - Escondida em telas pequenas */}
+        <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                <tr><th className="p-4 text-xs font-bold text-gray-500 uppercase">Nome</th><th className="p-4 text-xs font-bold text-gray-500 uppercase">Contato</th><th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Ações</th></tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                {currentMembers.map(member => (
+                    <tr key={member.id} onClick={() => handleOpenView(member)} className="hover:bg-blue-50/50 transition group cursor-pointer">
+                    <td className="p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
+                                {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="font-bold text-gray-800 flex items-center gap-2">
+                                    {member.fullName}
+                                    {member.permissions && member.permissions.includes('secretary') && <span title="Acesso Secretaria"><Shield size={14} className="text-blue-500 fill-blue-100"/></span>}
+                                    {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100"/></span>}
+                                </span>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                                        {translateRole(member.role)}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="font-bold text-gray-800 flex items-center gap-2">
+                    </td>
+                    <td className="p-4"><div className="flex flex-col gap-1">{member.phone && <span className="flex items-center gap-1 text-xs text-gray-500"><Phone size={12}/> {member.phone}</span>}{member.email && <span className="flex items-center gap-1 text-xs text-gray-500"><Mail size={12}/> {member.email}</span>}</div></td>
+                    <td className="p-4 text-right"><div className="flex justify-end gap-2">{member.email && <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition"><Key size={16}/></button>}<button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="p-2 bg-gray-100 rounded-lg text-blue-600 hover:bg-blue-100 transition"><Edit size={16}/></button><button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="p-2 bg-gray-100 rounded-lg text-red-600 hover:bg-red-100 transition"><Trash2 size={16}/></button></div></td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        {/* VERSÃO MOBILE (CARDS) - Visível apenas em celulares */}
+        <div className="md:hidden space-y-4">
+            {currentMembers.map(member => (
+                <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.98] transition">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
+                            {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-800 text-sm truncate flex items-center gap-1">
                                 {member.fullName}
-                                {member.permissions && member.permissions.includes('secretary') && <span title="Acesso Secretaria"><Shield size={14} className="text-blue-500 fill-blue-100"/></span>}
-                                {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100"/></span>}
-                            </span>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {member.permissions && member.permissions.includes('secretary') && <Shield size={12} className="text-blue-500 fill-blue-100"/>}
+                                {member.permissions && member.permissions.includes('financial') && <Shield size={12} className="text-green-500 fill-green-100"/>}
+                            </h3>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
                                     {translateRole(member.role)}
+                                </span>
+                                <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {member.status === 'active' ? 'Ativo' : 'Inativo'}
                                 </span>
                             </div>
                         </div>
                     </div>
-                  </td>
-                  <td className="p-4"><div className="flex flex-col gap-1">{member.phone && <span className="flex items-center gap-1 text-xs text-gray-500"><Phone size={12}/> {member.phone}</span>}{member.email && <span className="flex items-center gap-1 text-xs text-gray-500"><Mail size={12}/> {member.email}</span>}</div></td>
-                  <td className="p-4 text-right"><div className="flex justify-end gap-2">{member.email && <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition"><Key size={16}/></button>}<button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="p-2 bg-gray-100 rounded-lg text-blue-600 hover:bg-blue-100 transition"><Edit size={16}/></button><button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="p-2 bg-gray-100 rounded-lg text-red-600 hover:bg-red-100 transition"><Trash2 size={16}/></button></div></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    
+                    {/* Botões de Ação Mobile (Grandes e Fáceis de Tocar) */}
+                    <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-gray-50">
+                        {member.email ? (
+                            <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-yellow-50 text-yellow-600 font-bold text-xs">
+                                <Key size={14}/> Acesso
+                            </button>
+                        ) : (
+                            <div className="opacity-0"></div> // Espaço vazio para manter alinhamento
+                        )}
+                        <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-blue-50 text-blue-600 font-bold text-xs">
+                            <Edit size={14}/> Editar
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-red-50 text-red-600 font-bold text-xs">
+                            <Trash2 size={14}/> Excluir
+                        </button>
+                    </div>
+                </div>
+            ))}
         </div>
-        {totalPages > 1 && (<div className="p-4 border-t border-gray-100 flex justify-center gap-4 items-center"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={20}/></button><span className="text-sm font-bold text-gray-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={20}/></button></div>)}
+
+        {totalPages > 1 && (<div className="p-4 flex justify-center gap-4 items-center mt-4"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 bg-white shadow-sm"><ChevronLeft size={20}/></button><span className="text-sm font-bold text-gray-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 bg-white shadow-sm"><ChevronRight size={20}/></button></div>)}
       </div>
 
       {/* --- MODAL 1: VISUALIZAÇÃO (SÓ CARTEIRINHA) --- */}
@@ -446,10 +377,6 @@ export default function MembersPage() {
                         <div className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition">
                             <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0"><Mail size={18}/></div>
                             <div><p className="text-xs text-gray-400 font-bold uppercase">E-mail</p><p className="font-medium text-gray-800 text-sm truncate max-w-[200px]">{viewMember.email || "—"}</p></div>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 hover:bg-orange-50 rounded-xl transition">
-                            <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center shrink-0"><MapPin size={18}/></div>
-                            <div><p className="text-xs text-gray-400 font-bold uppercase">Endereço</p><p className="font-medium text-gray-800 text-sm">{viewMember.address?.street || "—"}</p></div>
                         </div>
                     </div>
 
