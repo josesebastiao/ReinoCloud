@@ -6,6 +6,7 @@ import { memberService } from "../../services/memberService";
 import { useChurch } from "../../contexts/ChurchContext";
 import { Transaction } from "../../types/finance";
 import { Member } from "../../types/member";
+import { getDirectImageUrl } from "../../utils/imageHelper"; // Import adicionado para corrigir a logo na impressão
 import { 
   TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, 
   PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2, Edit, Lock 
@@ -22,11 +23,11 @@ export default function FinancialPage() {
   const [members, setMembers] = useState<Member[]>([]); 
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [printing, setPrinting] = useState(false); // Estado para controlar o botão de imprimir
 
   // 2. TRAVA DE SEGURANÇA BLINDADA
   useEffect(() => {
     if (!authLoading) {
-        // Se NÃO for Admin, Pastor ou Tesoureiro, expulsa
         if (userRole !== 'admin' && userRole !== 'pastor' && userRole !== 'treasurer' && !hasPermission('financial')) {
             router.push('/'); 
         }
@@ -73,7 +74,6 @@ export default function FinancialPage() {
          financeService.listByChurch(id),
          memberService.listByChurch(id)
       ]);
-      // Ordenação segura (garantindo que date existe)
       listaFinancas.sort((a: any,b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setTransactions(listaFinancas);
       setMembers(listaMembros);
@@ -110,7 +110,6 @@ export default function FinancialPage() {
       }
   };
 
-  // --- ABRIR MODAL (NOVO OU EDIÇÃO) ---
   const handleOpenModal = (trans?: Transaction) => {
       if (trans) {
           setEditingId(trans.id || null);
@@ -187,40 +186,31 @@ export default function FinancialPage() {
   const handleDelete = async (id: string) => {
     if(confirm("Excluir este lançamento permanentemente?")) {
         await financeService.delete(id);
-        // CORREÇÃO AQUI: Verifica se churchId existe antes de chamar
         if (churchId) {
             carregarDados(churchId);
         }
     }
   };
 
-  const toDataURL = async (url: string) => {
-    try {
-        const res = await fetch(url);
-        const blob = await res.blob();
-        return new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-        });
-    } catch (e) { return ""; }
-  };
-
+  // --- IMPRESSÃO CORRIGIDA (SEM ERRO DE CORS E COM BOTÃO FECHAR) ---
   const handlePrint = async () => {
-      let finalLogo = "";
-      if (logoUrl) finalLogo = await toDataURL(logoUrl);
-
+      setPrinting(true);
       const printWindow = window.open('', '', 'width=900,height=600');
-      if (!printWindow) return;
+      if (!printWindow) {
+          setPrinting(false);
+          return alert("Permita pop-ups!");
+      }
+
+      const directLogo = getDirectImageUrl(logoUrl);
 
       const rows = filteredTransactions.map(t => `
         <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 8px;">${new Date(t.date).toLocaleDateString('pt-BR')}</td>
-            <td style="padding: 8px;">
-                <strong>${t.description}</strong><br/>
-                <span style="font-size: 10px; color: #666;">${t.category}</span>
+            <td style="padding: 10px 8px; color: #555;">${new Date(t.date).toLocaleDateString('pt-BR')}</td>
+            <td style="padding: 10px 8px;">
+                <strong style="color: #333; font-size: 13px;">${t.description}</strong><br/>
+                <span style="font-size: 10px; color: #888; text-transform: uppercase;">${t.category}</span>
             </td>
-            <td style="padding: 8px; text-align: right; color: ${t.type === 'income' ? 'green' : 'red'}; font-weight: bold;">
+            <td style="padding: 10px 8px; text-align: right; color: ${t.type === 'income' ? '#333' : '#ef4444'}; font-weight: bold; font-size: 13px;">
                 ${t.type === 'income' ? '+' : '-'} ${formatMoney(t.amount)}
             </td>
         </tr>
@@ -229,36 +219,43 @@ export default function FinancialPage() {
       const html = `
         <html>
             <head>
-                <title>Relatório Financeiro</title>
+                <title>Extrato Financeiro</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
-                    body { font-family: sans-serif; padding: 20px; }
+                    body { font-family: sans-serif; padding: 20px; color: #333; }
                     .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-                    .logo { height: 60px; margin-bottom: 10px; }
-                    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-                    th { text-align: left; background: #f9fafb; padding: 8px; }
-                    .summary { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; }
-                    .card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; flex: 1; text-align: center; }
+                    .logo { height: 60px; margin-bottom: 10px; object-fit: contain; }
+                    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 20px; }
+                    th { text-align: left; background: #f9fafb; padding: 10px 8px; color: #666; text-transform: uppercase; font-size: 10px; border-bottom: 2px solid #eee; }
+                    .summary { display: flex; justify-content: space-between; gap: 10px; }
+                    .card { border: 1px solid #e5e7eb; padding: 15px; border-radius: 12px; flex: 1; text-align: center; background: #fff; }
+                    
+                    /* BOTÃO FLUTUANTE DE FECHAR PARA MOBILE */
+                    .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; }
+                    @media print { .close-btn { display: none; } body { padding: 0; } }
                 </style>
             </head>
             <body>
+                <button onclick="window.close()" class="close-btn">← FECHAR</button>
+
                 <div class="header">
-                    ${finalLogo ? `<img src="${finalLogo}" class="logo" />` : ''}
-                    <h1 style="margin:0; font-size: 20px; text-transform: uppercase;">${churchName}</h1>
-                    <p style="margin:5px 0; font-size: 12px; color: #666;">Relatório Financeiro • ${startDate ? new Date(startDate).toLocaleDateString() : 'Início'} até ${endDate ? new Date(endDate).toLocaleDateString() : 'Hoje'}</p>
+                    ${directLogo ? `<img src="${directLogo}" class="logo" />` : ''}
+                    <h1 style="margin:0; font-size: 18px; text-transform: uppercase; letter-spacing: 1px;">${churchName}</h1>
+                    <p style="margin:5px 0; font-size: 12px; color: #666;">Relatório Financeiro • ${startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'Início'} até ${endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'Hoje'}</p>
                 </div>
 
                 <div class="summary">
-                    <div class="card" style="background: #f0fdf4; border-color: #bbf7d0;">
-                        <span style="font-size: 10px; color: green; font-weight: bold;">ENTRADAS</span><br/>
-                        <strong style="font-size: 18px; color: green;">${formatMoney(totalIncome)}</strong>
+                    <div class="card">
+                        <span style="font-size: 10px; color: #666; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Entradas</span><br/>
+                        <strong style="font-size: 16px; color: #111827;">${formatMoney(totalIncome)}</strong>
                     </div>
-                    <div class="card" style="background: #fef2f2; border-color: #fecaca;">
-                        <span style="font-size: 10px; color: red; font-weight: bold;">SAÍDAS</span><br/>
-                        <strong style="font-size: 18px; color: red;">${formatMoney(totalExpense)}</strong>
+                    <div class="card">
+                        <span style="font-size: 10px; color: #666; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Saídas</span><br/>
+                        <strong style="font-size: 16px; color: #ef4444;">${formatMoney(totalExpense)}</strong>
                     </div>
-                    <div class="card" style="background: #f8fafc; border-color: #e2e8f0;">
-                        <span style="font-size: 10px; color: #475569; font-weight: bold;">SALDO</span><br/>
-                        <strong style="font-size: 18px; color: ${balance >= 0 ? '#333' : 'red'};">${formatMoney(balance)}</strong>
+                    <div class="card" style="background: ${balance >= 0 ? '#f0fdf4' : '#fef2f2'}; border-color: ${balance >= 0 ? '#bbf7d0' : '#fecaca'};">
+                        <span style="font-size: 10px; color: ${balance >= 0 ? '#16a34a' : '#ef4444'}; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Saldo em Conta</span><br/>
+                        <strong style="font-size: 16px; color: ${balance >= 0 ? '#16a34a' : '#ef4444'};">${formatMoney(balance)}</strong>
                     </div>
                 </div>
 
@@ -266,25 +263,26 @@ export default function FinancialPage() {
                     <thead><tr><th>Data</th><th>Descrição</th><th style="text-align: right;">Valor</th></tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
-                <script>setTimeout(() => window.print(), 500);</script>
+                <script>setTimeout(() => window.print(), 800);</script>
             </body>
         </html>
       `;
       
       printWindow.document.write(html);
       printWindow.document.close();
+      setPrinting(false);
   };
 
   const chartData = [
     { name: 'Entradas', value: totalIncome },
     { name: 'Saídas', value: totalExpense },
   ];
-  const COLORS = ['#10b981', '#ef4444']; 
+  
+  // Cores do gráfico atualizadas para o novo layout de banco (Cinza Escuro e Vermelho)
+  const COLORS = ['#1f2937', '#ef4444']; 
 
-  // Loading Inicial ou Bloqueio
   if (authLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
-  // Se não tiver permissão, nem renderiza o resto (segurança extra visual)
   if (userRole !== 'admin' && userRole !== 'pastor' && userRole !== 'treasurer' && !hasPermission('financial')) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-center px-4">
@@ -299,7 +297,7 @@ export default function FinancialPage() {
     <div className="min-h-screen bg-gray-50 pb-24 font-sans print:p-0 print:bg-white">
       
       {/* --- CABEÇALHO AZUL --- */}
-      <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm print:hidden">
+      <div className="bg-[#1D4ED8] pt-10 pb-20 px-8 shadow-sm print:hidden">
         <div className="max-w-6xl mx-auto flex justify-between items-end">
             <div>
                 <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
@@ -308,8 +306,8 @@ export default function FinancialPage() {
                 <p className="text-blue-100 text-lg opacity-90">Controle de dízimos, ofertas e despesas.</p>
             </div>
              <div className="hidden md:flex gap-3">
-                <button onClick={handlePrint} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition">
-                    <Printer size={18}/> Imprimir
+                <button onClick={handlePrint} disabled={printing} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition">
+                    {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} Imprimir
                 </button>
                 <button onClick={() => handleOpenModal()} className="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg transition">
                     <PlusCircle size={18} /> Novo Lançamento
@@ -317,24 +315,24 @@ export default function FinancialPage() {
             </div>
         </div>
       </div>
-      
-      {/* Botões Mobile */}
-      <div className="md:hidden px-4 -mt-6 mb-6 flex gap-2 relative z-20 print:hidden">
-            <button onClick={() => handleOpenModal()} className="flex-1 bg-white text-blue-600 py-3 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2 border border-blue-100">
-                <PlusCircle size={20}/> Novo
-            </button>
-            <button onClick={handlePrint} className="bg-white text-gray-600 px-4 py-3 rounded-xl font-bold shadow-lg flex justify-center items-center border border-gray-100">
-                <Printer size={20}/>
-            </button>
-      </div>
 
       <div className="hidden print:block text-center mb-8 border-b pb-4 pt-8">
           <h1 className="text-2xl font-bold uppercase">{churchName}</h1>
           <p className="text-sm text-gray-500">Relatório Financeiro ({startDate ? new Date(startDate).toLocaleDateString() : 'Início'} até {endDate ? new Date(endDate).toLocaleDateString() : 'Hoje'})</p>
       </div>
 
-      {/* --- CONTEÚDO FLUTUANTE --- */}
-      <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16 relative z-10 print:mt-0">
+      {/* --- CONTEÚDO PRINCIPAL --- */}
+      <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-8 relative z-10 print:mt-0">
+
+          {/* BOTÕES MOBILE CORRIGIDOS (Não escondem mais os filtros) */}
+          <div className="md:hidden flex gap-2 mb-4 w-full print:hidden">
+              <button onClick={() => handleOpenModal()} className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-200 flex justify-center items-center gap-2 active:scale-[0.98] transition">
+                  <PlusCircle size={18}/> Novo Lançamento
+              </button>
+              <button onClick={handlePrint} disabled={printing} className="bg-white text-gray-700 px-5 py-3.5 rounded-xl font-bold shadow-sm border border-gray-200 flex justify-center items-center active:scale-[0.98] transition">
+                  {printing ? <Loader2 className="animate-spin" size={20}/> : <Printer size={20}/>}
+              </button>
+          </div>
 
           {/* BARRA DE FILTROS DE DATA */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 print:hidden">
@@ -359,25 +357,25 @@ export default function FinancialPage() {
               </div>
           </div>
 
-          {/* CARDS */}
+          {/* CARDS VISUAL DE BANCO (Tipografia ajustada) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 print:grid-cols-3 print:gap-2">
-             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xl shadow-blue-900/5 flex flex-col justify-between min-h-[100px]">
-                <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1 tracking-wider"><TrendingUp size={14} className="text-green-500"/> Entradas ({filteredTransactions.filter(t => t.type === 'income').length})</p>
-                <p className="text-2xl font-black text-green-600 mt-1">{formatMoney(totalIncome)}</p>
+             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between min-h-[110px]">
+                <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1 tracking-wider mb-1"> Entradas ({filteredTransactions.filter(t => t.type === 'income').length})</p>
+                <p className="text-2xl md:text-3xl font-bold tracking-tight text-gray-900">{formatMoney(totalIncome)}</p>
              </div>
-             <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-xl shadow-blue-900/5 flex flex-col justify-between min-h-[100px]">
-                <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1 tracking-wider"><TrendingDown size={14} className="text-red-500"/> Saídas ({filteredTransactions.filter(t => t.type === 'expense').length})</p>
-                <p className="text-2xl font-black text-red-600 mt-1">{formatMoney(totalExpense)}</p>
+             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between min-h-[110px]">
+                <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1 tracking-wider mb-1"> Saídas ({filteredTransactions.filter(t => t.type === 'expense').length})</p>
+                <p className="text-2xl md:text-3xl font-bold tracking-tight text-red-500">{formatMoney(totalExpense)}</p>
              </div>
-             <div className={`bg-white p-5 rounded-3xl border border-gray-100 shadow-xl shadow-blue-900/5 flex flex-col justify-between min-h-[100px] ${balance < 0 ? 'bg-red-50 border-red-100' : ''}`}>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Saldo do Período</p>
-                <p className={`text-2xl font-black mt-1 ${balance >= 0 ? 'text-gray-800' : 'text-red-600'}`}>{formatMoney(balance)}</p>
+             <div className={`bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between min-h-[110px] ${balance < 0 ? 'bg-red-50 border-red-100' : ''}`}>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Saldo em Conta</p>
+                <p className={`text-2xl md:text-3xl font-bold tracking-tight ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatMoney(balance)}</p>
              </div>
           </div>
 
           {/* GRÁFICO ESTILO ROSQUINHA (DONUT) */}
           {(totalIncome > 0 || totalExpense > 0) && (
-            <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden animate-in fade-in zoom-in-95">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden animate-in fade-in zoom-in-95">
                 <div className="text-center md:text-left mb-4 md:mb-0">
                     <h3 className="text-lg font-bold text-gray-700 flex items-center justify-center md:justify-start gap-2">
                         <PieIcon size={20} className="text-blue-500"/> Visão do Período
@@ -385,7 +383,6 @@ export default function FinancialPage() {
                     <p className="text-xs text-gray-400 mt-1">Proporção de Entradas vs Saídas</p>
                 </div>
                 
-                {/* ÁREA DO GRÁFICO COM OVERLAY */}
                 <div className="w-full h-48 md:h-40 md:w-64 relative">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -397,10 +394,9 @@ export default function FinancialPage() {
                         </PieChart>
                     </ResponsiveContainer>
                     
-                    {/* TEXTO FLUTUANTE NO CENTRO DO DONUT */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                        <span className="text-[9px] text-gray-400 font-bold uppercase">Saldo</span>
-                        <span className={`text-xs font-black ${balance >= 0 ? 'text-gray-700' : 'text-red-600'}`}>
+                        <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Saldo em Conta</span>
+                        <span className={`text-xs font-bold tracking-tight mt-0.5 ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {formatMoney(balance)}
                         </span>
                     </div>
@@ -409,24 +405,26 @@ export default function FinancialPage() {
           )}
 
           {/* EXTRATO */}
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-blue-900/5 overflow-hidden p-6 print:shadow-none print:border-0">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden p-6 print:shadow-none print:border-0">
               <div className="flex justify-between items-center mb-6">
                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                      <Filter size={14}/> Extrato Detalhado
                  </h3>
                  <div className="flex bg-gray-100 rounded-lg p-1 print:hidden">
                      <button onClick={() => setFilterType('all')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${filterType === 'all' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500'}`}>Tudo</button>
-                     <button onClick={() => setFilterType('income')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${filterType === 'income' ? 'bg-white shadow-sm text-green-600' : 'text-gray-500'}`}>Ent</button>
-                     <button onClick={() => setFilterType('expense')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${filterType === 'expense' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500'}`}>Sai</button>
+                     <button onClick={() => setFilterType('income')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${filterType === 'income' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>Ent</button>
+                     <button onClick={() => setFilterType('expense')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${filterType === 'expense' ? 'bg-white shadow-sm text-red-500' : 'text-gray-500'}`}>Sai</button>
                  </div>
               </div>
               
               <div className="relative border-l-2 border-gray-100 ml-3 space-y-8 pb-4">
                   {filteredTransactions.length > 0 ? filteredTransactions.map((t, index) => (
                       <div key={t.id} className="relative pl-8 animate-in slide-in-from-bottom-2 fade-in duration-300" style={{animationDelay: `${Math.min(index * 50, 500)}ms`}}>
+                          
+                          {/* BOLINHA INDICADORA (Preta para Entrada, Vermelha para Saída) */}
                           <div className={`
                               absolute -left-[9px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm ring-1 ring-gray-100
-                              ${t.type === 'income' ? 'bg-green-500' : 'bg-red-500'}
+                              ${t.type === 'income' ? 'bg-gray-800' : 'bg-red-500'}
                           `}></div>
 
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 p-4 rounded-2xl hover:bg-gray-50 transition border border-transparent hover:border-gray-100 group">
@@ -443,7 +441,8 @@ export default function FinancialPage() {
                               </div>
 
                               <div className="flex items-center justify-between md:justify-end gap-3 mt-2 md:mt-0">
-                                  <span className={`text-lg font-black ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                  {/* VALOR ESTILO BANCO */}
+                                  <span className={`text-lg font-bold tracking-tight ${t.type === 'income' ? 'text-gray-900' : 'text-red-500'}`}>
                                       {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
                                   </span>
                                   
@@ -479,19 +478,19 @@ export default function FinancialPage() {
               
               <form onSubmit={handleSave} className="space-y-4">
                   <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl">
-                      <button type="button" onClick={() => setNewTrans({...newTrans, type: 'income', category: 'Dízimo'})} className={`py-2 rounded-lg text-sm font-bold transition ${newTrans.type === 'income' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Entrada</button>
+                      <button type="button" onClick={() => setNewTrans({...newTrans, type: 'income', category: 'Dízimo'})} className={`py-2 rounded-lg text-sm font-bold transition ${newTrans.type === 'income' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Entrada</button>
                       <button type="button" onClick={() => setNewTrans({...newTrans, type: 'expense', category: 'Outros'})} className={`py-2 rounded-lg text-sm font-bold transition ${newTrans.type === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>Saída</button>
                   </div>
                   <div>
                       <label className="text-xs font-bold text-gray-500 uppercase ml-1">Categoria</label>
-                      <select value={newTrans.category} onChange={e => setNewTrans({...newTrans, category: e.target.value})} className="w-full p-3 border rounded-xl bg-white mt-1 outline-none focus:ring-2 ring-blue-100">
+                      <select value={newTrans.category} onChange={e => setNewTrans({...newTrans, category: e.target.value})} className="w-full p-3 border rounded-xl bg-white mt-1 outline-none focus:ring-2 ring-blue-100 font-medium">
                           {newTrans.type === 'income' ? INCOME_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>) : EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                   </div>
                   {newTrans.type === 'income' && newTrans.category === 'Dízimo' && (
                       <div className="animate-in fade-in slide-in-from-top-2">
                           <label className="text-xs font-bold text-blue-600 uppercase flex items-center gap-1 ml-1"><User size={12}/> Selecione o Irmão(ã)</label>
-                          <select value={newTrans.memberId} onChange={e => setNewTrans({...newTrans, memberId: e.target.value})} className="w-full p-3 border border-blue-200 rounded-xl bg-blue-50 mt-1 outline-none focus:ring-2 ring-blue-100" required={!editingId}>
+                          <select value={newTrans.memberId} onChange={e => setNewTrans({...newTrans, memberId: e.target.value})} className="w-full p-3 border border-blue-200 rounded-xl bg-blue-50 mt-1 outline-none focus:ring-2 ring-blue-100 font-medium" required={!editingId}>
                               <option value="">-- Selecione na lista --</option>
                               {members.map(m => (<option key={m.id} value={m.id}>{m.fullName}</option>))}
                           </select>
@@ -504,16 +503,16 @@ export default function FinancialPage() {
                       </div>
                       <div>
                           <label className="text-xs font-bold text-gray-500 uppercase ml-1">Data</label>
-                          <input required type="date" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 ring-blue-100"/>
+                          <input required type="date" value={newTrans.date} onChange={e => setNewTrans({...newTrans, date: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 ring-blue-100 font-medium"/>
                       </div>
                   </div>
                   <div>
                       <label className="text-xs font-bold text-gray-500 uppercase ml-1">Observação</label>
-                      <input type="text" value={newTrans.description} onChange={e => setNewTrans({...newTrans, description: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 ring-blue-100" placeholder="Detalhes opcionais..."/>
+                      <input type="text" value={newTrans.description} onChange={e => setNewTrans({...newTrans, description: e.target.value})} className="w-full p-3 border rounded-xl mt-1 outline-none focus:ring-2 ring-blue-100 font-medium" placeholder="Detalhes opcionais..."/>
                   </div>
                   <div className="flex gap-3 mt-6 pt-2">
                       <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition">Cancelar</button>
-                      <button type="submit" disabled={loading} className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg transition ${newTrans.type === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>{loading ? 'Salvando...' : 'Confirmar'}</button>
+                      <button type="submit" disabled={loading} className={`flex-1 py-3 text-white rounded-xl font-bold shadow-lg transition ${newTrans.type === 'income' ? 'bg-gray-900 hover:bg-black' : 'bg-red-600 hover:bg-red-700'}`}>{loading ? 'Salvando...' : 'Confirmar'}</button>
                   </div>
               </form>
            </div>
