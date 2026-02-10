@@ -184,8 +184,8 @@ export default function LoginPage() {
       
       <div id="recaptcha-container"></div>
 
-      {/* CABEÇALHO COMPACTO - ALINHADO À ESQUERDA */}
-      <header className="w-full px-6 py-6 md:py-4 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500 shrink-0 justify-start">
+      {/* CABEÇALHO COMPACTO - ALINHADO À ESQUERDA + ESPAÇAMENTO EXTRA NO MOBILE (pt-14) */}
+      <header className="w-full px-6 pt-14 pb-4 md:py-6 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500 shrink-0 justify-start">
          <img src="/icon.svg" alt="ReinoCloud Logo" className="w-10 h-10 object-contain" /> 
          <div>
             <h1 className="text-lg md:text-xl font-bold text-blue-900 tracking-tight leading-none">ReinoCloud</h1>
