@@ -199,7 +199,7 @@ export default function ServicesPage() {
         
         htmlContent = `<html><head><title>Escala</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:'Times New Roman';padding:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px}th{background:#f0f0f0}.logo{max-height:80px} .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${docContent}<script>setTimeout(()=>window.print(),1000)</script></body></html>`;
     
-    // --- CASO 2: CERTIDÃO DE CRIANÇA ---
+    // --- CASO 2: CERTIDÃO DE CRIANÇA (COM PAISAGEM E BOTÃO FECHAR) ---
     } else if (selectedDoc === 'certificate') {
         if (!selectedMember) return;
         
