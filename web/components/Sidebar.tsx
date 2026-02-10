@@ -38,7 +38,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       if (module === 'financial') return hasPermission('financial') || userRole === 'treasurer';
       if (module === 'ministry') return userRole === 'leader' || userRole === 'pastor';
       if (module === 'posts') return userRole === 'leader' || userRole === 'secretary' || hasPermission('secretary'); 
-      if (module === 'prayers') return userRole === 'pastor' || hasPermission('pastor'); // Apenas Pastor/Admin vê orações
+      if (module === 'prayers') return userRole === 'pastor' || hasPermission('pastor'); 
       if (module === 'settings') return userRole === 'treasurer' || userRole === 'admin';
       if (module === 'dashboard') return true;
 
@@ -48,10 +48,25 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const userEmail = user?.email ? user.email.toLowerCase() : "";
   const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
 
+  // --- NOVA FUNÇÃO PARA TRADUZIR O CARGO CORRETAMENTE ---
+  const getRoleLabel = () => {
+      if (isSuperAdmin) return "SUPER ADMIN";
+      
+      switch (userRole) {
+          case 'admin': return 'PASTOR TITULAR';
+          case 'secretary': return 'SECRETARIA';
+          case 'treasurer': return 'TESOURARIA';
+          case 'leader': return 'LÍDER';
+          case 'deacon': return 'DIÁCONO(A)';
+          case 'member': return 'MEMBRO';
+          default: return 'MEMBRO / VISITANTE';
+      }
+  };
+
   const menuItems = [
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Início", href: "/" }] : []),
     ...(canAccess('posts')     ? [{ icon: Megaphone, label: "Mural de Avisos", href: "/posts" }] : []),
-    ...(canAccess('prayers')   ? [{ icon: Heart, label: "Pedidos de Oração", href: "/prayers" }] : []), // NOVO ITEM AQUI
+    ...(canAccess('prayers')   ? [{ icon: Heart, label: "Pedidos de Oração", href: "/prayers" }] : []), 
     ...(canAccess('secretary') ? [{ icon: FolderOpen, label: "Secretaria", href: "/secretary" }] : []),
     ...(canAccess('ministry')  ? [{ icon: Music, label: "Departamentos", href: "/ministries" }] : []),
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
@@ -74,7 +89,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
             <span className="truncate max-w-[150px]">
-                {isSuperAdmin ? 'SUPER ADMIN' : userRole === 'admin' ? 'PASTOR TITULAR' : userRole === 'treasurer' ? 'TESOURARIA' : userRole === 'secretary' ? 'SECRETARIA' : 'MEMBRO / LÍDER'}
+                {/* AQUI ESTÁ A CORREÇÃO */}
+                {getRoleLabel()}
             </span>
           </div>
         </div>
