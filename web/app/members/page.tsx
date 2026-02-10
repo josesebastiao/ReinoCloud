@@ -79,10 +79,9 @@ export default function MembersPage() {
       }
   };
 
-  // --- HELPER: CONVERTE IMAGEM PARA BASE64 (CORRIGE ERRO DE IMPRESSÃO) ---
+  // --- HELPER: CONVERTE IMAGEM PARA BASE64 ---
   const convertImageToBase64 = async (url: string) => {
       if (!url) return "";
-      // Se já for base64, retorna direto
       if (url.startsWith("data:")) return url;
 
       try {
@@ -153,7 +152,6 @@ export default function MembersPage() {
   };
 
   const togglePermission = (permission: string) => {
-      // BLINDAGEM: Só admin pode mexer aqui
       if (userRole !== 'admin') return; 
 
       if (formData.permissions.includes(permission)) {
@@ -175,7 +173,7 @@ export default function MembersPage() {
         gender: formData.gender, maritalStatus: formData.maritalStatus, 
         role: formData.role, status: formData.status, isTither: formData.isTither,
         ministries: formData.selectedMinistries, 
-        permissions: formData.permissions, // A permissão vai junto, protegida pelo estado
+        permissions: formData.permissions, 
         address: { 
             street: formData.street, number: formData.number, neighborhood: formData.neighborhood, 
             city: formData.city, state: formData.state, zipCode: formData.zipCode 
@@ -192,7 +190,7 @@ export default function MembersPage() {
   const openAccessModal = (member: Member) => { if(!member.email) { alert("Este membro precisa de um e-mail."); return; } setSelectedMemberForAccess(member); setNewPassword(""); setShowAccessModal(true); };
   const handleCreateAccess = async (e: React.FormEvent) => { e.preventDefault(); if(!selectedMemberForAccess?.email) return; setCreatingAccess(true); try { await createSystemUser(selectedMemberForAccess.email, newPassword); alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); setShowAccessModal(false); } catch (error: any) { alert("Erro: " + error.message); } finally { setCreatingAccess(false); } };
 
-  // --- IMPRESSÃO DE LISTA ---
+  // --- IMPRESSÃO DE LISTA (COM ORDENAÇÃO A-Z) ---
   const handlePrintExecute = async () => {
     setPrinting(true);
     const printWindow = window.open('', '', 'width=900,height=600');
@@ -204,7 +202,10 @@ export default function MembersPage() {
     const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
     const logoHtml = base64Logo ? `<img src="${base64Logo}" style="height: 60px; margin-bottom: 10px;" />` : '';
 
-    const rows = filteredMembers.map((m, index) => `
+    // AQUI ESTÁ A MÁGICA: Ordena a lista filtrada por nome (A-Z) antes de imprimir
+    const sortedMembers = [...filteredMembers].sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+    const rows = sortedMembers.map((m, index) => `
         <tr style="border-bottom: 1px solid #eee;">
             <td style="padding: 8px;">${index + 1}</td>
             <td style="padding: 8px;"><strong>${m.fullName}</strong></td>
@@ -225,7 +226,7 @@ export default function MembersPage() {
     setPrinting(false);
   };
 
-  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0 - COM BASE64 E CORRIGIDA) ---
+  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0 - COM BASE64) ---
   const handlePrintCard = async (member: Member) => {
     setPrinting(true);
     const printWindow = window.open('', '', 'width=900,height=600');
