@@ -93,6 +93,7 @@ export default function Dashboard() {
             {userRole !== 'member' && (
                 <button 
                     onClick={() => setViewMode('management')}
+                    // AQUI: Botão de voltar ajustado para topo também, se preferir, ou manter no canto inferior esquerdo que é padrão
                     className="fixed bottom-6 left-6 z-[100] bg-slate-800 text-white px-5 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-slate-900 transition border border-slate-700 animate-in fade-in slide-in-from-bottom-4"
                 >
                     <LayoutDashboard size={16}/> Voltar para Gestão
@@ -107,12 +108,12 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans relative">
       
-      {/* BOTÃO FLUTUANTE PARA IR PARA O APP (CANTO INFERIOR DIREITO) */}
+      {/* BOTÃO FLUTUANTE PARA IR PARA O APP (REPOSICIONADO NO TOPO DIREITO) */}
       <button 
           onClick={() => setViewMode('member')}
-          className="fixed bottom-6 right-6 z-50 bg-blue-600 text-white px-5 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-blue-700 transition hover:scale-105 border-2 border-white/20 animate-in zoom-in slide-in-from-bottom-4"
+          className="fixed top-24 right-4 z-50 bg-white text-blue-600 px-4 py-2 rounded-full shadow-lg font-bold text-[10px] flex items-center gap-2 hover:bg-blue-50 transition hover:scale-105 border border-blue-100 animate-in zoom-in"
       >
-          <Smartphone size={18}/> Ver meu App
+          <Smartphone size={14}/> Ver App Membro
       </button>
 
       {/* BANNER AZUL */}
@@ -130,7 +131,7 @@ export default function Dashboard() {
                 )}
                 <div className="flex flex-col items-start">
                     <p className="text-blue-200 font-medium mb-1 text-sm md:text-base">Bem-vindo, {userName}</p>
-                    <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight">{churchName}</h1>
+                    <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight max-w-[200px] md:max-w-none truncate">{churchName}</h1>
                 </div>
             </div>
             
