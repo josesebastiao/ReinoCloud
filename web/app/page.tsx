@@ -91,12 +91,12 @@ export default function Dashboard() {
       return (
         <>
             {userRole !== 'member' && (
+                // Botão de voltar também centralizado, para manter a consistência
                 <button 
                     onClick={() => setViewMode('management')}
-                    // AQUI: Botão de voltar ajustado para topo também, se preferir, ou manter no canto inferior esquerdo que é padrão
-                    className="fixed bottom-6 left-6 z-[100] bg-slate-800 text-white px-5 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-slate-900 transition border border-slate-700 animate-in fade-in slide-in-from-bottom-4"
+                    className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-slate-900 transition border border-slate-700 animate-in fade-in slide-in-from-bottom-4"
                 >
-                    <LayoutDashboard size={16}/> Voltar para Gestão
+                    <LayoutDashboard size={18}/> Voltar para Gestão
                 </button>
             )}
             <MemberDashboard />
@@ -108,10 +108,23 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans relative">
       
-      {/* BOTÃO FLUTUANTE PARA IR PARA O APP (REPOSICIONADO NO TOPO DIREITO) */}
+      {/* BOTÃO CENTRAL FLUTUANTE (FAB) 
+          Posicionado: bottom-2 (levemente acima da borda)
+          Centralizado: left-1/2 -translate-x-1/2
+          Visual: Redondo, Azul, Grande, com Sombra
+      */}
       <button 
           onClick={() => setViewMode('member')}
-          className="fixed top-24 right-4 z-50 bg-white text-blue-600 px-4 py-2 rounded-full shadow-lg font-bold text-[10px] flex items-center gap-2 hover:bg-blue-50 transition hover:scale-105 border border-blue-100 animate-in zoom-in"
+          className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl shadow-blue-900/40 flex items-center justify-center hover:scale-110 transition border-4 border-gray-50 animate-in zoom-in md:hidden"
+          title="Ver App Membro"
+      >
+          <Smartphone size={24}/>
+      </button>
+
+      {/* Botão Desktop (Mantido no topo para telas grandes) */}
+      <button 
+          onClick={() => setViewMode('member')}
+          className="hidden md:flex fixed top-24 right-4 z-50 bg-white text-blue-600 px-4 py-2 rounded-full shadow-lg font-bold text-[10px] items-center gap-2 hover:bg-blue-50 transition border border-blue-100"
       >
           <Smartphone size={14}/> Ver App Membro
       </button>
