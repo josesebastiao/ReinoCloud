@@ -79,28 +79,6 @@ export default function MembersPage() {
       }
   };
 
-  // --- HELPER: CONVERTE IMAGEM PARA BASE64 ---
-  const convertImageToBase64 = async (url: string) => {
-      if (!url) return "";
-      if (url.startsWith("data:")) return url;
-
-      try {
-          const directUrl = getDirectImageUrl(url);
-          if (!directUrl) return "";
-          
-          const response = await fetch(directUrl);
-          const blob = await response.blob();
-          return new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-          });
-      } catch (error) {
-          console.warn("Erro ao converter imagem:", error);
-          return "";
-      }
-  };
-
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -198,9 +176,9 @@ export default function MembersPage() {
     
     const today = new Date().toLocaleDateString('pt-BR');
     
-    // Converte a logo para Base64 antes de imprimir
-    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
-    const logoHtml = base64Logo ? `<img src="${base64Logo}" style="height: 60px; margin-bottom: 10px;" />` : '';
+    // LOGO: Usa o link direto tratado
+    const directLogo = getDirectImageUrl(logoUrl);
+    const logoHtml = directLogo ? `<img src="${directLogo}" style="height: 60px; margin-bottom: 10px;" />` : '';
 
     const sortedMembers = [...filteredMembers].sort((a, b) => a.fullName.localeCompare(b.fullName));
 
@@ -224,7 +202,6 @@ export default function MembersPage() {
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }
                 th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; }
                 
-                /* BOTÃO FLUTUANTE DE FECHAR (SÓ APARECE NA TELA) */
                 .close-btn {
                     position: fixed; top: 15px; left: 15px; z-index: 9999;
                     background: #ef4444; color: white; border: none;
@@ -243,7 +220,7 @@ export default function MembersPage() {
             <p>Relatório de Membros • ${today}</p>
             <table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
             
-            <script>setTimeout(() => window.print(), 500);</script>
+            <script>setTimeout(() => window.print(), 1000);</script>
         </body>
         </html>
     `;
@@ -252,16 +229,17 @@ export default function MembersPage() {
     setPrinting(false);
   };
 
-  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0 - COM BASE64 E BOTÃO FECHAR) ---
+  // --- IMPRESSÃO DE CARTEIRINHA (CORRIGIDA: FOTO e LOGO) ---
   const handlePrintCard = async (member: Member) => {
     setPrinting(true);
     const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) { setPrinting(false); return; }
 
-    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
-    const base64Photo = member.photoUrl ? await convertImageToBase64(member.photoUrl) : "";
+    // FOTO E LOGO: Usando o link direto tratado pelo Helper
+    // Isso evita bloqueios de CORS e faz a imagem aparecer
+    const directLogo = getDirectImageUrl(logoUrl);
+    const directPhoto = getDirectImageUrl(member.photoUrl);
     
-    // Data de Batismo
     const baptismText = member.baptismDate 
         ? new Date(member.baptismDate).toLocaleDateString('pt-BR') 
         : '---';
@@ -325,12 +303,12 @@ export default function MembersPage() {
           <div class="card-wrapper">
             <div class="card front">
               <div class="front-header">
-                 ${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}
+                 ${directLogo ? `<img src="${directLogo}" class="front-logo" />` : ''}
                  <div class="church-title">${churchName}</div>
               </div>
               <div class="front-body">
                  <div class="photo-frame">
-                    ${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
+                    ${directPhoto ? `<img src="${directPhoto}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}
                  </div>
                  <div class="member-info">
                     <span class="label">Membro</span>
@@ -360,7 +338,7 @@ export default function MembersPage() {
                </div>
             </div>
           </div>
-          <script>setTimeout(function(){ window.print(); }, 500);</script>
+          <script>setTimeout(function(){ window.print(); }, 1000);</script>
         </body>
       </html>
     `;
@@ -468,6 +446,10 @@ export default function MembersPage() {
                         <div className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl transition">
                             <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0"><Mail size={18}/></div>
                             <div><p className="text-xs text-gray-400 font-bold uppercase">E-mail</p><p className="font-medium text-gray-800 text-sm truncate max-w-[200px]">{viewMember.email || "—"}</p></div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 hover:bg-orange-50 rounded-xl transition">
+                            <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center shrink-0"><MapPin size={18}/></div>
+                            <div><p className="text-xs text-gray-400 font-bold uppercase">Endereço</p><p className="font-medium text-gray-800 text-sm">{viewMember.address?.street || "—"}</p></div>
                         </div>
                     </div>
 
