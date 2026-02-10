@@ -180,13 +180,12 @@ export default function LoginPage() {
   };
 
   return (
-    // AJUSTE: min-h-screen para mobile (rola se precisar) e md:h-screen para PC (trava altura)
     <div className="min-h-screen md:h-screen w-full flex flex-col justify-between bg-slate-50 text-gray-600 font-sans selection:bg-blue-100 md:overflow-hidden">
       
       <div id="recaptcha-container"></div>
 
-      {/* CABEÇALHO COMPACTO */}
-      <header className="w-full px-6 py-6 md:py-4 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500 shrink-0 justify-center md:justify-start">
+      {/* CABEÇALHO COMPACTO - ALINHADO À ESQUERDA */}
+      <header className="w-full px-6 py-6 md:py-4 flex items-center gap-3 animate-in slide-in-from-top-4 duration-500 shrink-0 justify-start">
          <img src="/icon.svg" alt="ReinoCloud Logo" className="w-10 h-10 object-contain" /> 
          <div>
             <h1 className="text-lg md:text-xl font-bold text-blue-900 tracking-tight leading-none">ReinoCloud</h1>
@@ -325,7 +324,7 @@ export default function LoginPage() {
         </div>
       </main>
       
-      {/* FOOTER COMPACTO */}
+      {/* FOOTER COMPACTO - ALINHADO */}
       <footer className="w-full px-6 py-6 md:py-4 flex flex-col md:flex-row justify-center md:justify-between items-center gap-2 text-[10px] text-gray-400 border-t border-gray-200 bg-white shrink-0">
           <div className="flex gap-4 font-medium"><a href="#" className="hover:text-blue-600">Privacidade</a><a href="#" className="hover:text-blue-600">Termos</a></div>
           <div className="font-medium text-center md:text-right">COPYRIGHT © {new Date().getFullYear()} SEBASTEC SYSTEM.</div>
