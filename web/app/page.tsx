@@ -170,8 +170,8 @@ export default function Dashboard() {
                         <div className="bg-blue-50 text-blue-600 p-2 rounded-xl"><Users size={20}/></div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        {/* Tipografia de Banco aplicada aqui também para manter o visual limpo */}
-                        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-gray-900">{stats.total}</h2>
+                        {/* TIPOGRAFIA ESTILO NUBANK: text-2xl/3xl, semibold, tracking-tight */}
+                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900">{stats.total}</h2>
                         <span className="text-sm font-medium text-gray-500">Membros</span>
                     </div>
                 </div>
@@ -204,8 +204,8 @@ export default function Dashboard() {
                     </div>
                     
                     <div className="flex items-center gap-3 mb-1">
-                        {/* Tipografia de Banco aplicada no Dinheiro (Verde) */}
-                        <h2 className={`text-3xl md:text-4xl font-bold tracking-tight ${balance < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                        {/* TIPOGRAFIA ESTILO NUBANK: text-2xl/3xl, semibold, tracking-tight, verde vibrante */}
+                        <h2 className={`text-2xl md:text-3xl font-semibold tracking-tight ${balance < 0 ? 'text-red-500' : 'text-green-600'}`}>
                             {showBalance ? formatMoney(balance) : "••••••••"}
                         </h2>
                         <button onClick={() => setShowBalance(!showBalance)} className="text-gray-400 hover:text-green-600 transition">
