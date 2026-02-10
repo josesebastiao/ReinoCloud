@@ -190,7 +190,7 @@ export default function MembersPage() {
   const openAccessModal = (member: Member) => { if(!member.email) { alert("Este membro precisa de um e-mail."); return; } setSelectedMemberForAccess(member); setNewPassword(""); setShowAccessModal(true); };
   const handleCreateAccess = async (e: React.FormEvent) => { e.preventDefault(); if(!selectedMemberForAccess?.email) return; setCreatingAccess(true); try { await createSystemUser(selectedMemberForAccess.email, newPassword); alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); setShowAccessModal(false); } catch (error: any) { alert("Erro: " + error.message); } finally { setCreatingAccess(false); } };
 
-  // --- IMPRESSÃO DE LISTA (COM ORDENAÇÃO A-Z) ---
+  // --- IMPRESSÃO DE LISTA (COM ORDENAÇÃO A-Z E BOTÃO DE FECHAR) ---
   const handlePrintExecute = async () => {
     setPrinting(true);
     const printWindow = window.open('', '', 'width=900,height=600');
@@ -202,7 +202,6 @@ export default function MembersPage() {
     const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
     const logoHtml = base64Logo ? `<img src="${base64Logo}" style="height: 60px; margin-bottom: 10px;" />` : '';
 
-    // AQUI ESTÁ A MÁGICA: Ordena a lista filtrada por nome (A-Z) antes de imprimir
     const sortedMembers = [...filteredMembers].sort((a, b) => a.fullName.localeCompare(b.fullName));
 
     const rows = sortedMembers.map((m, index) => `
@@ -216,17 +215,44 @@ export default function MembersPage() {
     `).join('');
 
     const html = `
-        <html><head><title>Lista de Membros</title><style>body{font-family:sans-serif;padding:20px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:20px;text-align:left}th{background:#f9fafb;padding:8px;border-bottom:2px solid #eee}</style></head>
-        <body>${logoHtml}<h1>${churchName}</h1><p>Relatório de Membros • ${today}</p>
-        <table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
-        <script>setTimeout(() => window.print(), 500);</script></body></html>
+        <html>
+        <head>
+            <title>Lista de Membros</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { font-family: sans-serif; padding: 20px; text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }
+                th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; }
+                
+                /* BOTÃO FLUTUANTE DE FECHAR (SÓ APARECE NA TELA) */
+                .close-btn {
+                    position: fixed; top: 15px; left: 15px; z-index: 9999;
+                    background: #ef4444; color: white; border: none;
+                    padding: 10px 20px; border-radius: 50px; font-weight: bold;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
+                    text-decoration: none; font-size: 14px;
+                }
+                @media print { .close-btn { display: none; } }
+            </style>
+        </head>
+        <body>
+            <button onclick="window.close()" class="close-btn">← FECHAR</button>
+            
+            ${logoHtml}
+            <h1>${churchName}</h1>
+            <p>Relatório de Membros • ${today}</p>
+            <table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
+            
+            <script>setTimeout(() => window.print(), 500);</script>
+        </body>
+        </html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
     setPrinting(false);
   };
 
-  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0 - COM BASE64) ---
+  // --- IMPRESSÃO DE CARTEIRINHA (PREMIUM 2.0 - COM BASE64 E BOTÃO FECHAR) ---
   const handlePrintCard = async (member: Member) => {
     setPrinting(true);
     const printWindow = window.open('', '', 'width=900,height=600');
@@ -244,6 +270,7 @@ export default function MembersPage() {
       <html>
         <head>
           <title>Carteirinha - ${member.fullName}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap');
             body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
@@ -275,10 +302,26 @@ export default function MembersPage() {
             .line { height: 1px; background: #000; width: 100%; margin: 2px auto; }
             .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; }
 
-            @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+            /* BOTÃO FLUTUANTE DE FECHAR (SÓ APARECE NA TELA) */
+            .close-btn {
+                position: fixed; top: 15px; left: 15px; z-index: 9999;
+                background: #ef4444; color: white; border: none;
+                padding: 10px 20px; border-radius: 50px; font-weight: bold;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
+                text-decoration: none; font-size: 14px;
+            }
+
+            @media print { 
+                body { background: white; height: auto; display: block; } 
+                .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } 
+                .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+                .close-btn { display: none !important; }
+            }
           </style>
         </head>
         <body>
+          <button onclick="window.close()" class="close-btn">← FECHAR</button>
+
           <div class="card-wrapper">
             <div class="card front">
               <div class="front-header">
