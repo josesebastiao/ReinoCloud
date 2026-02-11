@@ -85,7 +85,9 @@ export default function MembersPage() {
       try {
           const directUrl = getDirectImageUrl(url);
           if (!directUrl) return "";
-          const response = await fetch(directUrl);
+          
+          // ADDED: referrerPolicy para forçar redes sociais a liberarem a imagem na impressão
+          const response = await fetch(directUrl, { referrerPolicy: "no-referrer" });
           const blob = await response.blob();
           return new Promise<string>((resolve) => {
               const reader = new FileReader();
@@ -262,7 +264,8 @@ export default function MembersPage() {
                     <td className="p-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                                {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
+                                {/* ADDED: referrerPolicy e onError para fallback com Iniciais */}
+                                {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
                             </div>
                             <div className="flex flex-col">
                                 <span className="font-bold text-gray-800 flex items-center gap-2">
@@ -293,7 +296,8 @@ export default function MembersPage() {
                 <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.98] transition">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                            {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
+                             {/* ADDED: referrerPolicy e onError para fallback com Iniciais */}
+                            {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
                         </div>
                         <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-gray-800 text-sm truncate flex items-center gap-1">
@@ -312,14 +316,13 @@ export default function MembersPage() {
                         </div>
                     </div>
                     
-                    {/* Botões de Ação Mobile (Grandes e Fáceis de Tocar) */}
                     <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-gray-50">
                         {member.email ? (
                             <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-yellow-50 text-yellow-600 font-bold text-xs">
                                 <Key size={14}/> Acesso
                             </button>
                         ) : (
-                            <div className="opacity-0"></div> // Espaço vazio para manter alinhamento
+                            <div className="opacity-0"></div> 
                         )}
                         <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-blue-50 text-blue-600 font-bold text-xs">
                             <Edit size={14}/> Editar
@@ -344,7 +347,8 @@ export default function MembersPage() {
                 <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white/30 shadow-lg relative z-10 overflow-hidden">
-                        {viewMember.photoUrl ? <img src={getDirectImageUrl(viewMember.photoUrl)} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
+                         {/* ADDED: referrerPolicy e onError para fallback com Iniciais */}
+                        {viewMember.photoUrl ? <img src={getDirectImageUrl(viewMember.photoUrl)} alt={viewMember.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(viewMember.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
@@ -378,6 +382,10 @@ export default function MembersPage() {
                             <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0"><Mail size={18}/></div>
                             <div><p className="text-xs text-gray-400 font-bold uppercase">E-mail</p><p className="font-medium text-gray-800 text-sm truncate max-w-[200px]">{viewMember.email || "—"}</p></div>
                         </div>
+                        <div className="flex items-center gap-3 p-3 hover:bg-orange-50 rounded-xl transition">
+                            <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center shrink-0"><MapPin size={18}/></div>
+                            <div><p className="text-xs text-gray-400 font-bold uppercase">Endereço</p><p className="font-medium text-gray-800 text-sm">{viewMember.address?.street || "—"}</p></div>
+                        </div>
                     </div>
 
                     <button onClick={() => handleOpenEdit(viewMember)} className="w-full py-3.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition shadow-lg flex justify-center items-center gap-2">
@@ -398,7 +406,7 @@ export default function MembersPage() {
                 </div>
                 <form onSubmit={handleSave} className="p-6 space-y-6">
                     {/* DADOS PESSOAIS */}
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Link da Foto (URL)</label><div className="relative"><Camera className="absolute left-3 top-3 text-gray-400" size={16}/><input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white" placeholder="https://..." /></div></div><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label><input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" />
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Link da Foto (URL do Facebook ou Google)</label><div className="relative"><Camera className="absolute left-3 top-3 text-gray-400" size={16}/><input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white" placeholder="https://..." /></div></div><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label><input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" />
                     {/* AVISO DE BLINDAGEM DO EMAIL */}
                     {editingId && formData.email && (
                         <div className="flex items-center gap-2 mt-1 text-[10px] text-amber-600 font-bold">
