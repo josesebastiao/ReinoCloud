@@ -11,7 +11,7 @@ import { getDirectImageUrl } from "../../utils/imageHelper";
 
 import { 
   FileText, Printer, Search, FileBadge, ArrowRightLeft, 
-  User, X, Building2, Loader2, ShieldCheck, CalendarRange, Plus, Trash2, Save, Clock, Baby, ScrollText 
+  User, X, Building2, Loader2, ShieldCheck, CalendarRange, Plus, Trash2, Save, Clock, Baby, ScrollText, Droplets 
 } from "lucide-react";
 
 interface ScaleRow {
@@ -38,7 +38,7 @@ export default function ServicesPage() {
   const [printing, setPrinting] = useState(false); 
   const [saving, setSaving] = useState(false);
   
-  const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | 'scale' | 'certificate' | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | 'scale' | 'certificate' | 'baptism' | null>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [search, setSearch] = useState("");
   const [obs, setObs] = useState(""); 
@@ -149,7 +149,7 @@ export default function ServicesPage() {
 
   // --- IMPRESSÃO ---
   const handlePrint = async () => {
-    // 1. PERGUNTA OS DADOS PRIMEIRO
+    // 1. PERGUNTA OS DADOS PRIMEIRO (SE FOR CERTIDÃO DE CRIANÇA)
     let fatherName = "_____________________________";
     let motherName = "_____________________________";
 
@@ -165,8 +165,8 @@ export default function ServicesPage() {
     const directSignature = getDirectImageUrl(signatureUrl);
 
     // Configura a janela
-    // Se for certificado, largura maior para paisagem
-    const isLandscape = selectedDoc === 'certificate';
+    // Se for certificado de criança OU batismo, largura maior para paisagem
+    const isLandscape = selectedDoc === 'certificate' || selectedDoc === 'baptism';
     const width = isLandscape ? 1123 : 900;
     const height = isLandscape ? 794 : 1000;
 
@@ -199,14 +199,19 @@ export default function ServicesPage() {
         
         htmlContent = `<html><head><title>Escala</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family:'Times New Roman';padding:40px;text-align:center}table{width:100%;border-collapse:collapse;margin-top:10px}td,th{border:1px solid #000;padding:6px;font-size:13px}th{background:#f0f0f0}.logo{max-height:80px} .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${docContent}<script>setTimeout(()=>window.print(),1000)</script></body></html>`;
     
-    // --- CASO 2: CERTIDÃO DE CRIANÇA (COM PAISAGEM E BOTÃO FECHAR) ---
-    } else if (selectedDoc === 'certificate') {
+    // --- CASO 2: CERTIDÃO DE CRIANÇA E BATISMO (PAISAGEM) ---
+    } else if (selectedDoc === 'certificate' || selectedDoc === 'baptism') {
         if (!selectedMember) return;
         
+        // Formata a data de batismo com segurança (se existir)
+        const baptismDateText = selectedMember.baptismDate 
+            ? selectedMember.baptismDate.split('-').reverse().join('/') 
+            : "___/___/____";
+
         htmlContent = `
           <html>
             <head>
-              <title>Certidão - ${selectedMember.fullName}</title>
+              <title>${selectedDoc === 'certificate' ? 'Certidão de Apresentação' : 'Certificado de Batismo'} - ${selectedMember.fullName}</title>
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
                 @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display:wght@400;700&display=swap');
@@ -258,15 +263,24 @@ export default function ServicesPage() {
                     <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
                     ${directLogo ? `<img src="${directLogo}" class="logo" />` : ''}
                     <div class="church-header">${churchName}</div>
-                    <div class="cert-title">Certificado de Apresentação</div>
-                    <div class="content-text">
-                      Certificamos que a criança<br/><span class="child-name">${selectedMember.fullName}</span><br/>
-                      foi apresentada ao Senhor e dedicada a Deus, conforme os princípios cristãos, em cerimônia realizada nesta igreja.
-                    </div>
-                    <div class="parents-block">
-                        <div class="parent-line"><span class="parent-name">${fatherName}</span><div class="parent-label">Pai</div></div>
-                        <div class="parent-line"><span class="parent-name">${motherName}</span><div class="parent-label">Mãe</div></div>
-                    </div>
+                    
+                    ${selectedDoc === 'certificate' ? `
+                        <div class="cert-title">Certificado de Apresentação</div>
+                        <div class="content-text">
+                          Certificamos que a criança<br/><span class="child-name">${selectedMember.fullName}</span><br/>
+                          foi apresentada ao Senhor e dedicada a Deus, conforme os princípios cristãos, em cerimônia realizada nesta igreja.
+                        </div>
+                        <div class="parents-block">
+                            <div class="parent-line"><span class="parent-name">${fatherName}</span><div class="parent-label">Pai</div></div>
+                            <div class="parent-line"><span class="parent-name">${motherName}</span><div class="parent-label">Mãe</div></div>
+                        </div>
+                    ` : `
+                        <div class="cert-title">Certificado de Batismo</div>
+                        <div class="content-text" style="margin-bottom: 60px;">
+                          Certificamos com alegria que<br/><span class="child-name">${selectedMember.fullName}</span><br/>
+                          desceu às águas batismais no dia <strong>${baptismDateText}</strong>, em pública profissão de fé e <br/>obediência à ordem de Nosso Senhor e Salvador Jesus Cristo.
+                        </div>
+                    `}
                     
                     <div class="date-place">${churchCity}, ${today}</div>
 
@@ -377,19 +391,20 @@ export default function ServicesPage() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16">
           {!selectedDoc ? (
-            // MENU
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4">
-                <div onClick={() => { setSelectedDoc('recommendation'); setSelectedMember(null); }} className="bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-blue-200 transition hover:-translate-y-1"><div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4"><FileBadge size={28}/></div><h3 className="text-lg font-bold text-gray-800">Recomendação</h3><p className="text-xs text-gray-500 mt-2">Para membros visitantes.</p></div>
-                <div onClick={() => { setSelectedDoc('transfer'); setSelectedMember(null); }} className="bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-orange-200 transition hover:-translate-y-1"><div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-4"><ArrowRightLeft size={28}/></div><h3 className="text-lg font-bold text-gray-800">Transferência</h3><p className="text-xs text-gray-500 mt-2">Mudança definitiva.</p></div>
-                <div onClick={() => { setSelectedDoc('certificate'); setSelectedMember(null); }} className="bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-purple-200 transition hover:-translate-y-1"><div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-4"><Baby size={28}/></div><h3 className="text-lg font-bold text-gray-800">Certidão Criança</h3><p className="text-xs text-gray-500 mt-2">Apresentação de bebê.</p></div>
-                <div onClick={() => { setSelectedDoc('scale'); }} className="bg-white p-6 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-green-200 transition hover:-translate-y-1"><div className="w-14 h-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-4"><CalendarRange size={28}/></div><h3 className="text-lg font-bold text-gray-800">Gerador de Escalas</h3><p className="text-xs text-gray-500 mt-2">Cultos, pregadores e louvor.</p></div>
+            // MENU PRINCIPAL
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8 animate-in fade-in slide-in-from-bottom-4">
+                <div onClick={() => { setSelectedDoc('recommendation'); setSelectedMember(null); }} className="bg-white p-5 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-blue-200 transition hover:-translate-y-1"><div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-3"><FileBadge size={24}/></div><h3 className="text-base font-bold text-gray-800 leading-tight">Recomendação</h3><p className="text-xs text-gray-500 mt-1">Para membros visitantes.</p></div>
+                <div onClick={() => { setSelectedDoc('transfer'); setSelectedMember(null); }} className="bg-white p-5 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-orange-200 transition hover:-translate-y-1"><div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-3"><ArrowRightLeft size={24}/></div><h3 className="text-base font-bold text-gray-800 leading-tight">Transferência</h3><p className="text-xs text-gray-500 mt-1">Mudança definitiva.</p></div>
+                <div onClick={() => { setSelectedDoc('certificate'); setSelectedMember(null); }} className="bg-white p-5 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-purple-200 transition hover:-translate-y-1"><div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-3"><Baby size={24}/></div><h3 className="text-base font-bold text-gray-800 leading-tight">Certidão Criança</h3><p className="text-xs text-gray-500 mt-1">Apresentação de bebê.</p></div>
+                <div onClick={() => { setSelectedDoc('baptism'); setSelectedMember(null); }} className="bg-white p-5 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-cyan-200 transition hover:-translate-y-1"><div className="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-2xl flex items-center justify-center mb-3"><Droplets size={24}/></div><h3 className="text-base font-bold text-gray-800 leading-tight">Certidão Batismo</h3><p className="text-xs text-gray-500 mt-1">Comprovação de águas.</p></div>
+                <div onClick={() => { setSelectedDoc('scale'); }} className="bg-white p-5 rounded-3xl shadow-xl cursor-pointer border-2 border-transparent hover:border-green-200 transition hover:-translate-y-1"><div className="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-3"><CalendarRange size={24}/></div><h3 className="text-base font-bold text-gray-800 leading-tight">Gerador Escalas</h3><p className="text-xs text-gray-500 mt-1">Cultos e louvor.</p></div>
             </div>
           ) : (
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100 animate-in fade-in slide-in-from-bottom-4 overflow-hidden">
                 <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
                     <h2 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
-                        {selectedDoc === 'scale' ? <CalendarRange className="text-green-600"/> : selectedDoc === 'certificate' ? <ScrollText className="text-purple-600"/> : <FileBadge className="text-blue-500"/>}
-                        {selectedDoc === 'scale' ? 'Gerador de Escala' : selectedDoc === 'certificate' ? 'Emitir Certidão' : 'Emitir Carta'}
+                        {selectedDoc === 'scale' ? <CalendarRange className="text-green-600"/> : selectedDoc === 'certificate' ? <ScrollText className="text-purple-600"/> : selectedDoc === 'baptism' ? <Droplets className="text-cyan-600"/> : <FileBadge className="text-blue-500"/>}
+                        {selectedDoc === 'scale' ? 'Gerador de Escala' : selectedDoc === 'certificate' ? 'Emitir Certidão' : selectedDoc === 'baptism' ? 'Certificado de Batismo' : 'Emitir Carta'}
                     </h2>
                     <button onClick={() => setSelectedDoc(null)} className="text-gray-500 hover:text-red-500 font-bold text-sm bg-white border border-gray-200 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-1 transition"><X size={16}/> FECHAR</button>
                 </div>
@@ -440,10 +455,10 @@ export default function ServicesPage() {
                                         <div className="bg-blue-50 text-blue-800 p-2 rounded-lg mb-4 text-sm font-bold">{selectedMember.fullName}</div>
                                         
                                         <p className="text-xs text-gray-500 font-bold uppercase mb-4">
-                                            {selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : selectedDoc === 'transfer' ? 'CARTA DE TRANSFERÊNCIA' : 'CERTIDÃO DE APRESENTAÇÃO'}
+                                            {selectedDoc === 'recommendation' ? 'CARTA DE RECOMENDAÇÃO' : selectedDoc === 'transfer' ? 'CARTA DE TRANSFERÊNCIA' : selectedDoc === 'baptism' ? 'CERTIFICADO DE BATISMO' : 'CERTIDÃO DE APRESENTAÇÃO'}
                                         </p>
 
-                                        {selectedDoc !== 'certificate' && (
+                                        {selectedDoc !== 'certificate' && selectedDoc !== 'baptism' && (
                                             <textarea placeholder="Observação extra (ex: mudou-se para Lisboa)" value={obs} onChange={e => setObs(e.target.value)} className="w-full p-2 border rounded-lg text-xs mb-4 bg-gray-50 resize-none outline-none focus:ring-1 ring-blue-300" rows={3}/>
                                         )}
                                         
