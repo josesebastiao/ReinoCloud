@@ -7,6 +7,8 @@ import { Member } from "../../types/member";
 import { Ministry } from "../../types/ministry";
 import { createSystemUser } from "../../services/adminAuthService";
 import { getDirectImageUrl } from "../../utils/imageHelper"; 
+import { db } from "../../lib/firebase"; // Necessário para buscar os limites
+import { doc, getDoc } from "firebase/firestore"; // Necessário para buscar os limites
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
   MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard, AlertTriangle, Shield 
@@ -21,6 +23,7 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [planLimit, setPlanLimit] = useState(100); // Estado para o limite (Padrão 100)
 
   // MODAIS
   const [showModal, setShowModal] = useState(false);
@@ -55,12 +58,21 @@ export default function MembersPage() {
     if (!churchId) return;
     setLoading(true);
     try {
-      const [membersList, ministriesList] = await Promise.all([
+      // 1. Busca os membros, ministérios e DADOS DA IGREJA (para pegar o limite)
+      const [membersList, ministriesList, churchSnap] = await Promise.all([
           memberService.listByChurch(churchId),
-          ministryService.listByChurch(churchId)
+          ministryService.listByChurch(churchId),
+          getDoc(doc(db, "churches", churchId))
       ]);
+      
       setMembers(membersList);
       setMinistryOptions(ministriesList);
+
+      // 2. Atualiza o limite com base no que está no banco (Se não tiver, assume 100)
+      if (churchSnap.exists() && churchSnap.data().planLimit) {
+          setPlanLimit(churchSnap.data().planLimit);
+      }
+
     } catch (error) { 
         console.error(error); 
     } finally { 
@@ -86,7 +98,6 @@ export default function MembersPage() {
           const directUrl = getDirectImageUrl(url);
           if (!directUrl) return "";
           
-          // ADDED: referrerPolicy para forçar redes sociais a liberarem a imagem na impressão
           const response = await fetch(directUrl, { referrerPolicy: "no-referrer" });
           const blob = await response.blob();
           return new Promise<string>((resolve) => {
@@ -104,6 +115,9 @@ export default function MembersPage() {
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  // --- Conta Quantos Membros Estão Ativos ---
+  const activeMembersCount = members.filter(m => m.status === 'active').length;
+
   const handleOpenView = (member: Member) => {
       setViewMember(member);
       setShowViewModal(true);
@@ -111,6 +125,13 @@ export default function MembersPage() {
 
   const handleOpenEdit = (member?: Member) => {
     setShowViewModal(false);
+    
+    // TRAVA: Se for um NOVO CADASTRO e o limite de ativos já foi atingido, bloqueia!
+    if (!member && activeMembersCount >= planLimit) {
+        alert(`LIMITE ATINGIDO!\n\nSua igreja atingiu o limite de ${planLimit} membros ativos no plano atual.\n\nAltere membros antigos para 'Inativo' ou fale com o Suporte (ReinoCloud) para fazer o Upgrade do seu plano.`);
+        return;
+    }
+
     if (member) {
       setEditingId(member.id || null);
       let addr: any = member.address || {};
@@ -160,6 +181,13 @@ export default function MembersPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!churchId) return;
+    
+    // TRAVA SECUNDÁRIA (Caso mudem o status de Inativo para Ativo e estoure o limite)
+    if (formData.status === 'active' && !editingId && activeMembersCount >= planLimit) {
+        alert("Limite de membros ativos atingido no plano atual.");
+        return;
+    }
+
     setLoading(true);
     try {
       const payload: Member = {
@@ -237,7 +265,14 @@ export default function MembersPage() {
     <div className="p-4 md:p-8 min-h-screen bg-gray-50 pb-24">
       {/* CABEÇALHO */}
       <div className="max-w-6xl mx-auto mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div><h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Users className="text-blue-600"/> Membros</h1><p className="text-sm text-gray-500">{members.length} membros cadastrados</p></div>
+        <div>
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Users className="text-blue-600"/> Membros</h1>
+            {/* INDICADOR DE LIMITE DE PLANO */}
+            <p className="text-sm text-gray-500 font-medium">
+                <span className={activeMembersCount >= planLimit ? 'text-red-500 font-bold' : ''}>{activeMembersCount}</span> 
+                {' '}ativos de {planLimit} disponíveis no plano.
+            </p>
+        </div>
         <div className="flex gap-2 w-full md:w-auto">
             <button onClick={handlePrintExecute} disabled={printing} className="flex-1 md:flex-none justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition shadow-sm">
                 {printing ? <Loader2 className="animate-spin" size={20}/> : <Printer size={20}/>} <span className="hidden md:inline">Imprimir Lista</span>
@@ -264,7 +299,6 @@ export default function MembersPage() {
                     <td className="p-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                                {/* ADDED: referrerPolicy e onError para fallback com Iniciais */}
                                 {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
                             </div>
                             <div className="flex flex-col">
@@ -296,7 +330,6 @@ export default function MembersPage() {
                 <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.98] transition">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                             {/* ADDED: referrerPolicy e onError para fallback com Iniciais */}
                             {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -347,7 +380,6 @@ export default function MembersPage() {
                 <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white/30 shadow-lg relative z-10 overflow-hidden">
-                         {/* ADDED: referrerPolicy e onError para fallback com Iniciais */}
                         {viewMember.photoUrl ? <img src={getDirectImageUrl(viewMember.photoUrl)} alt={viewMember.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(viewMember.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>

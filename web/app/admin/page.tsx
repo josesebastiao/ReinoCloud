@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useChurch } from "../../contexts/ChurchContext"; 
 import { 
   Building2, Users, DollarSign, PlusCircle, CheckCircle, 
-  ShieldCheck, Trash2, Ban, Check, Search, Mail, User 
+  ShieldCheck, Trash2, Ban, Check, Search, Mail, User, Crown 
 } from "lucide-react";
 
 // FIREBASE
@@ -16,17 +16,16 @@ import { auth, db } from "../../lib/firebase";
 interface ChurchData {
   id: string;
   name: string;
-  ownerName?: string; // Adicionado
-  email?: string;     // Adicionado
+  ownerName?: string; 
+  email?: string;     
   plan: string;
+  planLimit: number; // ADDED: Campo para armazenar o limite numérico
   status: 'active' | 'blocked';
   createdAt: string;
 }
 
 export default function AdminPage() {
   const router = useRouter();
-  // Se quiser proteger a rota, descomente abaixo. Para dev, pode deixar solto.
-  // const { userRole } = useChurch(); 
   
   const [loading, setLoading] = useState(false);
   
@@ -34,16 +33,14 @@ export default function AdminPage() {
   const [churches, setChurches] = useState<ChurchData[]>([]);
   const [stats, setStats] = useState({ total: 0, active: 0, revenue: 0 });
 
+  // ADDED: Campo plan e planLimit no estado da nova igreja
   const [newChurch, setNewChurch] = useState({
-    churchName: "", name: "", email: "", password: ""
+    churchName: "", name: "", email: "", password: "", plan: "congr", planLimit: 100
   });
 
   // CARREGAR DADOS AO ABRIR
   useEffect(() => {
     if (typeof window !== 'undefined') {
-       // Verificação de segurança (opcional)
-       // const role = localStorage.getItem("userRole");
-       // if (role !== 'admin') router.push("/");
        fetchChurches();
     }
   }, [router]);
@@ -59,9 +56,10 @@ export default function AdminPage() {
             list.push({
                 id: doc.id,
                 name: data.name,
-                ownerName: data.ownerName || "Pastor N/A", // Pega do banco
-                email: data.email || "Sem e-mail",         // Pega do banco
-                plan: data.plan || 'free',
+                ownerName: data.ownerName || "Pastor N/A",
+                email: data.email || "Sem e-mail",         
+                plan: data.plan || 'congr',
+                planLimit: data.planLimit || 100, // Se não tiver limite salvo, assume 100
                 status: data.status || 'active',
                 createdAt: data.createdAt
             });
@@ -69,15 +67,33 @@ export default function AdminPage() {
 
         setChurches(list);
 
+        // Ajuste de estimativa de receita baseado no plano
+        let estRevenue = 0;
+        list.forEach(c => {
+            if(c.status === 'active') {
+                if(c.planLimit <= 100) estRevenue += 60; // Ex: R$ 59,90
+                else if(c.planLimit <= 400) estRevenue += 120; // Ex: R$ 119,90
+                else estRevenue += 200; // Ex: Ilimitado R$ 199,90
+            }
+        });
+
         setStats({
             total: list.length,
             active: list.filter(c => c.status === 'active').length,
-            revenue: list.length * 100 // Exemplo: R$ 100,00 por igreja
+            revenue: estRevenue 
         });
 
     } catch (error) {
         console.error("Erro ao buscar igrejas:", error);
     }
+  };
+
+  const handlePlanChangeSelect = (value: string) => {
+      let limit = 100;
+      if (value === 'sede') limit = 400;
+      if (value === 'min') limit = 999999; // Ilimitado
+
+      setNewChurch({...newChurch, plan: value, planLimit: limit});
   };
 
   const handleCreateChurch = async (e: React.FormEvent) => {
@@ -94,13 +110,13 @@ export default function AdminPage() {
         // 2. SALVAR NO FIRESTORE (BANCO DE DADOS)
         const churchId = `church_${user.uid}`;
         
-        // --- AQUI ESTÁ O AJUSTE: Salvamos Nome do Pastor e Email na Igreja também ---
         await setDoc(doc(db, "churches", churchId), {
             name: newChurch.churchName,
-            ownerName: newChurch.name,  // <--- Importante para listar depois
-            email: newChurch.email,     // <--- Importante para listar depois
+            ownerName: newChurch.name,  
+            email: newChurch.email,     
             createdAt: new Date().toISOString(),
-            plan: "pro",
+            plan: newChurch.plan,
+            planLimit: newChurch.planLimit, // Salva o limite no banco
             status: "active", 
             ownerId: user.uid
         });
@@ -116,12 +132,11 @@ export default function AdminPage() {
         });
         
         alert("✅ Igreja criada com sucesso!");
-        setNewChurch({ churchName: "", name: "", email: "", password: "" }); 
+        setNewChurch({ churchName: "", name: "", email: "", password: "", plan: "congr", planLimit: 100 }); 
         fetchChurches(); 
 
     } catch (error: any) {
         console.error(error);
-        // TRATAMENTO DO ERRO DE EMAIL DUPLICADO
         if (error.code === 'auth/email-already-in-use') {
             alert("⚠️ ERRO: Este e-mail já está cadastrado no sistema de Login.\n\nComo você excluiu a igreja mas o login ficou preso, vá no console do Firebase > Authentication e exclua o usuário manualmente, ou use outro e-mail.");
         } else {
@@ -148,8 +163,39 @@ export default function AdminPage() {
       }
   };
 
+  // ADDED: Função para mudar o plano de uma igreja existente
+  const handleUpgradePlan = async (church: ChurchData) => {
+      const currentLabel = church.planLimit > 400 ? 'Ministério (Ilimitado)' : church.planLimit > 100 ? 'Sede (400)' : 'Congregação (100)';
+      
+      const promptResult = prompt(
+          `PLANOS DISPONÍVEIS:\n1 - Congregação (Até 100 membros)\n2 - Sede (Até 400 membros)\n3 - Ministério (Ilimitado)\n\nPlano Atual: ${currentLabel}\n\nDigite o NÚMERO do novo plano (1, 2 ou 3):`
+      );
+
+      if (!promptResult) return;
+
+      let newPlan = church.plan;
+      let newLimit = church.planLimit;
+
+      if (promptResult === "1") { newPlan = "congr"; newLimit = 100; }
+      else if (promptResult === "2") { newPlan = "sede"; newLimit = 400; }
+      else if (promptResult === "3") { newPlan = "min"; newLimit = 999999; }
+      else { alert("Opção inválida."); return; }
+
+      if(confirm(`Mudar o limite da igreja "${church.name}" para ${newLimit > 400 ? 'ILIMITADO' : newLimit + ' membros'}?`)) {
+          try {
+              await updateDoc(doc(db, "churches", church.id), {
+                  plan: newPlan,
+                  planLimit: newLimit
+              });
+              alert("Plano atualizado com sucesso!");
+              fetchChurches(); 
+          } catch (error) {
+              alert("Erro ao atualizar plano.");
+          }
+      }
+  };
+
   const deleteChurch = async (id: string) => {
-      // Aviso sobre o problema do Auth
       if(confirm("⚠️ ATENÇÃO: Isso vai apagar os DADOS da igreja, mas o LOGIN (e-mail/senha) continuará existindo no Firebase Auth.\n\nPara liberar o e-mail novamente, você precisará excluir o usuário manualmente no Console do Firebase.\n\nDeseja continuar?")) {
           try {
               await deleteDoc(doc(db, "churches", id));
@@ -199,6 +245,17 @@ export default function AdminPage() {
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Pastor Responsável</label><input type="text" required value={newChurch.name} onChange={e => setNewChurch({...newChurch, name: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl text-sm" placeholder="Ex: Pr. João" /></div>
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">E-mail de Login</label><input type="email" required value={newChurch.email} onChange={e => setNewChurch({...newChurch, email: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl text-sm" placeholder="email@igreja.com" /></div>
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Senha Inicial</label><input type="text" required value={newChurch.password} onChange={e => setNewChurch({...newChurch, password: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl text-sm" placeholder="******" /></div>
+                  
+                  {/* ADDED: Seleção de Plano */}
+                  <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">Plano (Limite de Membros)</label>
+                      <select value={newChurch.plan} onChange={e => handlePlanChangeSelect(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl text-sm font-bold bg-gray-50">
+                          <option value="congr">Plano Congregação (Até 100)</option>
+                          <option value="sede">Plano Sede (Até 400)</option>
+                          <option value="min">Plano Ministério (Ilimitado)</option>
+                      </select>
+                  </div>
+
                   <button type="submit" disabled={loading} className="w-full py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2 text-sm">{loading ? 'Criando...' : 'Cadastrar Cliente'}</button>
               </form>
           </div>
@@ -228,22 +285,35 @@ export default function AdminPage() {
                                       <div className="min-w-0">
                                           <h3 className={`font-bold text-sm truncate ${church.status === 'blocked' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{church.name}</h3>
                                           
-                                          {/* --- AQUI: MOSTRANDO PASTOR E EMAIL --- */}
                                           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-gray-500 mt-1">
                                               <span className="flex items-center gap-1"><User size={10}/> {church.ownerName}</span>
                                               <span className="hidden sm:inline text-gray-300">•</span>
                                               <span className="flex items-center gap-1"><Mail size={10}/> {church.email}</span>
                                           </div>
                                           
-                                          <div className="mt-1">
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${church.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                          <div className="mt-1.5 flex items-center gap-2">
+                                            <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${church.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                 {church.status === 'active' ? 'Ativo' : 'Bloqueado'}
+                                            </span>
+                                            {/* Tag do Plano Atual */}
+                                            <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${church.planLimit > 400 ? 'bg-purple-100 text-purple-700' : church.planLimit > 100 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                Limite: {church.planLimit > 400 ? 'Ilimitado' : church.planLimit}
                                             </span>
                                           </div>
                                       </div>
                                   </div>
 
                                   <div className="flex items-center gap-2 w-full sm:w-auto">
+                                      
+                                      {/* ADDED: Botão Upgrade de Plano */}
+                                      <button 
+                                        onClick={() => handleUpgradePlan(church)}
+                                        className="px-3 py-2 rounded-lg text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 transition flex items-center gap-1"
+                                        title="Mudar Plano"
+                                      >
+                                          <Crown size={14}/>
+                                      </button>
+
                                       <button 
                                         onClick={() => toggleStatus(church)}
                                         className={`flex-1 sm:flex-none px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition border ${
@@ -252,7 +322,7 @@ export default function AdminPage() {
                                             : 'bg-green-600 text-white border-transparent hover:bg-green-700'
                                         }`}
                                       >
-                                          {church.status === 'active' ? <><Ban size={14}/> Bloquear</> : <><Check size={14}/> Liberar</>}
+                                          {church.status === 'active' ? <><Ban size={14}/> Bloq</> : <><Check size={14}/> Liberar</>}
                                       </button>
 
                                       <button 
