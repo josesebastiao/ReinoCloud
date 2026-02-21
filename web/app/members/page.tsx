@@ -6,7 +6,7 @@ import { ministryService } from "../../services/ministryService";
 import { Member } from "../../types/member"; 
 import { Ministry } from "../../types/ministry";
 import { createSystemUser } from "../../services/adminAuthService";
-import { getDirectImageUrl } from "../../utils/imageHelper"; 
+import { getDirectImageUrl, compressImageFile, uploadToImgbb, cacheImage, getCachedImage } from "../../utils/imageHelper"; 
 import { db } from "../../lib/firebase"; // Necessário para buscar os limites
 import { doc, getDoc } from "firebase/firestore"; // Necessário para buscar os limites
 import { 
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 export default function MembersPage() {
-  const { churchId, churchName, logoUrl, userRole } = useChurch(); 
+    const { churchId, churchName, logoUrl, userRole } = useChurch(); 
   
   const [members, setMembers] = useState<Member[]>([]);
   const [ministryOptions, setMinistryOptions] = useState<Ministry[]>([]);
@@ -47,6 +47,8 @@ export default function MembersPage() {
     selectedMinistries: [] as string[],
     permissions: [] as string[]
   });
+    const [photoUploading, setPhotoUploading] = useState(false);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (churchId) {
@@ -95,6 +97,9 @@ export default function MembersPage() {
       if (!url) return "";
       if (url.startsWith("data:")) return url;
       try {
+          // Try local cache first
+          const cached = getCachedImage(url);
+          if (cached) return cached;
           const directUrl = getDirectImageUrl(url);
           if (!directUrl) return "";
           
@@ -177,6 +182,29 @@ export default function MembersPage() {
           setFormData({ ...formData, permissions: [...formData.permissions, permission] });
       }
   };
+
+    const handleFileInputChange = async (file?: File) => {
+        if (!file) return;
+        try {
+            setPhotoUploading(true);
+            // Compress in browser
+            const compressedBase64 = await compressImageFile(file, 1000, 0.7);
+            setPhotoPreview(compressedBase64);
+            // Upload to imgbb via internal API (server keeps key)
+            const uploadedUrl = await uploadToImgbb(compressedBase64);
+            // Save returned URL to form and cache base64 for offline
+            setFormData(fd => ({ ...fd, photoUrl: uploadedUrl }));
+            cacheImage(uploadedUrl, compressedBase64);
+        } catch (err) {
+            console.error('Erro ao processar imagem:', err);
+            alert('Não foi possível enviar a imagem.');
+        } finally { setPhotoUploading(false); }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files && e.target.files[0];
+        if (f) handleFileInputChange(f);
+    };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,7 +327,7 @@ export default function MembersPage() {
                     <td className="p-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                                {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
+                                {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
                             </div>
                             <div className="flex flex-col">
                                 <span className="font-bold text-gray-800 flex items-center gap-2">
@@ -330,7 +358,7 @@ export default function MembersPage() {
                 <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3 active:scale-[0.98] transition">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                            {member.photoUrl ? (<img src={getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
+                            {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
                         </div>
                         <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-gray-800 text-sm truncate flex items-center gap-1">
@@ -380,7 +408,7 @@ export default function MembersPage() {
                 <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                     <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-white/30 shadow-lg relative z-10 overflow-hidden">
-                        {viewMember.photoUrl ? <img src={getDirectImageUrl(viewMember.photoUrl)} alt={viewMember.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(viewMember.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
+                        {viewMember.photoUrl ? <img src={getCachedImage(viewMember.photoUrl) || getDirectImageUrl(viewMember.photoUrl)} alt={viewMember.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(viewMember.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
                     <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
@@ -438,14 +466,74 @@ export default function MembersPage() {
                 </div>
                 <form onSubmit={handleSave} className="p-6 space-y-6">
                     {/* DADOS PESSOAIS */}
-                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Link da Foto (URL do Facebook ou Google)</label><div className="relative"><Camera className="absolute left-3 top-3 text-gray-400" size={16}/><input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white" placeholder="https://..." /></div></div><div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label><input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" />
-                    {/* AVISO DE BLINDAGEM DO EMAIL */}
-                    {editingId && formData.email && (
-                        <div className="flex items-center gap-2 mt-1 text-[10px] text-amber-600 font-bold">
-                            <AlertTriangle size={12}/> Atenção: Mudar o e-mail não altera o login.
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                        <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Foto do Membro</label>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                                    <div className="col-span-2">
+                                        <div className="flex items-center gap-2">
+                                            <input onChange={handleFileChange} accept="image/*" type="file" id="member-photo" className="hidden" />
+                                            <label htmlFor="member-photo" className="px-3 py-2 bg-white border rounded-xl cursor-pointer text-sm hover:bg-gray-50">Escolher Arquivo</label>
+                                            <span className="text-xs text-gray-400">ou cole um link abaixo</span>
+                                            {photoUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>}
+                                        </div>
+                                        <div className="mt-3">
+                                            <input type="text" value={formData.photoUrl} onChange={e => setFormData({...formData, photoUrl: e.target.value})} className="w-full p-3 border rounded-xl bg-white" placeholder="https://... (opcional)" />
+                                        </div>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <div className="w-24 h-24 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
+                                            {photoPreview ? (
+                                                <img src={photoPreview} className="w-full h-full object-cover" />
+                                            ) : formData.photoUrl ? (
+                                                <img src={getCachedImage(formData.photoUrl) || getDirectImageUrl(formData.photoUrl)} referrerPolicy="no-referrer" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).onerror = null; (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.fullName)}&background=e5e7eb&color=9ca3af`; }} />
+                                            ) : (
+                                                <Users className="text-gray-300" size={28} />
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Nome Completo</label>
+                                <input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-xl bg-white" />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">E-mail</label>
+                                <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-xl bg-white" />
+                                {/* AVISO DE BLINDAGEM DO EMAIL */}
+                                {editingId && formData.email && (
+                                    <div className="flex items-center gap-2 mt-1 text-[10px] text-amber-600 font-bold">
+                                        <AlertTriangle size={12}/> Atenção: Mudar o e-mail não altera o login.
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Telefone</label>
+                                <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl bg-white" />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Sexo</label>
+                                <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="male">Masculino</option><option value="female">Feminino</option></select>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Estado Civil</label>
+                                <div className="relative"><Heart className="absolute left-3 top-3 text-pink-400" size={16}/><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white appearance-none"><option value="single">Solteiro(a)</option><option value="married">Casado(a)</option><option value="divorced">Divorciado(a)</option><option value="widowed">Viúvo(a)</option></select></div>
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Nascimento</label>
+                                <input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/>
+                            </div>
                         </div>
-                    )}
-                    </div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Telefone</label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-xl bg-white" /></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Sexo</label><select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border rounded-xl bg-white"><option value="male">Masculino</option><option value="female">Feminino</option></select></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Estado Civil</label><div className="relative"><Heart className="absolute left-3 top-3 text-pink-400" size={16}/><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full pl-10 p-3 border rounded-xl bg-white appearance-none"><option value="single">Solteiro(a)</option><option value="married">Casado(a)</option><option value="divorced">Divorciado(a)</option><option value="widowed">Viúvo(a)</option></select></div></div><div><label className="text-[10px] font-bold text-gray-400 uppercase">Nascimento</label><input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} className="w-full p-3 border rounded-xl bg-white"/></div></div></div>
+                    </div>
                     
                     {/* DADOS ECLESIÁSTICOS */}
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">

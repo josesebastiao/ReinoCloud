@@ -5,9 +5,10 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth } from "../../lib/firebase";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { 
-  Building2, Globe, FileText, Save, Loader2, Lock, ShieldCheck, 
-  ImageIcon, AlertTriangle, Settings, PenTool 
+    Building2, Globe, FileText, Save, Loader2, Lock, ShieldCheck, 
+    ImageIcon, AlertTriangle, Settings, PenTool 
 } from "lucide-react";
+import { compressImageFile, uploadToImgbb, cacheImage, getCachedImage } from "../../utils/imageHelper";
 
 export default function SettingsPage() {
   const { churchId, setChurchData, userRole, userName } = useChurch(); 
@@ -23,6 +24,10 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState("AO");
   const [logoUrl, setLogoUrl] = useState("");
   const [signatureUrl, setSignatureUrl] = useState(""); // <--- NOVO CAMPO
+    const [logoUploading, setLogoUploading] = useState(false);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [signatureUploading, setSignatureUploading] = useState(false);
+    const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
   const [textRecommendation, setTextRecommendation] = useState("");
   const [textTransfer, setTextTransfer] = useState("");
 
@@ -93,6 +98,35 @@ export default function SettingsPage() {
         setSaving(false);
     }
   };
+
+    const handleFileUpload = async (file: File | undefined, target: 'logo' | 'signature') => {
+        if (!file) return;
+        try {
+            if (target === 'logo') setLogoUploading(true);
+            else setSignatureUploading(true);
+
+            const compressed = await compressImageFile(file, 1200, 0.8);
+            const uploadedUrl = await uploadToImgbb(compressed);
+            if (target === 'logo') {
+                setLogoUrl(uploadedUrl);
+                setLogoPreview(compressed);
+                cacheImage(uploadedUrl, compressed);
+            } else {
+                setSignatureUrl(uploadedUrl);
+                setSignaturePreview(compressed);
+                cacheImage(uploadedUrl, compressed);
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao enviar imagem.');
+        } finally {
+            if (target === 'logo') setLogoUploading(false);
+            else setSignatureUploading(false);
+        }
+    };
+
+    const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'logo'); };
+    const handleSignatureFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'signature'); };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,14 +213,30 @@ export default function SettingsPage() {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Link da Logo (URL)</label>
-                                        <div className="relative"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="https://..." /></div>
-                                        {logoUrl && <div className="mt-2 text-center"><img src={logoUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/></div>}
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Logo da Igreja</label>
+                                        <div className="flex items-center gap-2">
+                                            <input accept="image/*" onChange={handleLogoFileChange} id="logo-file" type="file" className="hidden" />
+                                            <label htmlFor="logo-file" className="px-3 py-2 bg-white border rounded-xl cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
+                                            <span className="text-xs text-gray-400">ou cole um link abaixo</span>
+                                            {logoUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>} 
+                                        </div>
+                                        <div className="relative mt-3"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="https://..." /></div>
+                                        <div className="mt-2 text-center">
+                                            {logoPreview ? <img src={logoPreview} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (getCachedImage(logoUrl) ? <img src={getCachedImage(logoUrl)!} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (logoUrl && <img src={logoUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/>))}
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-500 uppercase">Assinatura Digital (URL)</label>
-                                        <div className="relative"><PenTool className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={signatureUrl} onChange={e => setSignatureUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="Link da imagem PNG..." /></div>
-                                        {signatureUrl && <div className="mt-2 text-center"><img src={signatureUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/></div>}
+                                        <div className="flex items-center gap-2">
+                                            <input accept="image/*" onChange={handleSignatureFileChange} id="signature-file" type="file" className="hidden" />
+                                            <label htmlFor="signature-file" className="px-3 py-2 bg-white border rounded-xl cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
+                                            <span className="text-xs text-gray-400">ou cole um link abaixo</span>
+                                            {signatureUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>} 
+                                        </div>
+                                        <div className="relative mt-3"><PenTool className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={signatureUrl} onChange={e => setSignatureUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="Link da imagem PNG..." /></div>
+                                        <div className="mt-2 text-center">
+                                            {signaturePreview ? <img src={signaturePreview} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (getCachedImage(signatureUrl) ? <img src={getCachedImage(signatureUrl)!} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (signatureUrl && <img src={signatureUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/>))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
