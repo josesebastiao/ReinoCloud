@@ -116,9 +116,9 @@ export default function SettingsPage() {
                 setSignaturePreview(compressed);
                 cacheImage(uploadedUrl, compressed);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert('Erro ao enviar imagem.');
+            alert('Erro ao enviar imagem.\n' + (err?.message || String(err)));
         } finally {
             if (target === 'logo') setLogoUploading(false);
             else setSignatureUploading(false);

@@ -195,9 +195,9 @@ export default function MembersPage() {
             // Save returned URL to form and cache base64 for offline
             setFormData(fd => ({ ...fd, photoUrl: uploadedUrl }));
             cacheImage(uploadedUrl, compressedBase64);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Erro ao processar imagem:', err);
-            alert('Não foi possível enviar a imagem.');
+            alert('Não foi possível enviar a imagem.\n' + (err?.message || String(err)));
         } finally { setPhotoUploading(false); }
     };
 

@@ -80,7 +80,13 @@ export const uploadToImgbb = async (base64DataUrl: string) => {
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error('Upload para imgbb falhou: ' + txt);
+    try {
+      const parsed = JSON.parse(txt);
+      const msg = parsed?.error || parsed?.message || JSON.stringify(parsed);
+      throw new Error('Upload para imgbb falhou: ' + msg);
+    } catch (e) {
+      throw new Error('Upload para imgbb falhou: ' + txt);
+    }
   }
   const json = await res.json();
   return json.url as string;
