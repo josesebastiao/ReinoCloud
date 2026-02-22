@@ -6,7 +6,7 @@ import { ministryService } from "../../services/ministryService";
 import { Member } from "../../types/member"; 
 import { Ministry } from "../../types/ministry";
 import { createSystemUser } from "../../services/adminAuthService";
-import { getDirectImageUrl, compressImageFile, uploadToImgbb, cacheImage, getCachedImage } from "../../utils/imageHelper"; 
+import { getDirectImageUrl, compressImageFile, uploadToImgbb, cacheImage, getCachedImage, validateImageFile } from "../../utils/imageHelper"; 
 import { db } from "../../lib/firebase"; // Necessário para buscar os limites
 import { doc, getDoc } from "firebase/firestore"; // Necessário para buscar os limites
 import { 
@@ -186,9 +186,13 @@ export default function MembersPage() {
     const handleFileInputChange = async (file?: File) => {
         if (!file) return;
         try {
+            // Validate file before processing
+            const validationError = validateImageFile(file);
+            if (validationError) throw new Error(validationError);
+            
             setPhotoUploading(true);
-            // Compress in browser
-            const compressedBase64 = await compressImageFile(file, 1000, 0.7);
+            // Compress in browser (highly optimized: 800px max, 60% quality for max economy)
+            const compressedBase64 = await compressImageFile(file);
             setPhotoPreview(compressedBase64);
             // Upload to imgbb via internal API (server keeps key)
             const uploadedUrl = await uploadToImgbb(compressedBase64);
@@ -197,7 +201,7 @@ export default function MembersPage() {
             cacheImage(uploadedUrl, compressedBase64);
         } catch (err: any) {
             console.error('Erro ao processar imagem:', err);
-            alert('Não foi possível enviar a imagem.\n' + (err?.message || String(err)));
+            alert((err?.message || 'Não foi possível enviar a imagem.'));
         } finally { setPhotoUploading(false); }
     };
 

@@ -32,7 +32,7 @@ export const getDirectImageUrl = (url?: string | null) => {
   return cleanUrl;
 };
 
-export const compressImageFile = (file: File, maxWidth = 1000, quality = 0.75): Promise<string> => {
+export const compressImageFile = (file: File, maxWidth = 800, quality = 0.6): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const reader = new FileReader();
@@ -109,4 +109,12 @@ export const getCachedImage = (imageUrl?: string | null) => {
   } catch (e) {
     return undefined;
   }
+};
+
+export const validateImageFile = (file: File): string | null => {
+  // Max 5MB
+  if (file.size > 5 * 1024 * 1024) return 'Arquivo muito grande (máx 5MB)';
+  // Only image types
+  if (!file.type.startsWith('image/')) return 'Selecione uma imagem válida';
+  return null;
 };

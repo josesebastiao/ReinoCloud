@@ -8,7 +8,7 @@ import {
     Building2, Globe, FileText, Save, Loader2, Lock, ShieldCheck, 
     ImageIcon, AlertTriangle, Settings, PenTool 
 } from "lucide-react";
-import { compressImageFile, uploadToImgbb, cacheImage, getCachedImage } from "../../utils/imageHelper";
+import { compressImageFile, uploadToImgbb, cacheImage, getCachedImage, validateImageFile } from "../../utils/imageHelper";
 
 export default function SettingsPage() {
   const { churchId, setChurchData, userRole, userName } = useChurch(); 
@@ -102,10 +102,15 @@ export default function SettingsPage() {
     const handleFileUpload = async (file: File | undefined, target: 'logo' | 'signature') => {
         if (!file) return;
         try {
+            // Validate file
+            const validationError = validateImageFile(file);
+            if (validationError) throw new Error(validationError);
+            
             if (target === 'logo') setLogoUploading(true);
             else setSignatureUploading(true);
 
-            const compressed = await compressImageFile(file, 1200, 0.8);
+            // Compress with optimized defaults (800px max, 60% quality)
+            const compressed = await compressImageFile(file);
             const uploadedUrl = await uploadToImgbb(compressed);
             if (target === 'logo') {
                 setLogoUrl(uploadedUrl);
@@ -118,7 +123,7 @@ export default function SettingsPage() {
             }
         } catch (err: any) {
             console.error(err);
-            alert('Erro ao enviar imagem.\n' + (err?.message || String(err)));
+            alert((err?.message || 'Erro ao enviar imagem.'));
         } finally {
             if (target === 'logo') setLogoUploading(false);
             else setSignatureUploading(false);
