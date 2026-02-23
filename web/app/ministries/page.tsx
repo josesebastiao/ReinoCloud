@@ -365,7 +365,7 @@ export default function Ministries() {
                       <button onClick={() => handleAddMemberToMinistry(member)} className="text-gray-400 group-hover:text-blue-600 group-hover:bg-blue-50 p-1.5 rounded-lg transition"><UserPlus size={18} /></button>
                     </div>
                   ))}
-                  {searchMember && membersNotInTeam.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Ninguém encontrado.</p>}
+                  {searchMember && membersNotInTeam.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Ninguém encontrad.</p>}
                 </div>
               </div>
             </div>
