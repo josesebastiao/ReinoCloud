@@ -112,6 +112,16 @@ export default function MembersPage() {
       }
   };
 
+  const escapeHtml = (unsafe: string) => {
+    if (!unsafe) return '';
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+  }
+
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -128,6 +138,11 @@ export default function MembersPage() {
     
     if (!member && activeMembersCount >= planLimit) {
         alert(`LIMITE ATINGIDO!\n\nSua igreja atingiu o limite de ${planLimit} membros ativos no plano atual.\n\nAltere membros antigos para 'Inativo' ou fale com o Suporte (ReinoCloud) para fazer o Upgrade do seu plano.`);
+        return;
+    }
+
+    if (userRole === 'secretary' && member?.role === 'admin') {
+        alert("Secretaria não pode editar o cadastro de um Pastor (Admin).");
         return;
     }
 
@@ -209,6 +224,11 @@ export default function MembersPage() {
         return;
     }
 
+    if (userRole !== 'admin' && formData.role === 'admin') {
+        alert("Apenas um Pastor (Admin) pode definir este cargo.");
+        return;
+    }
+
     setLoading(true);
     try {
       const payload: Member = {
@@ -231,10 +251,20 @@ export default function MembersPage() {
     } catch (error) { alert("Erro ao salvar."); } finally { setLoading(false); }
   };
 
-  const handleDelete = async (id: string) => { if (confirm("Excluir membro?")) { await memberService.delete(id); loadData(); } };
+  const handleDelete = async (id: string) => {
+      if (userRole !== 'admin') {
+          alert("Apenas administradores podem excluir membros.");
+          return;
+      }
+      if (confirm("Excluir membro?")) { await memberService.delete(id); loadData(); } 
+  };
   
   const openAccessModal = (member: Member) => { 
       if(!member.email) { alert("Este membro precisa de um e-mail."); return; } 
+      if (userRole === 'secretary' && member.role === 'admin') {
+          alert("Secretaria não pode alterar o acesso de um Pastor (Admin).");
+          return;
+      }
       setSelectedMemberForAccess(member); 
       setNewPassword(""); 
       setShowAccessModal(true); 
@@ -242,11 +272,16 @@ export default function MembersPage() {
   
   const handleCreateAccess = async (e: React.FormEvent) => { 
       e.preventDefault(); 
+      if (userRole !== 'admin' && userRole !== 'secretary') {
+          alert("Apenas administradores e secretaria podem criar acessos.");
+          return;
+      }
       if(!selectedMemberForAccess?.email) return; 
       setCreatingAccess(true); 
       try { 
           await createSystemUser(selectedMemberForAccess.email, newPassword); 
-          alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); 
+          // Expor a senha em um alerta é uma má prática de segurança.
+          alert(`✅ Acesso criado para ${selectedMemberForAccess.email}!\n\nInforme a senha diretamente ao usuário. Para maior segurança, recomende que ele(a) altere a senha no primeiro login.`);
           setShowAccessModal(false); 
       } catch (error: any) { 
           alert("Erro: " + error.message); 
@@ -268,15 +303,15 @@ export default function MembersPage() {
     const rows = sortedMembers.map((m, index) => `
         <tr style="border-bottom: 1px solid #eee;">
             <td style="padding: 8px;">${index + 1}</td>
-            <td style="padding: 8px;"><strong>${m.fullName}</strong></td>
-            <td style="padding: 8px;">${translateRole(m.role)}</td>
-            <td style="padding: 8px;">${m.phone || '-'}</td>
+            <td style="padding: 8px;"><strong>${escapeHtml(m.fullName)}</strong></td>
+            <td style="padding: 8px;">${escapeHtml(translateRole(m.role))}</td>
+            <td style="padding: 8px;">${escapeHtml(m.phone || '-')}</td>
             <td style="padding: 8px;">${m.status === 'active' ? 'Ativo' : 'Inativo'}</td>
         </tr>
     `).join('');
 
     const html = `
-        <html><head><title>Lista de Membros</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body { font-family: sans-serif; padding: 20px; text-align: center; } table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; } th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${logoHtml}<h1>${churchName}</h1><p>Relatório de Membros • ${today}</p><table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(() => window.print(), 500);</script></body></html>
+        <html><head><title>Lista de Membros</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body { font-family: sans-serif; padding: 20px; text-align: center; } table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; } th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${logoHtml}<h1>${escapeHtml(churchName || '')}</h1><p>Relatório de Membros • ${escapeHtml(today)}</p><table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(() => window.print(), 500);</script></body></html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
@@ -298,7 +333,7 @@ export default function MembersPage() {
       : `<div style="height:30px;"></div>`;
 
     const html = `
-      <html><head><title>Carteirinha - ${member.fullName}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap'); body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .card.front { background: linear-gradient(120deg, #1e3a8a 0%, #172554 100%); color: white; display: flex; flex-direction: column; } .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); } .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); } .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; } .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); } .photo-frame img { width: 100%; height: 100%; object-fit: cover; } .member-info { display: flex; flex-direction: column; justify-content: center; } .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; } .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; } .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; } .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; } .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; } .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; } .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; } .data-col { display: flex; flex-direction: column; } .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; } .data-value { font-size: 9px; font-weight: 600; color: #000; } .signature-box { text-align: center; margin-top: 10px; } .line { height: 1px; background: #000; width: 100%; margin: 2px auto; } .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .close-btn { display: none !important; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button><div class="card-wrapper"><div class="card front"><div class="front-header">${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}<div class="church-title">${churchName}</div></div><div class="front-body"><div class="photo-frame">${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}</div><div class="member-info"><span class="label">Membro</span><span class="name">${member.fullName}</span><span class="role-badge">Batismo: ${baptismText}</span></div></div><div class="front-footer">Cartão de Membro</div></div><div class="card back"><div class="back-body"><div><div class="data-row"><div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : '---'}</span></div><div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span></div></div><div class="data-row" style="border:none"><div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div></div></div><div class="signature-box">${signatureHtml}<div class="line"></div><div class="sig-label">Pastor Presidente</div></div><div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;"><span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" style="width:35px; height:35px; opacity:0.8;" /></div></div></div></div><script>setTimeout(function(){ window.print(); }, 500);</script></body></html>
+      <html><head><title>Carteirinha - ${escapeHtml(member.fullName)}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap'); body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .card.front { background: linear-gradient(120deg, #1e3a8a 0%, #172554 100%); color: white; display: flex; flex-direction: column; } .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); } .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); } .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; } .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); } .photo-frame img { width: 100%; height: 100%; object-fit: cover; } .member-info { display: flex; flex-direction: column; justify-content: center; } .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; } .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; } .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; } .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; } .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; } .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; } .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; } .data-col { display: flex; flex-direction: column; } .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; } .data-value { font-size: 9px; font-weight: 600; color: #000; } .signature-box { text-align: center; margin-top: 10px; } .line { height: 1px; background: #000; width: 100%; margin: 2px auto; } .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .close-btn { display: none !important; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button><div class="card-wrapper"><div class="card front"><div class="front-header">${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}<div class="church-title">${escapeHtml(churchName || '')}</div></div><div class="front-body"><div class="photo-frame">${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}</div><div class="member-info"><span class="label">Membro</span><span class="name">${escapeHtml(member.fullName)}</span><span class="role-badge">Batismo: ${escapeHtml(baptismText)}</span></div></div><div class="front-footer">Cartão de Membro</div></div><div class="card back"><div class="back-body"><div><div class="data-row"><div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${member.birthDate ? escapeHtml(new Date(member.birthDate).toLocaleDateString('pt-BR')) : '---'}</span></div><div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span></div></div><div class="data-row" style="border:none"><div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div></div></div><div class="signature-box">${signatureHtml}<div class="line"></div><div class="sig-label">Pastor Presidente</div></div><div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;"><span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" style="width:35px; height:35px; opacity:0.8;" /></div></div></div></div><script>setTimeout(function(){ window.print(); }, 500);</script></body></html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
@@ -349,9 +384,11 @@ export default function MembersPage() {
                         {printing ? <Loader2 className="animate-spin" size={20}/> : <Printer size={20}/>} 
                         <span className="hidden md:inline">Relatório</span>
                     </button>
-                    <button onClick={() => handleOpenEdit()} className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2">
-                        <PlusCircle size={20}/> Novo Cadastro
-                    </button>
+                    {(userRole === 'admin' || userRole === 'secretary') && (
+                        <button onClick={() => handleOpenEdit()} className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2">
+                            <PlusCircle size={20}/> Novo Cadastro
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -384,7 +421,19 @@ export default function MembersPage() {
                             </div>
                         </td>
                         <td className="p-4"><div className="flex flex-col gap-1">{member.phone && <span className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12}/> {member.phone}</span>}{member.email && <span className="flex items-center gap-1 text-xs text-slate-500"><Mail size={12}/> {member.email}</span>}</div></td>
-                        <td className="p-4 text-right"><div className="flex justify-end gap-2">{member.email && <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition"><Key size={16}/></button>}<button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="p-2 bg-slate-100 rounded-lg text-blue-600 hover:bg-blue-100 transition"><Edit size={16}/></button><button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100 transition"><Trash2 size={16}/></button></div></td>
+                        <td className="p-4 text-right">
+                            <div className="flex justify-end gap-2">
+                                {member.email && (userRole === 'admin' || userRole === 'secretary') && (
+                                    <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition" title="Criar Acesso"><Key size={16}/></button>
+                                )}
+                                {(userRole === 'admin' || userRole === 'secretary') && (
+                                    <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="p-2 bg-slate-100 rounded-lg text-blue-600 hover:bg-blue-100 transition" title="Editar"><Edit size={16}/></button>
+                                )}
+                                {userRole === 'admin' && (
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100 transition" title="Excluir"><Trash2 size={16}/></button>
+                                )}
+                            </div>
+                        </td>
                         </tr>
                     ))}
                     </tbody>
@@ -416,20 +465,22 @@ export default function MembersPage() {
                             </div>
                         </div>
                         
-                        <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-slate-100">
-                            {member.email ? (
+                        <div className="flex justify-end gap-2 mt-2 pt-3 border-t border-slate-100">
+                            {(userRole === 'admin' || userRole === 'secretary') && member.email && (
                                 <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-yellow-50 text-yellow-600 font-bold text-xs">
                                     <Key size={14}/> Acesso
                                 </button>
-                            ) : (
-                                <div className="opacity-0"></div> 
                             )}
-                            <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-blue-50 text-blue-600 font-bold text-xs">
-                                <Edit size={14}/> Editar
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-red-50 text-red-600 font-bold text-xs">
-                                <Trash2 size={14}/> Excluir
-                            </button>
+                            {(userRole === 'admin' || userRole === 'secretary') && (
+                                <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-blue-50 text-blue-600 font-bold text-xs">
+                                    <Edit size={14}/> Editar
+                                </button>
+                            )}
+                            {userRole === 'admin' && (
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-red-50 text-red-600 font-bold text-xs">
+                                    <Trash2 size={14}/> Excluir
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -579,7 +630,12 @@ export default function MembersPage() {
                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200"><h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cargo</label>
-                            <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 border rounded-lg bg-white">
+                            <select 
+                                value={formData.role} 
+                                onChange={e => setFormData({...formData, role: e.target.value})} 
+                                className="w-full p-3 border rounded-lg bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
+                                disabled={userRole !== 'admin'}
+                            >
                                 <option value="member">Membro</option>
                                 <option value="deacon">Diácono</option>
                                 <option value="leader">Líder</option>
@@ -587,6 +643,7 @@ export default function MembersPage() {
                                 <option value="treasurer">Tesouraria</option>
                                 <option value="admin">Pastor (Admin)</option>
                             </select>
+                            {userRole !== 'admin' && <div className="text-[10px] text-slate-500 mt-1 font-medium">Apenas o Pastor (Admin) pode alterar o cargo.</div>}
                         </div>
                         <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-lg bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-lg bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-semibold text-slate-700">É Dizimista?</span></div></div></div></div>
 
