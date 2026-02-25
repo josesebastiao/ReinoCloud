@@ -294,7 +294,7 @@ export default function MembersPage() {
   if (loading && members.length === 0) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+    <div className="min-h-screen bg-slate-50 pb-24">
       {/* CABEÇALHO */}
       <div className="bg-blue-800 pt-10 pb-32 px-4 md:px-8 shadow-sm">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -302,7 +302,7 @@ export default function MembersPage() {
                 <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
                     <Users className="text-blue-300" size={32}/> Membros
                 </h1>
-                <p className="text-blue-100 mt-2 text-lg">
+                <p className="text-blue-200 mt-2 text-lg opacity-90">
                     Gerencie o cadastro e a vida eclesiástica.
                 </p>
             </div>
@@ -323,15 +323,15 @@ export default function MembersPage() {
       {/* --- LISTA DE MEMBROS (HÍBRIDA: TABELA NO PC, CARDS NO CELULAR) --- */}
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-20 relative z-10 space-y-6">
         
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
             {/* TOOLBAR: BUSCA E BOTÕES */}
-            <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row gap-4 justify-between items-center bg-white">
+            <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-center bg-white">
                 <div className="relative w-full md:w-96">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20}/>
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20}/>
                     <input 
                         type="text" 
                         placeholder="Buscar membro..." 
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition bg-gray-50 focus:bg-white"
+                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition bg-slate-50 focus:bg-white"
                         value={searchTerm} 
                         onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                     />
@@ -351,10 +351,10 @@ export default function MembersPage() {
         <div className="hidden md:block bg-white overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 border-b border-gray-100">
-                <tr><th className="p-4 text-xs font-bold text-gray-500 uppercase">Nome</th><th className="p-4 text-xs font-bold text-gray-500 uppercase">Contato</th><th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Ações</th></tr>
+                <thead className="bg-slate-50 border-b border-slate-200">
+                <tr><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nome</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contato</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th></tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-slate-100">
                 {currentMembers.map(member => (
                     <tr key={member.id} onClick={() => handleOpenView(member)} className="hover:bg-blue-50/50 transition group cursor-pointer">
                     <td className="p-4">
@@ -363,7 +363,7 @@ export default function MembersPage() {
                                 {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
                             </div>
                             <div className="flex flex-col">
-                                <span className="font-bold text-gray-800 flex items-center gap-2">
+                                <span className="font-semibold text-slate-800 flex items-center gap-2">
                                     {member.fullName}
                                     {member.permissions && member.permissions.includes('secretary') && <span title="Acesso Secretaria"><Shield size={14} className="text-blue-500 fill-blue-100"/></span>}
                                     {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100"/></span>}
@@ -376,8 +376,8 @@ export default function MembersPage() {
                             </div>
                         </div>
                     </td>
-                    <td className="p-4"><div className="flex flex-col gap-1">{member.phone && <span className="flex items-center gap-1 text-xs text-slate-600"><Phone size={12}/> {member.phone}</span>}{member.email && <span className="flex items-center gap-1 text-xs text-slate-600"><Mail size={12}/> {member.email}</span>}</div></td>
-                    <td className="p-4 text-right"><div className="flex justify-end gap-2">{member.email && <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition"><Key size={16}/></button>}<button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="p-2 bg-slate-100 rounded-lg text-indigo-600 hover:bg-indigo-100 transition"><Edit size={16}/></button><button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100 transition"><Trash2 size={16}/></button></div></td>
+                    <td className="p-4"><div className="flex flex-col gap-1">{member.phone && <span className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12}/> {member.phone}</span>}{member.email && <span className="flex items-center gap-1 text-xs text-slate-500"><Mail size={12}/> {member.email}</span>}</div></td>
+                    <td className="p-4 text-right"><div className="flex justify-end gap-2">{member.email && <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition"><Key size={16}/></button>}<button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="p-2 bg-slate-100 rounded-lg text-blue-600 hover:bg-blue-100 transition"><Edit size={16}/></button><button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100 transition"><Trash2 size={16}/></button></div></td>
                     </tr>
                 ))}
                 </tbody>
@@ -386,17 +386,17 @@ export default function MembersPage() {
         </div>
 
         {/* VERSÃO MOBILE (CARDS) - Visível apenas em celulares */}
-        <div className="md:hidden space-y-3 p-4 bg-slate-50">
+        <div className="md:hidden space-y-3 p-4 bg-slate-100">
             {currentMembers.map(member => (
-                <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-3 active:scale-[0.98] transition">
+                <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-3 active:scale-[0.98] transition">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
                             {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-slate-800 text-sm truncate flex items-center gap-1">
+                            <h3 className="font-semibold text-slate-800 text-sm truncate flex items-center gap-1">
                                 {member.fullName}
-                                {member.permissions && member.permissions.includes('secretary') && <Shield size={12} className="text-indigo-500 fill-indigo-100"/>}
+                                {member.permissions && member.permissions.includes('secretary') && <Shield size={12} className="text-blue-500 fill-blue-100"/>}
                                 {member.permissions && member.permissions.includes('financial') && <Shield size={12} className="text-green-500 fill-green-100"/>}
                             </h3>
                             <div className="flex flex-wrap gap-1 mt-1">
@@ -410,7 +410,7 @@ export default function MembersPage() {
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-gray-100">
+                    <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-slate-100">
                         {member.email ? (
                             <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-yellow-50 text-yellow-600 font-bold text-xs">
                                 <Key size={14}/> Acesso
@@ -429,7 +429,7 @@ export default function MembersPage() {
             ))}
         </div>
         
-        {totalPages > 1 && (<div className="p-6 flex justify-center gap-4 items-center mt-4"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 bg-white shadow-sm"><ChevronLeft size={20}/></button><span className="text-sm font-bold text-gray-700">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 bg-white shadow-sm"><ChevronRight size={20}/></button></div>)}
+        {totalPages > 1 && (<div className="p-6 flex justify-center gap-4 items-center"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 bg-white shadow-sm border border-slate-200"><ChevronLeft size={20}/></button><span className="text-sm font-semibold text-slate-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 bg-white shadow-sm border border-slate-200"><ChevronRight size={20}/></button></div>)}
       </div>
 
       {/* --- MODAL 1: VISUALIZAÇÃO (SÓ CARTEIRINHA) --- */}
@@ -443,7 +443,7 @@ export default function MembersPage() {
                     <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-blue-600 shadow-lg relative z-10 overflow-hidden">
                         {viewMember.photoUrl ? <img src={getCachedImage(viewMember.photoUrl) || getDirectImageUrl(viewMember.photoUrl)} alt={viewMember.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(viewMember.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
-                    <h3 className="text-xl font-bold text-white relative z-10">{viewMember.fullName}</h3>
+                    <h3 className="text-xl font-semibold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
                     
                     <div className="absolute bottom-4 left-0 right-0 px-4 z-20 flex justify-center">
@@ -456,32 +456,32 @@ export default function MembersPage() {
                 <div className="p-6 space-y-5">
                     {/* DADOS DETALHADOS */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-center">
-                            <span className="text-[10px] text-gray-500 font-bold uppercase">Status</span>
-                            <p className={`font-bold ${viewMember.status === 'active' ? 'text-green-600' : 'text-red-500'}`}>{viewMember.status === 'active' ? 'Ativo' : 'Inativo'}</p>
+                        <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 text-center">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Status</span>
+                            <p className={`font-semibold ${viewMember.status === 'active' ? 'text-green-600' : 'text-red-500'}`}>{viewMember.status === 'active' ? 'Ativo' : 'Inativo'}</p>
                         </div>
-                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-center">
-                            <span className="text-[10px] text-gray-500 font-bold uppercase">Estado Civil</span>
-                            <p className="font-bold text-gray-800 capitalize">{viewMember.maritalStatus === 'single' ? 'Solteiro(a)' : viewMember.maritalStatus === 'married' ? 'Casado(a)' : viewMember.maritalStatus === 'divorced' ? 'Divorciado(a)' : 'Viúvo(a)'}</p>
+                        <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 text-center">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Estado Civil</span>
+                            <p className="font-semibold text-slate-700 capitalize">{viewMember.maritalStatus === 'single' ? 'Solteiro(a)' : viewMember.maritalStatus === 'married' ? 'Casado(a)' : viewMember.maritalStatus === 'divorced' ? 'Divorciado(a)' : 'Viúvo(a)'}</p>
                         </div>
                     </div>
 
                     <div className="space-y-3">
-                        <div className="flex items-center gap-3 p-3 hover:bg-blue-50 rounded-lg transition">
+                        <div className="flex items-center gap-3 p-3 hover:bg-slate-100 rounded-lg transition">
                             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shrink-0"><Phone size={18}/></div>
-                            <div><p className="text-xs text-gray-500 font-bold uppercase">Telefone</p><p className="font-medium text-gray-800">{viewMember.phone || "—"}</p></div>
+                            <div><p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Telefone</p><p className="font-medium text-slate-800">{viewMember.phone || "—"}</p></div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 hover:bg-blue-50 rounded-lg transition">
+                        <div className="flex items-center gap-3 p-3 hover:bg-slate-100 rounded-lg transition">
                             <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center shrink-0"><Mail size={18}/></div>
-                            <div><p className="text-xs text-gray-500 font-bold uppercase">E-mail</p><p className="font-medium text-gray-800 text-sm truncate max-w-[200px]">{viewMember.email || "—"}</p></div>
+                            <div><p className="text-xs text-slate-500 font-bold uppercase tracking-wider">E-mail</p><p className="font-medium text-slate-800 text-sm truncate max-w-[200px]">{viewMember.email || "—"}</p></div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 hover:bg-orange-50 rounded-lg transition">
+                        <div className="flex items-center gap-3 p-3 hover:bg-slate-100 rounded-lg transition">
                             <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center shrink-0"><MapPin size={18}/></div>
-                            <div><p className="text-xs text-gray-500 font-bold uppercase">Endereço</p><p className="font-medium text-gray-800 text-sm">{viewMember.address?.street || "—"}</p></div>
+                            <div><p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Endereço</p><p className="font-medium text-slate-800 text-sm">{viewMember.address?.street || "—"}</p></div>
                         </div>
                     </div>
 
-                    <button onClick={() => handleOpenEdit(viewMember)} className="w-full py-3 bg-gray-900 text-white font-bold rounded-lg hover:bg-black transition shadow-lg flex justify-center items-center gap-2">
+                    <button onClick={() => handleOpenEdit(viewMember)} className="w-full py-3 bg-slate-800 text-white font-bold rounded-lg hover:bg-slate-900 transition shadow-lg flex justify-center items-center gap-2">
                         <Edit size={18}/> Editar Cadastro Completo
                     </button>
                 </div>
@@ -492,18 +492,18 @@ export default function MembersPage() {
       {/* --- MODAL DE EDIÇÃO (BLINDADO) --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 custom-scrollbar">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
-                    <h2 className="text-xl font-bold text-gray-800">{editingId ? 'Editar Membro' : 'Novo Cadastro'}</h2>
-                    <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-red-500 font-bold">FECHAR</button>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 custom-scrollbar">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                    <h2 className="text-xl font-semibold text-slate-800">{editingId ? 'Editar Membro' : 'Novo Cadastro'}</h2>
+                    <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-red-500 font-bold">FECHAR</button>
                 </div>
                 <form onSubmit={handleSave} className="p-6 space-y-6">
                     {/* DADOS PESSOAIS */}
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                        <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3>
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Foto do Membro</label>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Foto do Membro</label>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
                                     <div className="col-span-2">
                                         <div className="flex items-center gap-2">
@@ -517,7 +517,7 @@ export default function MembersPage() {
                                         </div>
                                     </div>
                                     <div className="col-span-1">
-                                        <div className="w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
+                                        <div className="w-24 h-24 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
                                             {photoPreview ? (
                                                 <img src={photoPreview} className="w-full h-full object-cover" />
                                             ) : formData.photoUrl ? (
@@ -531,12 +531,12 @@ export default function MembersPage() {
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Nome Completo</label>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nome Completo</label>
                                 <input required type="text" value={formData.fullName} onChange={e => setFormData({...formData, fullName: e.target.value})} className="w-full p-3 border rounded-lg bg-white" />
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">E-mail</label>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">E-mail</label>
                                 <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-lg bg-white" />
                                 {/* AVISO DE BLINDAGEM DO EMAIL */}
                                 {editingId && formData.email && (
@@ -547,31 +547,31 @@ export default function MembersPage() {
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Telefone</label>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Telefone</label>
                                 <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-lg bg-white" />
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Sexo</label>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sexo</label>
                                 <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border rounded-lg bg-white"><option value="male">Masculino</option><option value="female">Feminino</option></select>
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Estado Civil</label>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Estado Civil</label>
                                 <div className="relative"><Heart className="absolute left-3 top-3 text-pink-400" size={16}/><select value={formData.maritalStatus} onChange={e => setFormData({...formData, maritalStatus: e.target.value})} className="w-full pl-10 p-3 border rounded-lg bg-white appearance-none"><option value="single">Solteiro(a)</option><option value="married">Casado(a)</option><option value="divorced">Divorciado(a)</option><option value="widowed">Viúvo(a)</option></select></div>
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-bold text-gray-500 uppercase">Nascimento</label>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nascimento</label>
                                 <input type="date" value={formData.birthDate} onChange={e => setFormData({...formData, birthDate: e.target.value})} className="w-full p-3 border rounded-lg bg-white"/>
                             </div>
                         </div>
                     </div>
                     
                     {/* DADOS ECLESIÁSTICOS */}
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200"><h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-[10px] font-bold text-gray-500 uppercase">Cargo</label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cargo</label>
                             <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-3 border rounded-lg bg-white">
                                 <option value="member">Membro</option>
                                 <option value="deacon">Diácono</option>
@@ -581,12 +581,12 @@ export default function MembersPage() {
                                 <option value="admin">Pastor (Admin)</option>
                             </select>
                         </div>
-                        <div><label className="text-[10px] font-bold text-gray-500 uppercase">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-lg bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-gray-500 uppercase">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-lg bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-bold text-gray-700">É Dizimista?</span></div></div></div></div>
+                        <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-lg bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-lg bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-semibold text-slate-700">É Dizimista?</span></div></div></div></div>
 
                     {/* BLINDAGEM: ÁREA DE PERMISSÃO APENAS PARA ADMIN */}
                     {userRole === 'admin' && (
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 animate-in fade-in">
-                            <h3 className="text-xs font-bold text-blue-700 uppercase mb-3 flex items-center gap-2">
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 animate-in fade-in">
+                            <h3 className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <ShieldCheck size={14}/> Permissões de Acesso (Login)
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -619,8 +619,8 @@ export default function MembersPage() {
                         </div>
                     )}
 
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                        <h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><Briefcase size={14}/> Ministérios & Departamentos</h3>
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Briefcase size={14}/> Ministérios & Departamentos</h3>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                             {ministryOptions.map(dept => (
                                 <div 
@@ -635,10 +635,10 @@ export default function MembersPage() {
                         </div>
                     </div>
 
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100"><h3 className="text-xs font-bold text-blue-600 uppercase mb-3 flex items-center gap-2"><MapPin size={14}/> Endereço</h3><div className="grid grid-cols-2 gap-4"><div className="col-span-2"><input placeholder="Rua / Avenida" value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full p-3 border rounded-lg bg-white" /></div><div><input placeholder="Cidade" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full p-3 border rounded-lg bg-white" /></div><div><input placeholder="Estado/Província" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full p-3 border rounded-lg bg-white" /></div></div></div>
+                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-200"><h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2"><MapPin size={14}/> Endereço</h3><div className="grid grid-cols-2 gap-4"><div className="col-span-2"><input placeholder="Rua / Avenida" value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} className="w-full p-3 border rounded-lg bg-white" /></div><div><input placeholder="Cidade" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full p-3 border rounded-lg bg-white" /></div><div><input placeholder="Estado/Província" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full p-3 border rounded-lg bg-white" /></div></div></div>
 
                     <div className="flex justify-end pt-4 gap-3">
-                        <button type="button" onClick={() => setShowModal(false)} className="px-6 py-3 rounded-lg border border-gray-200 text-gray-700 font-bold hover:bg-gray-50">Cancelar</button>
+                        <button type="button" onClick={() => setShowModal(false)} className="px-6 py-3 rounded-lg border border-slate-200 text-slate-700 font-bold hover:bg-slate-100">Cancelar</button>
                         <button type="submit" disabled={loading} className="px-6 py-3 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-200">{loading ? 'Salvando...' : 'Salvar Dados'}</button>
                     </div>
                 </form>

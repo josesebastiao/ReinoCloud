@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ChurchProvider } from "../contexts/ChurchContext";
 import MainLayout from "../components/MainLayout";
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const viewport: Viewport = {
   themeColor: "#1E3A8A", // blue-800
@@ -30,8 +33,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <body className="bg-gray-50 text-gray-900 font-sans antialiased">
+    <html lang="pt-BR" className="antialiased">
+      <body className={`${inter.className} bg-slate-50 text-slate-800`}>
         <ChurchProvider>
            <MainLayout>
               {children}

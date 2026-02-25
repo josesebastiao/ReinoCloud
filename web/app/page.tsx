@@ -85,8 +85,7 @@ export default function Dashboard() {
   };
 
   if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-indigo-600" size={40}/></div>;
-  if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={40}/></div>;
-
+  
   // --- MODO VISÃO DO MEMBRO ---
   if (viewMode === 'member') {
       return (
@@ -103,8 +102,7 @@ export default function Dashboard() {
 
   // --- MODO VISÃO DE GESTÃO ---
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 font-sans relative">
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans relative">
+    <div className="min-h-screen bg-slate-50 pb-24 relative">
       
       {/* BOTÃO CENTRAL FLUTUANTE (FAB) */}
       <button onClick={() => setViewMode('member')} className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl shadow-blue-900/40 flex items-center justify-center hover:scale-110 transition border-4 border-gray-50 animate-in zoom-in md:hidden" title="Ver App Membro">

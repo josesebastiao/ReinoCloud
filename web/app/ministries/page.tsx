@@ -196,7 +196,7 @@ export default function Ministries() {
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+    <div className="min-h-screen bg-gray-50 pb-24"> {/* Removido o 'font-sans' redundante */}
       
       {/* CABEÇALHO */}
       <div className="bg-blue-800 pt-10 pb-24 px-8 shadow-sm">

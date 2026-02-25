@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import colors from "tailwindcss/colors";
+import { fontFamily } from 'tailwindcss/defaultTheme';
 
 const config: Config = {
   content: [
@@ -9,6 +10,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-inter)', ...fontFamily.sans],
+      },
       colors: {
         // AQUI ESTÁ A MUDANÇA 🎨
         // Removemos o verde (emerald).
@@ -26,6 +30,13 @@ const config: Config = {
           900: '#1e3a8a', // Sidebar e fundos escuros
           950: '#172554',
         },
+        emerald: colors.emerald,
+        amber: colors.amber,
+        red: colors.red,
+        purple: colors.purple,
+        yellow: colors.yellow,
+        slate: colors.slate,
+        gray: colors.gray,
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
