@@ -7,15 +7,15 @@ import { Member } from "../../types/member";
 import { Ministry } from "../../types/ministry";
 import { createSystemUser } from "../../services/adminAuthService";
 import { getDirectImageUrl, compressImageFile, uploadToImgbb, cacheImage, getCachedImage, validateImageFile } from "../../utils/imageHelper"; 
-import { db } from "../../lib/firebase"; // Necessário para buscar os limites
-import { doc, getDoc } from "firebase/firestore"; // Necessário para buscar os limites
+import { db } from "../../lib/firebase"; 
+import { doc, getDoc } from "firebase/firestore"; 
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
   MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard, AlertTriangle, Shield 
 } from "lucide-react";
 
 export default function MembersPage() {
-    const { churchId, churchName, logoUrl, userRole, signatureUrl } = useChurch(); 
+  const { churchId, churchName, logoUrl, userRole, signatureUrl } = useChurch(); 
   
   const [members, setMembers] = useState<Member[]>([]);
   const [ministryOptions, setMinistryOptions] = useState<Ministry[]>([]);
@@ -23,9 +23,8 @@ export default function MembersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [planLimit, setPlanLimit] = useState(100); // Estado para o limite (Padrão 100)
+  const [planLimit, setPlanLimit] = useState(100); 
 
-  // MODAIS
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showAccessModal, setShowAccessModal] = useState(false);
@@ -47,8 +46,8 @@ export default function MembersPage() {
     selectedMinistries: [] as string[],
     permissions: [] as string[]
   });
-    const [photoUploading, setPhotoUploading] = useState(false);
-    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (churchId) {
@@ -60,7 +59,6 @@ export default function MembersPage() {
     if (!churchId) return;
     setLoading(true);
     try {
-      // 1. Busca os membros, ministérios e DADOS DA IGREJA (para pegar o limite)
       const [membersList, ministriesList, churchSnap] = await Promise.all([
           memberService.listByChurch(churchId),
           ministryService.listByChurch(churchId),
@@ -70,7 +68,6 @@ export default function MembersPage() {
       setMembers(membersList);
       setMinistryOptions(ministriesList);
 
-      // 2. Atualiza o limite com base no que está no banco (Se não tiver, assume 100)
       if (churchSnap.exists() && churchSnap.data().planLimit) {
           setPlanLimit(churchSnap.data().planLimit);
       }
@@ -97,7 +94,6 @@ export default function MembersPage() {
       if (!url) return "";
       if (url.startsWith("data:")) return url;
       try {
-          // Try local cache first
           const cached = getCachedImage(url);
           if (cached) return cached;
           const directUrl = getDirectImageUrl(url);
@@ -120,7 +116,6 @@ export default function MembersPage() {
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
   const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // --- Conta Quantos Membros Estão Ativos ---
   const activeMembersCount = members.filter(m => m.status === 'active').length;
 
   const handleOpenView = (member: Member) => {
@@ -131,7 +126,6 @@ export default function MembersPage() {
   const handleOpenEdit = (member?: Member) => {
     setShowViewModal(false);
     
-    // TRAVA: Se for um NOVO CADASTRO e o limite de ativos já foi atingido, bloqueia!
     if (!member && activeMembersCount >= planLimit) {
         alert(`LIMITE ATINGIDO!\n\nSua igreja atingiu o limite de ${planLimit} membros ativos no plano atual.\n\nAltere membros antigos para 'Inativo' ou fale com o Suporte (ReinoCloud) para fazer o Upgrade do seu plano.`);
         return;
@@ -183,38 +177,33 @@ export default function MembersPage() {
       }
   };
 
-    const handleFileInputChange = async (file?: File) => {
-        if (!file) return;
-        try {
-            // Validate file before processing
-            const validationError = validateImageFile(file);
-            if (validationError) throw new Error(validationError);
-            
-            setPhotoUploading(true);
-            // Compress in browser (highly optimized: 800px max, 60% quality for max economy)
-            const compressedBase64 = await compressImageFile(file);
-            setPhotoPreview(compressedBase64);
-            // Upload to imgbb via internal API (server keeps key)
-            const uploadedUrl = await uploadToImgbb(compressedBase64);
-            // Save returned URL to form and cache base64 for offline
-            setFormData(fd => ({ ...fd, photoUrl: uploadedUrl }));
-            cacheImage(uploadedUrl, compressedBase64);
-        } catch (err: any) {
-            console.error('Erro ao processar imagem:', err);
-            alert((err?.message || 'Não foi possível enviar a imagem.'));
-        } finally { setPhotoUploading(false); }
-    };
+  const handleFileInputChange = async (file?: File) => {
+      if (!file) return;
+      try {
+          const validationError = validateImageFile(file);
+          if (validationError) throw new Error(validationError);
+          
+          setPhotoUploading(true);
+          const compressedBase64 = await compressImageFile(file);
+          setPhotoPreview(compressedBase64);
+          const uploadedUrl = await uploadToImgbb(compressedBase64);
+          setFormData(fd => ({ ...fd, photoUrl: uploadedUrl }));
+          cacheImage(uploadedUrl, compressedBase64);
+      } catch (err: any) {
+          console.error('Erro ao processar imagem:', err);
+          alert((err?.message || 'Não foi possível enviar a imagem.'));
+      } finally { setPhotoUploading(false); }
+  };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const f = e.target.files && e.target.files[0];
-        if (f) handleFileInputChange(f);
-    };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) handleFileInputChange(f);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!churchId) return;
     
-    // TRAVA SECUNDÁRIA (Caso mudem o status de Inativo para Ativo e estoure o limite)
     if (formData.status === 'active' && !editingId && activeMembersCount >= planLimit) {
         alert("Limite de membros ativos atingido no plano atual.");
         return;
@@ -243,8 +232,28 @@ export default function MembersPage() {
   };
 
   const handleDelete = async (id: string) => { if (confirm("Excluir membro?")) { await memberService.delete(id); loadData(); } };
-  const openAccessModal = (member: Member) => { if(!member.email) { alert("Este membro precisa de um e-mail."); return; } setSelectedMemberForAccess(member); setNewPassword(""); setShowAccessModal(true); };
-  const handleCreateAccess = async (e: React.FormEvent) => { e.preventDefault(); if(!selectedMemberForAccess?.email) return; setCreatingAccess(true); try { await createSystemUser(selectedMemberForAccess.email, newPassword); alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); setShowAccessModal(false); } catch (error: any) { alert("Erro: " + error.message); } finally { setCreatingAccess(false); } };
+  
+  const openAccessModal = (member: Member) => { 
+      if(!member.email) { alert("Este membro precisa de um e-mail."); return; } 
+      setSelectedMemberForAccess(member); 
+      setNewPassword(""); 
+      setShowAccessModal(true); 
+  };
+  
+  const handleCreateAccess = async (e: React.FormEvent) => { 
+      e.preventDefault(); 
+      if(!selectedMemberForAccess?.email) return; 
+      setCreatingAccess(true); 
+      try { 
+          await createSystemUser(selectedMemberForAccess.email, newPassword); 
+          alert(`✅ Acesso criado!\nLogin: ${selectedMemberForAccess.email}\nSenha: ${newPassword}`); 
+          setShowAccessModal(false); 
+      } catch (error: any) { 
+          alert("Erro: " + error.message); 
+      } finally { 
+          setCreatingAccess(false); 
+      } 
+  };
 
   const handlePrintExecute = async () => {
     setPrinting(true);
@@ -300,7 +309,6 @@ export default function MembersPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      {/* CABEÇALHO */}
       <div className="bg-blue-800 pt-10 pb-32 px-4 md:px-8 shadow-sm">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -312,9 +320,7 @@ export default function MembersPage() {
                 </p>
             </div>
             <div className="bg-blue-700/50 p-3 rounded-lg border border-blue-600 backdrop-blur-sm">
-                <p className="text-sm text-blue-100 font-medium">
-                    Capacidade do Plano
-                </p>
+                <p className="text-sm text-blue-100 font-medium">Capacidade do Plano</p>
                 <div className="flex items-baseline gap-1">
                     <span className={`text-2xl font-bold ${activeMembersCount >= planLimit ? 'text-red-400' : 'text-white'}`}>
                         {activeMembersCount}
@@ -325,11 +331,8 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* --- LISTA DE MEMBROS (HÍBRIDA: TABELA NO PC, CARDS NO CELULAR) --- */}
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-20 relative z-10 space-y-6">
-        
         <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-            {/* TOOLBAR: BUSCA E BOTÕES */}
             <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-center bg-white">
                 <div className="relative w-full md:w-96">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20}/>
@@ -352,92 +355,96 @@ export default function MembersPage() {
                 </div>
             </div>
 
-        {/* VERSÃO DESKTOP (TABELA) - Escondida em telas pequenas */}
-        <div className="hidden md:block bg-white overflow-hidden">
-            <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                <tr><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nome</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contato</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                {currentMembers.map(member => (
-                    <tr key={member.id} onClick={() => handleOpenView(member)} className="hover:bg-blue-50/50 transition group cursor-pointer">
-                    <td className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                                {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
+            <div className="hidden md:block bg-white overflow-hidden">
+                <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nome</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contato</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                    {currentMembers.map(member => (
+                        <tr key={member.id} onClick={() => handleOpenView(member)} className="hover:bg-blue-50/50 transition group cursor-pointer">
+                        <td className="p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
+                                    {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={20}/></div>)}
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="font-semibold text-slate-800 flex items-center gap-2">
+                                        {member.fullName}
+                                        {member.permissions && member.permissions.includes('secretary') && <span title="Acesso Secretaria"><Shield size={14} className="text-blue-500 fill-blue-100"/></span>}
+                                        {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100"/></span>}
+                                    </span>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                                            {translateRole(member.role)}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex flex-col">
-                                <span className="font-semibold text-slate-800 flex items-center gap-2">
+                        </td>
+                        <td className="p-4"><div className="flex flex-col gap-1">{member.phone && <span className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12}/> {member.phone}</span>}{member.email && <span className="flex items-center gap-1 text-xs text-slate-500"><Mail size={12}/> {member.email}</span>}</div></td>
+                        <td className="p-4 text-right"><div className="flex justify-end gap-2">{member.email && <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition"><Key size={16}/></button>}<button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="p-2 bg-slate-100 rounded-lg text-blue-600 hover:bg-blue-100 transition"><Edit size={16}/></button><button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100 transition"><Trash2 size={16}/></button></div></td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+
+            <div className="md:hidden space-y-3 p-4 bg-slate-100">
+                {currentMembers.map(member => (
+                    <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-3 active:scale-[0.98] transition">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
+                                {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-slate-800 text-sm truncate flex items-center gap-1">
                                     {member.fullName}
-                                    {member.permissions && member.permissions.includes('secretary') && <span title="Acesso Secretaria"><Shield size={14} className="text-blue-500 fill-blue-100"/></span>}
-                                    {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100"/></span>}
-                                </span>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                                    {member.permissions && member.permissions.includes('secretary') && <Shield size={12} className="text-blue-500 fill-blue-100"/>}
+                                    {member.permissions && member.permissions.includes('financial') && <Shield size={12} className="text-green-500 fill-green-100"/>}
+                                </h3>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
                                         {translateRole(member.role)}
+                                    </span>
+                                    <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                        {member.status === 'active' ? 'Ativo' : 'Inativo'}
                                     </span>
                                 </div>
                             </div>
                         </div>
-                    </td>
-                    <td className="p-4"><div className="flex flex-col gap-1">{member.phone && <span className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12}/> {member.phone}</span>}{member.email && <span className="flex items-center gap-1 text-xs text-slate-500"><Mail size={12}/> {member.email}</span>}</div></td>
-                    <td className="p-4 text-right"><div className="flex justify-end gap-2">{member.email && <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition"><Key size={16}/></button>}<button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="p-2 bg-slate-100 rounded-lg text-blue-600 hover:bg-blue-100 transition"><Edit size={16}/></button><button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="p-2 bg-red-50 rounded-lg text-red-600 hover:bg-red-100 transition"><Trash2 size={16}/></button></div></td>
-                    </tr>
-                ))}
-                </tbody>
-            </table>
-            </div>
-        </div>
-
-        {/* VERSÃO MOBILE (CARDS) - Visível apenas em celulares */}
-        <div className="md:hidden space-y-3 p-4 bg-slate-100">
-            {currentMembers.map(member => (
-                <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-3 active:scale-[0.98] transition">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
-                            {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/>) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24}/></div>)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-slate-800 text-sm truncate flex items-center gap-1">
-                                {member.fullName}
-                                {member.permissions && member.permissions.includes('secretary') && <Shield size={12} className="text-blue-500 fill-blue-100"/>}
-                                {member.permissions && member.permissions.includes('financial') && <Shield size={12} className="text-green-500 fill-green-100"/>}
-                            </h3>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                                <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
-                                    {translateRole(member.role)}
-                                </span>
-                                <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                    {member.status === 'active' ? 'Ativo' : 'Inativo'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-slate-100">
-                        {member.email ? (
-                            <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-yellow-50 text-yellow-600 font-bold text-xs">
-                                <Key size={14}/> Acesso
+                        
+                        <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-slate-100">
+                            {member.email ? (
+                                <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-yellow-50 text-yellow-600 font-bold text-xs">
+                                    <Key size={14}/> Acesso
+                                </button>
+                            ) : (
+                                <div className="opacity-0"></div> 
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-blue-50 text-blue-600 font-bold text-xs">
+                                <Edit size={14}/> Editar
                             </button>
-                        ) : (
-                            <div className="opacity-0"></div> 
-                        )}
-                        <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-blue-50 text-blue-600 font-bold text-xs">
-                            <Edit size={14}/> Editar
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-red-50 text-red-600 font-bold text-xs">
-                            <Trash2 size={14}/> Excluir
-                        </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(member.id!); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-red-50 text-red-600 font-bold text-xs">
+                                <Trash2 size={14}/> Excluir
+                            </button>
+                        </div>
                     </div>
+                ))}
+            </div>
+            
+            {totalPages > 1 && (
+                <div className="p-6 flex justify-center gap-4 items-center">
+                    <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 bg-white shadow-sm border border-slate-200"><ChevronLeft size={20}/></button>
+                    <span className="text-sm font-semibold text-slate-600">Página {currentPage} de {totalPages}</span>
+                    <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 bg-white shadow-sm border border-slate-200"><ChevronRight size={20}/></button>
                 </div>
-            ))}
+            )}
         </div>
-        
-        {totalPages > 1 && (<div className="p-6 flex justify-center gap-4 items-center"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 bg-white shadow-sm border border-slate-200"><ChevronLeft size={20}/></button><span className="text-sm font-semibold text-slate-600">Página {currentPage} de {totalPages}</span><button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 bg-white shadow-sm border border-slate-200"><ChevronRight size={20}/></button></div>)}
       </div>
 
-      {/* --- MODAL 1: VISUALIZAÇÃO (SÓ CARTEIRINHA) --- */}
       {showViewModal && viewMember && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 relative">
@@ -459,7 +466,6 @@ export default function MembersPage() {
                 </div>
 
                 <div className="p-6 space-y-5">
-                    {/* DADOS DETALHADOS */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 text-center">
                             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Status</span>
@@ -494,7 +500,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* --- MODAL DE EDIÇÃO (BLINDADO) --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 custom-scrollbar">
@@ -503,7 +508,6 @@ export default function MembersPage() {
                     <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-red-500 font-bold">FECHAR</button>
                 </div>
                 <form onSubmit={handleSave} className="p-6 space-y-6">
-                    {/* DADOS PESSOAIS */}
                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                         <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Users size={14}/> Dados Pessoais</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -543,7 +547,6 @@ export default function MembersPage() {
                             <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">E-mail</label>
                                 <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full p-3 border rounded-lg bg-white" />
-                                {/* AVISO DE BLINDAGEM DO EMAIL */}
                                 {editingId && formData.email && (
                                     <div className="flex items-center gap-2 mt-1 text-[10px] text-amber-600 font-bold">
                                         <AlertTriangle size={12}/> Atenção: Mudar o e-mail não altera o login.
@@ -573,7 +576,6 @@ export default function MembersPage() {
                         </div>
                     </div>
                     
-                    {/* DADOS ECLESIÁSTICOS */}
                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200"><h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Building2 size={14}/> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cargo</label>
@@ -588,7 +590,6 @@ export default function MembersPage() {
                         </div>
                         <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full p-3 border rounded-lg bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({...formData, baptismDate: e.target.value})} className="w-full p-3 border rounded-lg bg-white"/></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({...formData, isTither: !formData.isTither})}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white"/>}</div><span className="text-sm font-semibold text-slate-700">É Dizimista?</span></div></div></div></div>
 
-                    {/* BLINDAGEM: ÁREA DE PERMISSÃO APENAS PARA ADMIN */}
                     {userRole === 'admin' && (
                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 animate-in fade-in">
                             <h3 className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -658,7 +659,6 @@ export default function MembersPage() {
         </div>
       )}
 
-      {/* MODAL ACESSO (SENHA) */}
       {showAccessModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
