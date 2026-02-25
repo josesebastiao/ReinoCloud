@@ -164,7 +164,6 @@ export default function SettingsPage() {
   };
 
   if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
-  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
