@@ -110,6 +110,41 @@ export default function MembersPage() {
           console.warn("Erro ao converter imagem:", error);
           return "";
       }
+  const convertImageToBase64 = (url: string): Promise<string> => {
+    return new Promise((resolve) => {
+        if (!url || typeof url !== 'string') return resolve("");
+        if (url.startsWith("data:image")) return resolve(url);
+
+        const cached = getCachedImage(url);
+        if (cached) return resolve(cached);
+
+        const directUrl = getDirectImageUrl(url);
+        if (!directUrl) return resolve("");
+
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return resolve("");
+            
+            ctx.drawImage(img, 0, 0);
+            
+            try {
+                const dataUrl = canvas.toDataURL('image/png');
+                cacheImage(url, dataUrl);
+                resolve(dataUrl);
+            } catch (e) {
+                console.warn(`CORS policy prevented converting image to Base64: ${url}`);
+                resolve("");
+            }
+        };
+        img.onerror = () => resolve("");
+        img.src = directUrl;
+    });
   };
 
   const escapeHtml = (unsafe: string) => {
@@ -121,6 +156,38 @@ export default function MembersPage() {
          .replace(/"/g, "&quot;")
          .replace(/'/g, "&#039;");
   }
+
+  const isValidUrl = (url: string) => {
+    if (!url) return true; 
+    if (url.startsWith('data:image')) return true;
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch { return false; }
+  };
+
+  const validatePassword = (password: string): string[] => {
+    const errors: string[] = [];
+    if (password.length < 8) errors.push("Ter no mínimo 8 caracteres");
+    if (!/[a-z]/.test(password)) errors.push("Conter uma letra minúscula (a-z)");
+    if (!/[A-Z]/.test(password)) errors.push("Conter uma letra maiúscula (A-Z)");
+    if (!/[0-9]/.test(password)) errors.push("Conter um número (0-9)");
+    return errors;
+  };
+
+  const formatPhone = (value: string) => {
+    if (!value) return value;
+    const digitsOnly = value.replace(/\D/g, '').slice(0, 11);
+    const len = digitsOnly.length;
+    if (len <= 2) return `(${digitsOnly}`;
+    if (len <= 6) return `(${digitsOnly.slice(0, 2)}) ${digitsOnly.slice(2)}`;
+    if (len <= 10) return `(${digitsOnly.slice(0, 2)}) ${digitsOnly.slice(2, 6)}-${digitsOnly.slice(6)}`;
+    return `(${digitsOnly.slice(0, 2)}) ${digitsOnly.slice(2, 7)}-${digitsOnly.slice(7)}`;
+  };
+
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
   const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
@@ -219,8 +286,20 @@ export default function MembersPage() {
     e.preventDefault();
     if (!churchId) return;
     
-    if (formData.status === 'active' && !editingId && activeMembersCount >= planLimit) {
-        alert("Limite de membros ativos atingido no plano atual.");
+    // Validação Lógica: Limite do Plano (Criação ou Reativação)
+    const isNewActive = formData.status === 'active' && !editingId;
+    let isReactivating = false;
+    
+    if (editingId && formData.status === 'active') {
+        // Verifica se o membro estava inativo antes dessa edição
+        const existingMember = members.find(m => m.id === editingId);
+        if (existingMember && existingMember.status !== 'active') {
+            isReactivating = true;
+        }
+    }
+
+    if ((isNewActive || isReactivating) && activeMembersCount >= planLimit) {
+        alert(`LIMITE ATINGIDO!\n\nSua igreja atingiu o limite de ${planLimit} membros ativos.\n\nPara ativar este cadastro, você precisa inativar outro membro ou fazer um Upgrade.`);
         return;
     }
 
@@ -229,19 +308,74 @@ export default function MembersPage() {
         return;
     }
 
+    // Segurança: Verificar se o membro sendo editado é admin (caso o usuário tenha burlado a UI)
+    if (editingId && userRole !== 'admin') {
+        const existingMember = members.find(m => m.id === editingId);
+        if (existingMember?.role === 'admin') {
+            alert("Ação não permitida: Você não pode editar um Administrador.");
+            setLoading(false);
+            return;
+        }
+    }
+
+    // Segurança: Validar URL da foto para evitar XSS via javascript: protocol
+    if (formData.photoUrl && !isValidUrl(formData.photoUrl)) {
+        alert("A URL da foto é inválida. Insira um link válido (http/https).");
+        setLoading(false);
+        return;
+    }
+
+    // Validação de E-mail
+    if (formData.email && !isValidEmail(formData.email)) {
+        alert("O formato do e-mail é inválido.");
+        setLoading(false);
+        return;
+    }
+
+    // Validação Lógica de Datas
+    if (formData.birthDate && formData.baptismDate) {
+        if (new Date(formData.baptismDate) <= new Date(formData.birthDate)) {
+            alert("A data de batismo não pode ser anterior ou igual à data de nascimento.");
+            setLoading(false);
+            return;
+        }
+    }
+
     setLoading(true);
     try {
+      // Segurança: Definir permissões e cargo com base no role atual
+      // Se não for admin, mantém as permissões originais (se edição) ou vazias (se novo)
+      // Isso impede que uma secretaria conceda permissões a si mesma via payload
+      let safePermissions = formData.permissions;
+      let safeRole = formData.role;
+
+      if (userRole !== 'admin') {
+          if (editingId) {
+              const existing = members.find(m => m.id === editingId);
+              safePermissions = existing?.permissions || [];
+              safeRole = existing?.role || 'member'; // Mantém o cargo original ou força member
+              // Permitir secretaria mudar cargo apenas se não for para admin? 
+              // A regra de negócio diz que secretaria não muda cargo para admin.
+              // Vamos confiar no formData.role mas bloqueando 'admin'
+              if (formData.role === 'admin') safeRole = existing?.role || 'member';
+              else safeRole = formData.role;
+          } else {
+              safePermissions = []; // Novo cadastro por secretaria não tem permissões especiais
+              if (formData.role === 'admin') safeRole = 'member';
+          }
+      }
+
       const payload: Member = {
-        fullName: formData.fullName, churchId, email: formData.email, phone: formData.phone,
-        document: formData.document, birthDate: formData.birthDate, baptismDate: formData.baptismDate,
-        photoUrl: formData.photoUrl, 
+        fullName: formData.fullName.trim(), churchId, email: formData.email.trim(), phone: formData.phone.trim(),
+        document: formData.document.trim(), birthDate: formData.birthDate, baptismDate: formData.baptismDate,
+        photoUrl: formData.photoUrl.trim(), 
         gender: formData.gender, maritalStatus: formData.maritalStatus, 
-        role: formData.role, status: formData.status, isTither: formData.isTither,
+        role: safeRole, status: formData.status, isTither: formData.isTither,
         ministries: formData.selectedMinistries, 
-        permissions: formData.permissions, 
+        permissions: safePermissions, 
         address: { 
-            street: formData.street, number: formData.number, neighborhood: formData.neighborhood, 
-            city: formData.city, state: formData.state, zipCode: formData.zipCode 
+            street: formData.street.trim(), number: formData.number.trim(), neighborhood: formData.neighborhood.trim(), 
+            city: formData.city.trim(), state: formData.state.trim(), zipCode: formData.zipCode.trim() 
         }
       };
       if (editingId) await memberService.update(editingId, payload);
@@ -276,6 +410,13 @@ export default function MembersPage() {
           alert("Apenas administradores e secretaria podem criar acessos.");
           return;
       }
+
+      const passwordErrors = validatePassword(newPassword);
+      if (passwordErrors.length > 0) {
+          alert(`A senha não é forte o suficiente. Ela precisa:\n\n- ${passwordErrors.join('\n- ')}`);
+          return;
+      }
+
       if(!selectedMemberForAccess?.email) return; 
       setCreatingAccess(true); 
       try { 
@@ -284,7 +425,12 @@ export default function MembersPage() {
           alert(`✅ Acesso criado para ${selectedMemberForAccess.email}!\n\nInforme a senha diretamente ao usuário. Para maior segurança, recomende que ele(a) altere a senha no primeiro login.`);
           setShowAccessModal(false); 
       } catch (error: any) { 
-          alert("Erro: " + error.message); 
+          console.error(error);
+          if (error.code === 'auth/email-already-in-use') {
+              alert("Este e-mail já possui um acesso cadastrado no sistema.");
+          } else {
+              alert("Não foi possível criar o acesso. Verifique os dados e tente novamente.");
+          }
       } finally { 
           setCreatingAccess(false); 
       } 
@@ -292,12 +438,15 @@ export default function MembersPage() {
 
   const handlePrintExecute = async () => {
     setPrinting(true);
-    const printWindow = window.open('', '', 'width=900,height=600');
+    const printWindow = window.open('', '_blank', 'width=900,height=600,noopener,noreferrer');
     if (!printWindow) { setPrinting(false); return; }
     
     const today = new Date().toLocaleDateString('pt-BR');
     const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
-    const logoHtml = base64Logo ? `<img src="${base64Logo}" style="height: 60px; margin-bottom: 10px;" />` : '';
+    // Validação extra de segurança para URL
+    const safeLogoUrl = (base64Logo && (base64Logo.startsWith('data:image') || base64Logo.startsWith('http'))) ? base64Logo : '';
+    const logoHtml = safeLogoUrl ? `<img src="${safeLogoUrl}" style="height: 60px; margin-bottom: 10px;" />` : '';
+    
     const sortedMembers = [...filteredMembers].sort((a, b) => a.fullName.localeCompare(b.fullName));
 
     const rows = sortedMembers.map((m, index) => `
@@ -311,7 +460,7 @@ export default function MembersPage() {
     `).join('');
 
     const html = `
-        <html><head><title>Lista de Membros</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body { font-family: sans-serif; padding: 20px; text-align: center; } table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; } th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${logoHtml}<h1>${escapeHtml(churchName || '')}</h1><p>Relatório de Membros • ${escapeHtml(today)}</p><table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(() => window.print(), 500);</script></body></html>
+        <html><head><title>Lista de Membros</title><meta http-equiv="X-Frame-Options" content="DENY"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body { font-family: sans-serif; padding: 20px; text-align: center; } table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; } th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${logoHtml}<h1>${escapeHtml(churchName || '')}</h1><p>Relatório de Membros • ${escapeHtml(today)}</p><table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(() => window.print(), 500);</script></body></html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
@@ -320,7 +469,7 @@ export default function MembersPage() {
 
   const handlePrintCard = async (member: Member) => {
     setPrinting(true);
-    const printWindow = window.open('', '', 'width=900,height=600');
+    const printWindow = window.open('', '_blank', 'width=900,height=600,noopener,noreferrer');
     if (!printWindow) { setPrinting(false); return; }
 
     const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
@@ -328,12 +477,15 @@ export default function MembersPage() {
     const base64Signature = signatureUrl ? await convertImageToBase64(signatureUrl) : "";
     const baptismText = member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : '---';
 
-    const signatureHtml = base64Signature
-      ? `<img src="${base64Signature}" style="height: 35px; margin-bottom: -5px; display: block; margin-left: auto; margin-right: auto;" />`
+    // Validação extra de segurança para URL
+    const safeSignature = (base64Signature && (base64Signature.startsWith('data:image') || base64Signature.startsWith('http'))) ? base64Signature : '';
+
+    const signatureHtml = safeSignature
+      ? `<img src="${safeSignature}" style="height: 35px; margin-bottom: -5px; display: block; margin-left: auto; margin-right: auto;" />`
       : `<div style="height:30px;"></div>`;
 
     const html = `
-      <html><head><title>Carteirinha - ${escapeHtml(member.fullName)}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap'); body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .card.front { background: linear-gradient(120deg, #1e3a8a 0%, #172554 100%); color: white; display: flex; flex-direction: column; } .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); } .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); } .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; } .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); } .photo-frame img { width: 100%; height: 100%; object-fit: cover; } .member-info { display: flex; flex-direction: column; justify-content: center; } .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; } .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; } .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; } .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; } .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; } .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; } .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; } .data-col { display: flex; flex-direction: column; } .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; } .data-value { font-size: 9px; font-weight: 600; color: #000; } .signature-box { text-align: center; margin-top: 10px; } .line { height: 1px; background: #000; width: 100%; margin: 2px auto; } .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .close-btn { display: none !important; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button><div class="card-wrapper"><div class="card front"><div class="front-header">${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}<div class="church-title">${escapeHtml(churchName || '')}</div></div><div class="front-body"><div class="photo-frame">${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}</div><div class="member-info"><span class="label">Membro</span><span class="name">${escapeHtml(member.fullName)}</span><span class="role-badge">Batismo: ${escapeHtml(baptismText)}</span></div></div><div class="front-footer">Cartão de Membro</div></div><div class="card back"><div class="back-body"><div><div class="data-row"><div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${member.birthDate ? escapeHtml(new Date(member.birthDate).toLocaleDateString('pt-BR')) : '---'}</span></div><div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span></div></div><div class="data-row" style="border:none"><div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div></div></div><div class="signature-box">${signatureHtml}<div class="line"></div><div class="sig-label">Pastor Presidente</div></div><div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;"><span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(member.fullName)}" style="width:35px; height:35px; opacity:0.8;" /></div></div></div></div><script>setTimeout(function(){ window.print(); }, 500);</script></body></html>
+      <html><head><title>Carteirinha - ${escapeHtml(member.fullName)}</title><meta http-equiv="X-Frame-Options" content="DENY"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap'); body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .card.front { background: linear-gradient(120deg, #1e3a8a 0%, #172554 100%); color: white; display: flex; flex-direction: column; } .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); } .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); } .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; } .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); } .photo-frame img { width: 100%; height: 100%; object-fit: cover; } .member-info { display: flex; flex-direction: column; justify-content: center; } .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; } .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; } .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; } .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; } .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; } .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; } .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; } .data-col { display: flex; flex-direction: column; } .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; } .data-value { font-size: 9px; font-weight: 600; color: #000; } .signature-box { text-align: center; margin-top: 10px; } .line { height: 1px; background: #000; width: 100%; margin: 2px auto; } .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .close-btn { display: none !important; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button><div class="card-wrapper"><div class="card front"><div class="front-header">${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}<div class="church-title">${escapeHtml(churchName || '')}</div></div><div class="front-body"><div class="photo-frame">${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}</div><div class="member-info"><span class="label">Membro</span><span class="name">${escapeHtml(member.fullName)}</span><span class="role-badge">Batismo: ${escapeHtml(baptismText)}</span></div></div><div class="front-footer">Cartão de Membro</div></div><div class="card back"><div class="back-body"><div><div class="data-row"><div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${member.birthDate ? escapeHtml(new Date(member.birthDate).toLocaleDateString('pt-BR')) : '---'}</span></div><div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${member.baptismDate ? new Date(member.baptismDate).getFullYear() : new Date().getFullYear()}</span></div></div><div class="data-row" style="border:none"><div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div></div></div><div class="signature-box">${signatureHtml}<div class="line"></div><div class="sig-label">Pastor Presidente</div></div><div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;"><span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`reino_member_id:${member.id}`)}" style="width:35px; height:35px; opacity:0.8;" /></div></div></div></div><script>setTimeout(function(){ window.print(); }, 500);</script></body></html>
     `;
     printWindow.document.write(html);
     printWindow.document.close();
@@ -607,7 +759,7 @@ export default function MembersPage() {
 
                             <div>
                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Telefone</label>
-                                <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full p-3 border rounded-lg bg-white" />
+                                <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: formatPhone(e.target.value)})} placeholder="(XX) XXXXX-XXXX" maxLength={15} className="w-full p-3 border rounded-lg bg-white" />
                             </div>
 
                             <div>
@@ -721,8 +873,11 @@ export default function MembersPage() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
                 <div className="text-center mb-6"><div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4"><Lock size={32}/></div><h2 className="text-xl font-bold">Criar Acesso</h2></div>
                 <form onSubmit={handleCreateAccess} className="space-y-4">
-                    <input type="text" disabled value={selectedMemberForAccess?.email} className="w-full p-3 border rounded-lg bg-gray-100" />
-                    <input type="text" required minLength={6} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-lg" placeholder="Nova Senha" />
+                    <input type="text" disabled value={selectedMemberForAccess?.email} className="w-full p-3 border rounded-lg bg-slate-100 text-slate-500" />
+                    <input type="text" required minLength={8} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-lg" placeholder="Nova Senha (mín. 8 caracteres)" />
+                    <div className="text-xs text-slate-500 p-2 bg-slate-50 rounded-md">
+                        A senha deve conter letras maiúsculas, minúsculas e números.
+                    </div>
                     <div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowAccessModal(false)} className="flex-1 py-3 border rounded-lg">Cancelar</button><button type="submit" disabled={creatingAccess} className="flex-1 py-3 bg-yellow-500 text-white rounded-lg font-bold">Confirmar</button></div>
                 </form>
             </div>

@@ -58,10 +58,29 @@ export default function SettingsPage() {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
+  const isValidUrl = (url: string) => {
+    if (!url) return true; // Permitir vazio
+    if (url.startsWith('data:image')) return true; // Permitir Base64
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch { return false; }
+  };
+
   const handleSaveGeneral = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!churchId) {
         alert("Erro: ID da igreja não encontrado.");
+        return;
+    }
+    if (userRole !== 'admin') {
+        alert("Apenas o Pastor (Admin) pode alterar os dados da igreja.");
+        return;
+    }
+
+    if (!isValidUrl(logoUrl) || !isValidUrl(signatureUrl)) {
+        alert("As URLs da Logo ou Assinatura são inválidas. Use links começando com http:// ou https://");
+        setSaving(false);
         return;
     }
 
@@ -69,9 +88,9 @@ export default function SettingsPage() {
     try {
         const ref = doc(db, "churches", churchId);
         await updateDoc(ref, {
-            name,
-            ownerName: pastor,
-            city,
+            name: name.trim(),
+            ownerName: pastor.trim(),
+            city: city.trim(),
             currency,
             logoUrl,
             signatureUrl, // <--- Salva assinatura
@@ -101,6 +120,10 @@ export default function SettingsPage() {
 
     const handleFileUpload = async (file: File | undefined, target: 'logo' | 'signature') => {
         if (!file) return;
+        if (userRole !== 'admin') {
+            alert("Apenas o Pastor (Admin) pode alterar imagens da igreja.");
+            return;
+        }
         try {
             // Validate file
             const validationError = validateImageFile(file);
@@ -133,12 +156,28 @@ export default function SettingsPage() {
     const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'logo'); };
     const handleSignatureFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f, 'signature'); };
 
+  const validatePassword = (password: string): string[] => {
+    const errors: string[] = [];
+    if (password.length < 8) errors.push("Ter no mínimo 8 caracteres");
+    if (!/[a-z]/.test(password)) errors.push("Conter uma letra minúscula (a-z)");
+    if (!/[A-Z]/.test(password)) errors.push("Conter uma letra maiúscula (A-Z)");
+    if (!/[0-9]/.test(password)) errors.push("Conter um número (0-9)");
+    return errors;
+  };
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
         alert("A nova senha e a confirmação não batem.");
         return;
     }
+
+    const passwordErrors = validatePassword(newPassword);
+    if (passwordErrors.length > 0) {
+        alert(`A nova senha não é forte o suficiente. Ela precisa:\n\n- ${passwordErrors.join('\n- ')}`);
+        return;
+    }
+
     setSaving(true);
     try {
         const user = auth.currentUser;
@@ -164,6 +203,12 @@ export default function SettingsPage() {
   };
 
   if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
+
+  const passwordPolicy = [
+      { rule: "Ter no mínimo 8 caracteres", valid: newPassword.length >= 8 },
+      { rule: "Conter letras maiúsculas e minúsculas", valid: /[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword) },
+      { rule: "Conter um número", valid: /[0-9]/.test(newPassword) },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -195,10 +240,10 @@ export default function SettingsPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
                                     <label className="text-xs font-bold text-gray-600 uppercase">Nome da Igreja (Cabeçalho)</label>
-                                    <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border rounded-lg font-medium bg-white outline-none focus:ring-2 ring-blue-100" />
+                                    <input type="text" required value={name} onChange={e => setName(e.target.value)} disabled={userRole !== 'admin'} className="w-full p-3 border rounded-lg font-medium bg-white outline-none focus:ring-2 ring-blue-100 disabled:bg-gray-100 disabled:text-gray-500" />
                                 </div>
-                                <div><label className="text-xs font-bold text-gray-600 uppercase">Pastor Responsável</label><input type="text" value={pastor} onChange={e => setPastor(e.target.value)} className="w-full p-3 border rounded-lg bg-white outline-none focus:ring-2 ring-blue-100" /></div>
-                                <div><label className="text-xs font-bold text-gray-600 uppercase">Cidade / Sede</label><input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full p-3 border rounded-lg bg-white outline-none focus:ring-2 ring-blue-100" /></div>
+                                <div><label className="text-xs font-bold text-gray-600 uppercase">Pastor Responsável</label><input type="text" value={pastor} onChange={e => setPastor(e.target.value)} disabled={userRole !== 'admin'} className="w-full p-3 border rounded-lg bg-white outline-none focus:ring-2 ring-blue-100 disabled:bg-gray-100 disabled:text-gray-500" /></div>
+                                <div><label className="text-xs font-bold text-gray-600 uppercase">Cidade / Sede</label><input type="text" value={city} onChange={e => setCity(e.target.value)} disabled={userRole !== 'admin'} className="w-full p-3 border rounded-lg bg-white outline-none focus:ring-2 ring-blue-100 disabled:bg-gray-100 disabled:text-gray-500" /></div>
                             </div>
                         </div>
 
@@ -208,10 +253,10 @@ export default function SettingsPage() {
                                 <div>
                                     <label className="text-xs font-bold text-gray-600 uppercase mb-2 block">Moeda do Sistema</label>
                                     <div className="flex gap-4">
-                                        <button type="button" onClick={() => setCurrency('BR')} className={`flex-1 p-4 rounded-lg border-2 font-bold transition flex flex-col items-center gap-1 ${currency === 'BR' ? 'border-blue-600 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-white'}`}>
+                                        <button type="button" disabled={userRole !== 'admin'} onClick={() => setCurrency('BR')} className={`flex-1 p-4 rounded-lg border-2 font-bold transition flex flex-col items-center gap-1 ${currency === 'BR' ? 'border-blue-600 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-white'} disabled:opacity-60 disabled:cursor-not-allowed`}>
                                             <span className="text-xl">🇧🇷</span> <span>Real (R$)</span>
                                         </button>
-                                        <button type="button" onClick={() => setCurrency('AO')} className={`flex-1 p-4 rounded-lg border-2 font-bold transition flex flex-col items-center gap-1 ${currency === 'AO' ? 'border-blue-600 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-white'}`}>
+                                        <button type="button" disabled={userRole !== 'admin'} onClick={() => setCurrency('AO')} className={`flex-1 p-4 rounded-lg border-2 font-bold transition flex flex-col items-center gap-1 ${currency === 'AO' ? 'border-blue-600 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-white'} disabled:opacity-60 disabled:cursor-not-allowed`}>
                                             <span className="text-xl">🇦🇴</span> <span>Kwanza (Kz)</span>
                                         </button>
                                     </div>
@@ -219,26 +264,30 @@ export default function SettingsPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-bold text-gray-600 uppercase">Logo da Igreja</label>
-                                        <div className="flex items-center gap-2">
-                                            <input accept="image/*" onChange={handleLogoFileChange} id="logo-file" type="file" className="hidden" />
-                                            <label htmlFor="logo-file" className="px-3 py-2 bg-white border rounded-lg cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
-                                            <span className="text-xs text-gray-500">ou cole um link abaixo</span>
-                                            {logoUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>} 
-                                        </div>
-                                        <div className="relative mt-3"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="https://..." /></div>
+                                        {userRole === 'admin' && (
+                                            <div className="flex items-center gap-2">
+                                                <input accept="image/*" onChange={handleLogoFileChange} id="logo-file" type="file" className="hidden" />
+                                                <label htmlFor="logo-file" className="px-3 py-2 bg-white border rounded-lg cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
+                                                <span className="text-xs text-gray-500">ou cole um link abaixo</span>
+                                                {logoUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>} 
+                                            </div>
+                                        )}
+                                        <div className="relative mt-3"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} disabled={userRole !== 'admin'} className="w-full pl-10 p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-blue-100 disabled:bg-gray-100" placeholder="https://..." /></div>
                                         <div className="mt-2 text-center">
                                             {logoPreview ? <img src={logoPreview} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (getCachedImage(logoUrl) ? <img src={getCachedImage(logoUrl)!} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (logoUrl && <img src={logoUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/>))}
                                         </div>
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-gray-600 uppercase">Assinatura Digital (URL)</label>
-                                        <div className="flex items-center gap-2">
-                                            <input accept="image/*" onChange={handleSignatureFileChange} id="signature-file" type="file" className="hidden" />
-                                            <label htmlFor="signature-file" className="px-3 py-2 bg-white border rounded-lg cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
-                                            <span className="text-xs text-gray-500">ou cole um link abaixo</span>
-                                            {signatureUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>} 
-                                        </div>
-                                        <div className="relative mt-3"><PenTool className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={signatureUrl} onChange={e => setSignatureUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="Link da imagem PNG..." /></div>
+                                        {userRole === 'admin' && (
+                                            <div className="flex items-center gap-2">
+                                                <input accept="image/*" onChange={handleSignatureFileChange} id="signature-file" type="file" className="hidden" />
+                                                <label htmlFor="signature-file" className="px-3 py-2 bg-white border rounded-lg cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
+                                                <span className="text-xs text-gray-500">ou cole um link abaixo</span>
+                                                {signatureUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>} 
+                                            </div>
+                                        )}
+                                        <div className="relative mt-3"><PenTool className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={signatureUrl} onChange={e => setSignatureUrl(e.target.value)} disabled={userRole !== 'admin'} className="w-full pl-10 p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-blue-100 disabled:bg-gray-100" placeholder="Link da imagem PNG..." /></div>
                                         <div className="mt-2 text-center">
                                             {signaturePreview ? <img src={signaturePreview} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (getCachedImage(signatureUrl) ? <img src={getCachedImage(signatureUrl)!} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (signatureUrl && <img src={signatureUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/>))}
                                         </div>
@@ -250,15 +299,17 @@ export default function SettingsPage() {
                         <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2"><FileText size={14}/> Textos Padrão (Cartas)</h3>
                             <div className="space-y-4">
-                                <div><label className="text-xs font-bold text-gray-600 uppercase">Texto Recomendação</label><textarea rows={3} value={textRecommendation} onChange={e => setTextRecommendation(e.target.value)} className="w-full p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-blue-100" /></div>
-                                <div><label className="text-xs font-bold text-gray-600 uppercase">Texto Transferência</label><textarea rows={3} value={textTransfer} onChange={e => setTextTransfer(e.target.value)} className="w-full p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-blue-100" /></div>
+                                <div><label className="text-xs font-bold text-gray-600 uppercase">Texto Recomendação</label><textarea rows={3} value={textRecommendation} onChange={e => setTextRecommendation(e.target.value)} disabled={userRole !== 'admin'} className="w-full p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-blue-100 disabled:bg-gray-100" /></div>
+                                <div><label className="text-xs font-bold text-gray-600 uppercase">Texto Transferência</label><textarea rows={3} value={textTransfer} onChange={e => setTextTransfer(e.target.value)} disabled={userRole !== 'admin'} className="w-full p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-blue-100 disabled:bg-gray-100" /></div>
                             </div>
                         </div>
 
                         <div className="flex justify-end pt-4">
-                            <button type="submit" disabled={saving} className="bg-blue-600 text-white px-8 py-4 rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center gap-2 disabled:opacity-70">
-                                {saving ? <Loader2 className="animate-spin"/> : <Save size={20}/>} {saving ? "Salvando..." : "Salvar Alterações"}
-                            </button>
+                            {userRole === 'admin' && (
+                                <button type="submit" disabled={saving} className="bg-blue-600 text-white px-8 py-4 rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center gap-2 disabled:opacity-70">
+                                    {saving ? <Loader2 className="animate-spin"/> : <Save size={20}/>} {saving ? "Salvando..." : "Salvar Alterações"}
+                                </button>
+                            )}
                         </div>
                     </form>
                   )}
