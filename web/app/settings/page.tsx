@@ -166,7 +166,7 @@ export default function SettingsPage() {
   if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+    <div className="min-h-screen bg-gray-100 pb-24 font-sans">
       <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">

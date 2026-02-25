@@ -307,7 +307,7 @@ export default function MembersPage() {
         </div>
         <div className="flex gap-2 w-full md:w-auto">
             <button onClick={handlePrintExecute} disabled={printing} className="flex-1 md:flex-none justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition shadow-sm">
-                {printing ? <Loader2 className="animate-spin" size={20}/> : <Printer size={20}/>} <span className="hidden md:inline">Imprimir Lista</span>
+                {printing ? <Loader2 className="animate-spin" size={20}/> : <Printer size={20}/>} <span className="hidden md:inline">Imprimir</span>
             </button>
             <button onClick={() => handleOpenEdit()} className="flex-1 md:flex-none justify-center bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition shadow-lg shadow-blue-200"><PlusCircle size={20}/> Novo Membro</button>
         </div>
