@@ -10,7 +10,7 @@ import { collection, query, where, orderBy, limit, getDocs } from "firebase/fire
 import { MemberDashboard } from "../components/MemberDashboard"; 
 import { 
   Users, Calendar, TrendingUp, ArrowRight, 
-  Clock, Loader2, Eye, EyeOff, Building2, UserCheck, UserX, Smartphone, LayoutDashboard 
+  Clock, Loader2, Eye, EyeOff, Building2, UserCheck, UserX, Smartphone, LayoutDashboard, Activity, ShieldCheck 
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -84,6 +84,7 @@ export default function Dashboard() {
       return allowedRoles.includes(userRole);
   };
 
+  if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-indigo-600" size={40}/></div>;
   if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={40}/></div>;
 
   // --- MODO VISÃO DO MEMBRO ---
@@ -91,10 +92,7 @@ export default function Dashboard() {
       return (
         <>
             {userRole !== 'member' && (
-                <button 
-                    onClick={() => setViewMode('management')}
-                    className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-slate-900 transition border border-slate-700 animate-in fade-in slide-in-from-bottom-4"
-                >
+                <button onClick={() => setViewMode('management')} className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl font-bold text-xs flex items-center gap-2 hover:bg-gray-900 transition border border-gray-700 animate-in fade-in slide-in-from-bottom-4">
                     <LayoutDashboard size={18}/> Voltar para Gestão
                 </button>
             )}
@@ -105,52 +103,47 @@ export default function Dashboard() {
 
   // --- MODO VISÃO DE GESTÃO ---
   return (
+    <div className="min-h-screen bg-slate-50 pb-24 font-sans relative">
     <div className="min-h-screen bg-gray-50 pb-24 font-sans relative">
       
       {/* BOTÃO CENTRAL FLUTUANTE (FAB) */}
-      <button 
-          onClick={() => setViewMode('member')}
-          className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl shadow-blue-900/40 flex items-center justify-center hover:scale-110 transition border-4 border-gray-50 animate-in zoom-in md:hidden"
-          title="Ver App Membro"
-      >
+      <button onClick={() => setViewMode('member')} className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl shadow-blue-900/40 flex items-center justify-center hover:scale-110 transition border-4 border-gray-50 animate-in zoom-in md:hidden" title="Ver App Membro">
           <Smartphone size={24}/>
       </button>
 
       {/* Botão Desktop */}
-      <button 
-          onClick={() => setViewMode('member')}
-          className="hidden md:flex fixed top-24 right-4 z-50 bg-white text-blue-600 px-4 py-2 rounded-full shadow-lg font-bold text-[10px] items-center gap-2 hover:bg-blue-50 transition border border-blue-100"
-      >
+      <button onClick={() => setViewMode('member')} className="hidden md:flex fixed top-24 right-4 z-50 bg-white text-blue-600 px-4 py-2 rounded-full shadow-lg font-bold text-[10px] items-center gap-2 hover:bg-blue-50 transition border border-blue-100">
           <Smartphone size={14}/> Ver App Membro
       </button>
 
-      {/* BANNER AZUL */}
-      <div className="md:static fixed top-28 left-0 right-0 bg-[#1D4ED8] pt-6 pb-10 px-6 md:px-10 shadow-lg rounded-b-[2.5rem] z-40 md:min-h-[200px] md:h-auto h-[180px]">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6 h-full">
+      {/* HERO HEADER (NOVO VISUAL DARK) */}
+      <div className="bg-blue-800 pt-10 pb-32 px-4 md:px-8 shadow-sm">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="flex items-center gap-4">
                 {logoUrl ? (
-                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl p-1.5 backdrop-blur-sm border border-white/20 shadow-inner shrink-0">
-                        <img src={logoUrl} alt="Logo" className="w-full h-full object-contain rounded-xl" />
+                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/5 rounded-2xl p-2 backdrop-blur-sm border border-white/10 shadow-inner shrink-0">
+                        <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
                     </div>
                 ) : (
-                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl flex items-center justify-center text-blue-100 border border-white/20 shrink-0">
-                        <Building2 size={32}/>
+                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white/5 rounded-2xl flex items-center justify-center text-blue-300 border border-white/10 shrink-0">
+                        <Building2 size={32} className="opacity-70"/>
                     </div>
                 )}
                 <div className="flex flex-col items-start">
-                    <p className="text-blue-200 font-medium mb-1 text-sm md:text-base">Bem-vindo, {userName}</p>
+                    <p className="text-blue-300 font-bold mb-1 text-xs md:text-sm uppercase tracking-wider">Painel Administrativo</p>
                     <h1 className="text-xl md:text-4xl font-bold text-white tracking-tight leading-tight max-w-[200px] md:max-w-none truncate">{churchName}</h1>
+                    <p className="text-blue-100 text-sm mt-1">Olá, {userName}.</p>
                 </div>
             </div>
             
             <div className="flex gap-4 self-end">
                 <Link href="/agenda" className="hidden md:flex flex-col items-center gap-1 text-white opacity-80 hover:opacity-100 transition">
-                    <div className="bg-white/10 p-3 rounded-2xl"><Calendar size={20}/></div>
+                    <div className="bg-white/10 p-3 rounded-xl border border-white/10 hover:bg-white/20 transition"><Calendar size={20}/></div>
                     <span className="text-[10px] font-bold">AGENDA</span>
                 </Link>
                 {canSee(['treasurer']) && (
                     <Link href="/financial" className="hidden md:flex flex-col items-center gap-1 text-white opacity-80 hover:opacity-100 transition">
-                        <div className="bg-white/10 p-3 rounded-2xl"><TrendingUp size={20}/></div>
+                        <div className="bg-white/10 p-3 rounded-xl border border-white/10 hover:bg-white/20 transition"><TrendingUp size={20}/></div>
                         <span className="text-[10px] font-bold">EXTRATO</span>
                     </Link>
                 )}
@@ -159,30 +152,29 @@ export default function Dashboard() {
       </div>
 
       {/* CARDS */}
-      <div className="max-w-6xl mx-auto px-4 pt-[165px] md:pt-8 md:mt-0 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-20 relative z-10 grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* CARD MEMBRESIA */}
         {canSee(['secretary']) && (
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between h-full min-h-[200px] group hover:border-blue-300 transition duration-300">
                 <div>
                     <div className="flex justify-between items-start mb-4">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Membresia Total</span>
-                        <div className="bg-blue-50 text-blue-600 p-2 rounded-xl"><Users size={20}/></div>
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Membresia Total</span>
+                        <div className="bg-blue-50 text-blue-600 p-2 rounded-lg group-hover:scale-110 transition"><Users size={20}/></div>
                     </div>
                     <div className="flex items-baseline gap-2">
-                        {/* TIPOGRAFIA ESTILO NUBANK: text-2xl/3xl, semibold, tracking-tight */}
-                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900">{stats.total}</h2>
-                        <span className="text-sm font-medium text-gray-500">Membros</span>
+                        <h2 className="text-3xl font-bold tracking-tight text-slate-800">{stats.total}</h2>
+                        <span className="text-sm font-medium text-slate-500">Membros</span>
                     </div>
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                     <div className="flex gap-3">
-                        <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg" title="Membros Ativos">
-                            <UserCheck size={12}/> {stats.active}
+                        <div className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100" title="Membros Ativos">
+                            <ShieldCheck size={12}/> {stats.active}
                         </div>
                         {stats.inactive > 0 && (
-                            <div className="flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-lg" title="Membros Inativos">
+                            <div className="flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 px-2 py-1 rounded-md border border-red-100" title="Membros Inativos">
                                 <UserX size={12}/> {stats.inactive}
                             </div>
                         )}
@@ -196,16 +188,15 @@ export default function Dashboard() {
 
         {/* CARD SALDO (CAIXA) */}
         {canSee(['treasurer']) && (
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-between h-full min-h-[220px]">
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between h-full min-h-[200px] group hover:border-emerald-300 transition duration-300">
                 <div>
                     <div className="flex justify-between items-start mb-4">
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo em Conta</span>
-                        <div className="bg-green-50 text-green-600 p-2 rounded-xl"><TrendingUp size={20}/></div>
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Saldo em Conta</span>
+                        <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg group-hover:scale-110 transition"><TrendingUp size={20}/></div>
                     </div>
                     
                     <div className="flex items-center gap-3 mb-1">
-                        {/* TIPOGRAFIA ESTILO NUBANK: text-2xl/3xl, semibold, tracking-tight, verde vibrante */}
-                        <h2 className={`text-2xl md:text-3xl font-semibold tracking-tight ${balance < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                        <h2 className={`text-3xl font-bold tracking-tight ${balance < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
                             {showBalance ? formatMoney(balance) : "••••••••"}
                         </h2>
                         <button onClick={() => setShowBalance(!showBalance)} className="text-gray-400 hover:text-green-600 transition">
@@ -214,33 +205,30 @@ export default function Dashboard() {
                     </div>
                     <p className="text-xs text-gray-400">Saldo disponível</p>
                 </div>
-                <div className="mt-auto flex gap-2 pt-4">
-                    <Link href="/financial" className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition text-center flex items-center justify-center">Extrato</Link>
-                    <Link href="/financial" className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition text-center flex items-center justify-center">+ Lançar</Link>
+                <div className="mt-auto flex gap-2 pt-4 border-t border-gray-100">
+                    <Link href="/financial" className="flex-1 py-2.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition text-center flex items-center justify-center">Extrato</Link>
+                    <Link href="/financial" className="flex-1 py-2.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow-md shadow-emerald-200 transition text-center flex items-center justify-center">+ Lançar</Link>
                 </div>
             </div>
         )}
 
         {/* CARD AGENDA */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col h-full min-h-[220px]">
+        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col h-full min-h-[200px] group hover:border-amber-300 transition duration-300">
             <div className="flex justify-between items-center mb-4">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Próximos Eventos</span>
-                <Calendar size={18} className="text-gray-300"/>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Próximos Eventos</span>
+                <div className="bg-amber-50 text-amber-600 p-2 rounded-lg group-hover:scale-110 transition"><Calendar size={20}/></div>
             </div>
             <div className="flex-1 space-y-3 overflow-y-auto max-h-[140px] pr-2 custom-scrollbar">
-                {nextEvents.length === 0 ? (
-                    <div className="text-center py-4 text-gray-300">
+                {nextEvents.length === 0 ? (<div className="text-center py-4 text-gray-300">
                         <p className="text-xs">Nenhum evento futuro.</p>
                         <Link href="/agenda" className="text-blue-500 text-xs font-bold mt-1 block hover:underline">Agendar</Link>
-                    </div>
-                ) : (
-                    nextEvents.map((evt) => (
-                        <div key={evt.id} className="flex gap-3 items-start group">
-                            <div className="bg-blue-50 text-blue-700 rounded-lg p-1.5 text-center min-w-[45px]">
+                    </div>) : (nextEvents.map((evt) => (
+                        <div key={evt.id} className="flex gap-3 items-start group hover:bg-gray-50 rounded-lg transition">
+                            <div className="bg-blue-50 text-blue-700 rounded-lg p-1.5 text-center min-w-[45px] border border-blue-100">
                                 <span className="block text-[9px] font-bold uppercase">{new Date(evt.date).toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0,3)}</span>
                                 <span className="block text-lg font-black leading-none">{new Date(evt.date).getDate() + 1}</span>
                             </div>
-                            <div className="min-w-0">
+                            <div className="flex-1 min-w-0">
                                 <h4 className="font-bold text-gray-800 text-sm truncate group-hover:text-blue-600 transition">{evt.title}</h4>
                                 <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-0.5">
                                     <span className="flex items-center gap-1"><Clock size={10}/> {evt.time}</span>

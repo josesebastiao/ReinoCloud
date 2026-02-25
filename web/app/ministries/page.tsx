@@ -199,7 +199,7 @@ export default function Ministries() {
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
       {/* CABEÇALHO */}
-      <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
+      <div className="bg-blue-800 pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-6xl mx-auto flex justify-between items-end">
             <div>
                 <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">

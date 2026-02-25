@@ -4,7 +4,7 @@ import { ChurchProvider } from "../contexts/ChurchContext";
 import MainLayout from "../components/MainLayout";
 
 export const viewport: Viewport = {
-  themeColor: "#0F172A", 
+  themeColor: "#1E3A8A", // blue-800
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
