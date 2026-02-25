@@ -166,23 +166,23 @@ export default function SettingsPage() {
   if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-24 font-sans">
-      <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
+    <div className="min-h-screen bg-slate-50 pb-24 font-sans">
+      <div className="bg-slate-900 pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-              <Settings className="text-blue-300"/> Configurações
+              <Settings className="text-slate-400"/> Configurações
             </h1>
-            <p className="text-blue-100 text-lg opacity-90">Dados da igreja e segurança.</p>
+            <p className="text-slate-300 text-lg opacity-90">Dados da igreja e segurança.</p>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 md:px-0 -mt-16">
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-              <div className="flex border-b border-gray-100">
-                  <button onClick={() => setActiveTab('general')} className={`flex-1 py-4 font-bold text-sm flex justify-center items-center gap-2 transition ${activeTab === 'general' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-600'}`}>
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+              <div className="flex border-b border-slate-200">
+                  <button onClick={() => setActiveTab('general')} className={`flex-1 py-4 font-bold text-sm flex justify-center items-center gap-2 transition ${activeTab === 'general' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-slate-700'}`}>
                       <Building2 size={18}/> Dados da Igreja
                   </button>
-                  <button onClick={() => setActiveTab('security')} className={`flex-1 py-4 font-bold text-sm flex justify-center items-center gap-2 transition ${activeTab === 'security' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-400 hover:text-gray-600'}`}>
+                  <button onClick={() => setActiveTab('security')} className={`flex-1 py-4 font-bold text-sm flex justify-center items-center gap-2 transition ${activeTab === 'security' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50' : 'text-slate-500 hover:text-slate-700'}`}>
                       <ShieldCheck size={18}/> Segurança
                   </button>
               </div>
@@ -190,55 +190,55 @@ export default function SettingsPage() {
               <div className="p-6 md:p-8">
                   {activeTab === 'general' && (
                     <form onSubmit={handleSaveGeneral} className="space-y-6 animate-in fade-in">
-                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Building2 size={14}/> Identidade</h3>
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2"><Building2 size={14}/> Identidade</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Nome da Igreja (Cabeçalho)</label>
-                                    <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border rounded-xl font-medium bg-white outline-none focus:ring-2 ring-blue-100" />
+                                    <label className="text-xs font-bold text-slate-600 uppercase">Nome da Igreja (Cabeçalho)</label>
+                                    <input type="text" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border rounded-lg font-medium bg-white outline-none focus:ring-2 ring-indigo-200" />
                                 </div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase">Pastor Responsável</label><input type="text" value={pastor} onChange={e => setPastor(e.target.value)} className="w-full p-3 border rounded-xl bg-white outline-none focus:ring-2 ring-blue-100" /></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase">Cidade / Sede</label><input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full p-3 border rounded-xl bg-white outline-none focus:ring-2 ring-blue-100" /></div>
+                                <div><label className="text-xs font-bold text-slate-600 uppercase">Pastor Responsável</label><input type="text" value={pastor} onChange={e => setPastor(e.target.value)} className="w-full p-3 border rounded-lg bg-white outline-none focus:ring-2 ring-indigo-200" /></div>
+                                <div><label className="text-xs font-bold text-slate-600 uppercase">Cidade / Sede</label><input type="text" value={city} onChange={e => setCity(e.target.value)} className="w-full p-3 border rounded-lg bg-white outline-none focus:ring-2 ring-indigo-200" /></div>
                             </div>
                         </div>
 
-                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Globe size={14}/> Financeiro & Visual</h3>
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2"><Globe size={14}/> Financeiro & Visual</h3>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Moeda do Sistema</label>
+                                    <label className="text-xs font-bold text-slate-600 uppercase mb-2 block">Moeda do Sistema</label>
                                     <div className="flex gap-4">
-                                        <button type="button" onClick={() => setCurrency('BR')} className={`flex-1 p-4 rounded-xl border-2 font-bold transition flex flex-col items-center gap-1 ${currency === 'BR' ? 'border-blue-600 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-white'}`}>
+                                        <button type="button" onClick={() => setCurrency('BR')} className={`flex-1 p-4 rounded-lg border-2 font-bold transition flex flex-col items-center gap-1 ${currency === 'BR' ? 'border-indigo-600 bg-white text-indigo-700 shadow-sm' : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-white'}`}>
                                             <span className="text-xl">🇧🇷</span> <span>Real (R$)</span>
                                         </button>
-                                        <button type="button" onClick={() => setCurrency('AO')} className={`flex-1 p-4 rounded-xl border-2 font-bold transition flex flex-col items-center gap-1 ${currency === 'AO' ? 'border-blue-600 bg-white text-blue-700 shadow-sm' : 'border-gray-200 bg-gray-100 text-gray-400 hover:bg-white'}`}>
+                                        <button type="button" onClick={() => setCurrency('AO')} className={`flex-1 p-4 rounded-lg border-2 font-bold transition flex flex-col items-center gap-1 ${currency === 'AO' ? 'border-indigo-600 bg-white text-indigo-700 shadow-sm' : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-white'}`}>
                                             <span className="text-xl">🇦🇴</span> <span>Kwanza (Kz)</span>
                                         </button>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Logo da Igreja</label>
+                                        <label className="text-xs font-bold text-slate-600 uppercase">Logo da Igreja</label>
                                         <div className="flex items-center gap-2">
                                             <input accept="image/*" onChange={handleLogoFileChange} id="logo-file" type="file" className="hidden" />
-                                            <label htmlFor="logo-file" className="px-3 py-2 bg-white border rounded-xl cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
-                                            <span className="text-xs text-gray-400">ou cole um link abaixo</span>
-                                            {logoUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>} 
+                                            <label htmlFor="logo-file" className="px-3 py-2 bg-white border rounded-lg cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
+                                            <span className="text-xs text-slate-500">ou cole um link abaixo</span>
+                                            {logoUploading && <Loader2 className="animate-spin text-indigo-600" size={18}/>} 
                                         </div>
-                                        <div className="relative mt-3"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="https://..." /></div>
+                                        <div className="relative mt-3"><ImageIcon className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-indigo-200" placeholder="https://..." /></div>
                                         <div className="mt-2 text-center">
                                             {logoPreview ? <img src={logoPreview} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (getCachedImage(logoUrl) ? <img src={getCachedImage(logoUrl)!} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (logoUrl && <img src={logoUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/>))}
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="text-xs font-bold text-gray-500 uppercase">Assinatura Digital (URL)</label>
+                                        <label className="text-xs font-bold text-slate-600 uppercase">Assinatura Digital (URL)</label>
                                         <div className="flex items-center gap-2">
                                             <input accept="image/*" onChange={handleSignatureFileChange} id="signature-file" type="file" className="hidden" />
-                                            <label htmlFor="signature-file" className="px-3 py-2 bg-white border rounded-xl cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
-                                            <span className="text-xs text-gray-400">ou cole um link abaixo</span>
-                                            {signatureUploading && <Loader2 className="animate-spin text-blue-600" size={18}/>} 
+                                            <label htmlFor="signature-file" className="px-3 py-2 bg-white border rounded-lg cursor-pointer text-sm hover:bg-gray-50">Enviar Arquivo</label>
+                                            <span className="text-xs text-slate-500">ou cole um link abaixo</span>
+                                            {signatureUploading && <Loader2 className="animate-spin text-indigo-600" size={18}/>} 
                                         </div>
-                                        <div className="relative mt-3"><PenTool className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={signatureUrl} onChange={e => setSignatureUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" placeholder="Link da imagem PNG..." /></div>
+                                        <div className="relative mt-3"><PenTool className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" value={signatureUrl} onChange={e => setSignatureUrl(e.target.value)} className="w-full pl-10 p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-indigo-200" placeholder="Link da imagem PNG..." /></div>
                                         <div className="mt-2 text-center">
                                             {signaturePreview ? <img src={signaturePreview} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (getCachedImage(signatureUrl) ? <img src={getCachedImage(signatureUrl)!} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/> : (signatureUrl && <img src={signatureUrl} className="h-10 mx-auto object-contain bg-white border p-1 rounded"/>))}
                                         </div>
@@ -247,16 +247,16 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2"><FileText size={14}/> Textos Padrão (Cartas)</h3>
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2"><FileText size={14}/> Textos Padrão (Cartas)</h3>
                             <div className="space-y-4">
-                                <div><label className="text-xs font-bold text-gray-500 uppercase">Texto Recomendação</label><textarea rows={3} value={textRecommendation} onChange={e => setTextRecommendation(e.target.value)} className="w-full p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" /></div>
-                                <div><label className="text-xs font-bold text-gray-500 uppercase">Texto Transferência</label><textarea rows={3} value={textTransfer} onChange={e => setTextTransfer(e.target.value)} className="w-full p-3 border rounded-xl text-sm bg-white outline-none focus:ring-2 ring-blue-100" /></div>
+                                <div><label className="text-xs font-bold text-slate-600 uppercase">Texto Recomendação</label><textarea rows={3} value={textRecommendation} onChange={e => setTextRecommendation(e.target.value)} className="w-full p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-indigo-200" /></div>
+                                <div><label className="text-xs font-bold text-slate-600 uppercase">Texto Transferência</label><textarea rows={3} value={textTransfer} onChange={e => setTextTransfer(e.target.value)} className="w-full p-3 border rounded-lg text-sm bg-white outline-none focus:ring-2 ring-indigo-200" /></div>
                             </div>
                         </div>
 
                         <div className="flex justify-end pt-4">
-                            <button type="submit" disabled={saving} className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center gap-2 disabled:opacity-70">
+                            <button type="submit" disabled={saving} className="bg-indigo-600 text-white px-8 py-4 rounded-lg font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition flex items-center gap-2 disabled:opacity-70">
                                 {saving ? <Loader2 className="animate-spin"/> : <Save size={20}/>} {saving ? "Salvando..." : "Salvar Alterações"}
                             </button>
                         </div>
@@ -266,11 +266,11 @@ export default function SettingsPage() {
                   {activeTab === 'security' && (
                       <form onSubmit={handleChangePassword} className="max-w-xl mx-auto animate-in fade-in py-4">
                           <div className="text-center mb-8">
-                              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-blue-100">
+                              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-indigo-200">
                                   <Lock size={32}/>
                               </div>
                               <h2 className="text-xl font-bold text-gray-800">Alterar Senha</h2>
-                              <p className="text-sm text-gray-500">Defina uma nova senha para acessar o painel.</p>
+                              <p className="text-sm text-slate-500">Defina uma nova senha para acessar o painel.</p>
                           </div>
 
                           <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-3 mb-6">
@@ -280,21 +280,21 @@ export default function SettingsPage() {
 
                           <div className="space-y-4">
                               <div>
-                                  <label className="text-xs font-bold text-gray-500 uppercase">Senha Atual</label>
-                                  <input type="password" required value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3 border rounded-xl outline-none focus:ring-2 ring-blue-100" placeholder="••••••••" />
+                                  <label className="text-xs font-bold text-slate-600 uppercase">Senha Atual</label>
+                                  <input type="password" required value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="w-full p-3 border rounded-lg outline-none focus:ring-2 ring-indigo-200" placeholder="••••••••" />
                               </div>
                               <hr className="border-gray-100 my-2"/>
                               <div>
-                                  <label className="text-xs font-bold text-gray-500 uppercase">Nova Senha</label>
-                                  <input type="password" required minLength={6} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-xl outline-none focus:ring-2 ring-blue-100" placeholder="Mínimo 6 caracteres" />
+                                  <label className="text-xs font-bold text-slate-600 uppercase">Nova Senha</label>
+                                  <input type="password" required minLength={6} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-lg outline-none focus:ring-2 ring-indigo-200" placeholder="Mínimo 6 caracteres" />
                               </div>
                               <div>
-                                  <label className="text-xs font-bold text-gray-500 uppercase">Confirmar Nova Senha</label>
-                                  <input type="password" required minLength={6} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-3 border rounded-xl outline-none focus:ring-2 ring-blue-100" placeholder="Repita a nova senha" />
+                                  <label className="text-xs font-bold text-slate-600 uppercase">Confirmar Nova Senha</label>
+                                  <input type="password" required minLength={6} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full p-3 border rounded-lg outline-none focus:ring-2 ring-indigo-200" placeholder="Repita a nova senha" />
                               </div>
                           </div>
 
-                          <button type="submit" disabled={saving} className="w-full mt-8 bg-gray-900 text-white px-8 py-4 rounded-xl font-bold hover:bg-black transition flex justify-center items-center gap-2 disabled:opacity-70 shadow-lg shadow-gray-200">
+                          <button type="submit" disabled={saving} className="w-full mt-8 bg-slate-800 text-white px-8 py-4 rounded-lg font-bold hover:bg-slate-900 transition flex justify-center items-center gap-2 disabled:opacity-70 shadow-lg shadow-slate-300/50">
                               {saving ? <Loader2 className="animate-spin"/> : <ShieldCheck size={20}/>} {saving ? "Atualizando..." : "Atualizar Senha"}
                           </button>
                       </form>
