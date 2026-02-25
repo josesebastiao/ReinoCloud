@@ -90,26 +90,6 @@ export default function MembersPage() {
       }
   };
 
-  const convertImageToBase64 = async (url: string) => {
-      if (!url) return "";
-      if (url.startsWith("data:")) return url;
-      try {
-          const cached = getCachedImage(url);
-          if (cached) return cached;
-          const directUrl = getDirectImageUrl(url);
-          if (!directUrl) return "";
-          
-          const response = await fetch(directUrl, { referrerPolicy: "no-referrer" });
-          const blob = await response.blob();
-          return new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-          });
-      } catch (error) {
-          console.warn("Erro ao converter imagem:", error);
-          return "";
-      }
   const convertImageToBase64 = (url: string): Promise<string> => {
     return new Promise((resolve) => {
         if (!url || typeof url !== 'string') return resolve("");
@@ -286,12 +266,10 @@ export default function MembersPage() {
     e.preventDefault();
     if (!churchId) return;
     
-    // Validação Lógica: Limite do Plano (Criação ou Reativação)
     const isNewActive = formData.status === 'active' && !editingId;
     let isReactivating = false;
     
     if (editingId && formData.status === 'active') {
-        // Verifica se o membro estava inativo antes dessa edição
         const existingMember = members.find(m => m.id === editingId);
         if (existingMember && existingMember.status !== 'active') {
             isReactivating = true;
@@ -308,7 +286,6 @@ export default function MembersPage() {
         return;
     }
 
-    // Segurança: Verificar se o membro sendo editado é admin (caso o usuário tenha burlado a UI)
     if (editingId && userRole !== 'admin') {
         const existingMember = members.find(m => m.id === editingId);
         if (existingMember?.role === 'admin') {
@@ -318,21 +295,18 @@ export default function MembersPage() {
         }
     }
 
-    // Segurança: Validar URL da foto para evitar XSS via javascript: protocol
     if (formData.photoUrl && !isValidUrl(formData.photoUrl)) {
         alert("A URL da foto é inválida. Insira um link válido (http/https).");
         setLoading(false);
         return;
     }
 
-    // Validação de E-mail
     if (formData.email && !isValidEmail(formData.email)) {
         alert("O formato do e-mail é inválido.");
         setLoading(false);
         return;
     }
 
-    // Validação Lógica de Datas
     if (formData.birthDate && formData.baptismDate) {
         if (new Date(formData.baptismDate) <= new Date(formData.birthDate)) {
             alert("A data de batismo não pode ser anterior ou igual à data de nascimento.");
@@ -343,9 +317,6 @@ export default function MembersPage() {
 
     setLoading(true);
     try {
-      // Segurança: Definir permissões e cargo com base no role atual
-      // Se não for admin, mantém as permissões originais (se edição) ou vazias (se novo)
-      // Isso impede que uma secretaria conceda permissões a si mesma via payload
       let safePermissions = formData.permissions;
       let safeRole = formData.role;
 
@@ -353,14 +324,11 @@ export default function MembersPage() {
           if (editingId) {
               const existing = members.find(m => m.id === editingId);
               safePermissions = existing?.permissions || [];
-              safeRole = existing?.role || 'member'; // Mantém o cargo original ou força member
-              // Permitir secretaria mudar cargo apenas se não for para admin? 
-              // A regra de negócio diz que secretaria não muda cargo para admin.
-              // Vamos confiar no formData.role mas bloqueando 'admin'
+              safeRole = existing?.role || 'member'; 
               if (formData.role === 'admin') safeRole = existing?.role || 'member';
               else safeRole = formData.role;
           } else {
-              safePermissions = []; // Novo cadastro por secretaria não tem permissões especiais
+              safePermissions = []; 
               if (formData.role === 'admin') safeRole = 'member';
           }
       }
@@ -421,7 +389,6 @@ export default function MembersPage() {
       setCreatingAccess(true); 
       try { 
           await createSystemUser(selectedMemberForAccess.email, newPassword); 
-          // Expor a senha em um alerta é uma má prática de segurança.
           alert(`✅ Acesso criado para ${selectedMemberForAccess.email}!\n\nInforme a senha diretamente ao usuário. Para maior segurança, recomende que ele(a) altere a senha no primeiro login.`);
           setShowAccessModal(false); 
       } catch (error: any) { 
@@ -443,7 +410,6 @@ export default function MembersPage() {
     
     const today = new Date().toLocaleDateString('pt-BR');
     const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
-    // Validação extra de segurança para URL
     const safeLogoUrl = (base64Logo && (base64Logo.startsWith('data:image') || base64Logo.startsWith('http'))) ? base64Logo : '';
     const logoHtml = safeLogoUrl ? `<img src="${safeLogoUrl}" style="height: 60px; margin-bottom: 10px;" />` : '';
     
@@ -477,7 +443,6 @@ export default function MembersPage() {
     const base64Signature = signatureUrl ? await convertImageToBase64(signatureUrl) : "";
     const baptismText = member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : '---';
 
-    // Validação extra de segurança para URL
     const safeSignature = (base64Signature && (base64Signature.startsWith('data:image') || base64Signature.startsWith('http'))) ? base64Signature : '';
 
     const signatureHtml = safeSignature
