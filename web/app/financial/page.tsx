@@ -6,10 +6,10 @@ import { memberService } from "../../services/memberService";
 import { useChurch } from "../../contexts/ChurchContext";
 import { Transaction } from "../../types/finance";
 import { Member } from "../../types/member";
-import { getDirectImageUrl } from "../../utils/imageHelper"; // Import adicionado para corrigir a logo na impressão
+import { getDirectImageUrl } from "../../utils/imageHelper"; 
 import { 
   TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, 
-  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2, Edit, Lock 
+  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2, Edit, Lock, Upload, Download 
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
@@ -23,7 +23,12 @@ export default function FinancialPage() {
   const [members, setMembers] = useState<Member[]>([]); 
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
-  const [printing, setPrinting] = useState(false); // Estado para controlar o botão de imprimir
+  const [printing, setPrinting] = useState(false);
+
+  // Estados para Importação de Planilha
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
 
   // 2. TRAVA DE SEGURANÇA BLINDADA
   useEffect(() => {
@@ -60,7 +65,7 @@ export default function FinancialPage() {
   const INCOME_CATEGORIES = ["Dízimo", "Oferta de Culto", "Oferta Especial", "Voto", "Bazar", "Cantina", "Doação Externa", "Outros"];
   const EXPENSE_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Manutenção", "Material de Limpeza", "Ajuda Social", "Salário Pastoral", "Equipamentos", "Outros"];
 
-  // 3. Carregar Dados Seguro
+  // 3. Carregar Dados
   useEffect(() => {
     if (churchId && !authLoading) {
         carregarDados(churchId);
@@ -192,7 +197,142 @@ export default function FinancialPage() {
     }
   };
 
-  // --- IMPRESSÃO CORRIGIDA (SEM ERRO DE CORS E COM BOTÃO FECHAR) ---
+  // --- LÓGICA DE IMPORTAÇÃO DE PLANILHA CSV (FINANCEIRO) ---
+  const downloadTemplate = () => {
+    // Cabeçalho claro e autoexplicativo
+    const headers = "Tipo (E ou S);Data (DD/MM/AAAA);Valor;Categoria;Descricao;Nome do Membro (Opcional)\n";
+    // Exemplos práticos
+    const sample1 = "E;15/10/2023;250,00;Dízimo;Dízimo do Mês;João Batista\n";
+    const sample2 = "S;18/10/2023;120,50;Energia;Conta de Luz da Sede;\n";
+    
+    // Força o Excel a entender que tem acentos (UTF-8)
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, headers + sample1 + sample2], { type: 'text/csv;charset=utf-8;' });
+    
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "ReinoCloud_Modelo_Financeiro.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          const text = event.target?.result as string;
+          if (!text) return;
+
+          setImporting(true);
+          try {
+              // Verifica se o CSV usa Ponto-e-Vírgula (Brasil/Angola) ou Vírgula (Padrão Inglês)
+              const separator = text.indexOf(';') > -1 ? ';' : ',';
+              const rows = text.split('\n').filter(row => row.trim() !== '');
+              
+              if (rows.length <= 1) {
+                  alert("A planilha parece estar vazia ou conter apenas o cabeçalho.");
+                  setImporting(false);
+                  return;
+              }
+
+              const dataRows = rows.slice(1);
+              setImportProgress({ current: 0, total: dataRows.length });
+
+              let successCount = 0;
+              
+              for (let i = 0; i < dataRows.length; i++) {
+                  // Limpa as aspas indesejadas do Excel
+                  const columns = dataRows[i].split(separator).map(col => col.trim().replace(/^"|"$/g, ''));
+                  
+                  if (columns.length < 3) continue; // Precisa de pelo menos Tipo, Data e Valor
+
+                  // 1. Tratamento do TIPO (Entrada ou Saída)
+                  const rawType = columns[0].toUpperCase();
+                  const type = (rawType.startsWith('E') || rawType.startsWith('I') || rawType.startsWith('+')) ? 'income' : 'expense';
+
+                  // 2. Tratamento da DATA
+                  let dateStr = new Date().toISOString().split('T')[0]; // Padrão: Hoje
+                  const rawDate = columns[1];
+                  if (rawDate) {
+                      const parts = rawDate.includes('/') ? rawDate.split('/') : rawDate.split('-');
+                      if (parts.length === 3) {
+                          if (parts[2].length === 4) { // DD/MM/YYYY
+                              dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                          } else if (parts[0].length === 4) { // YYYY/MM/DD
+                              dateStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                          }
+                      }
+                  }
+
+                  // 3. Tratamento de VALOR MONETÁRIO (Aceita 1.500,00 ou 1500.00)
+                  let rawAmount = columns[2].replace(/[R$Kz\s]/gi, ''); // Tira símbolos de moeda
+                  if (rawAmount.includes('.') && rawAmount.includes(',')) {
+                      rawAmount = rawAmount.replace(/\./g, '').replace(',', '.'); // BR: 1.500,00 -> 1500.00
+                  } else if (rawAmount.includes(',')) {
+                      rawAmount = rawAmount.replace(',', '.'); // BR: 150,00 -> 150.00
+                  }
+                  const amountNum = parseFloat(rawAmount);
+                  if (isNaN(amountNum) || amountNum <= 0) continue; // Pula se o valor for inválido
+
+                  // 4. Outros campos
+                  const category = columns[3] || (type === 'income' ? 'Outros' : 'Outros');
+                  const description = columns[4] || category;
+                  const memberNameInput = columns[5] || "";
+                  
+                  let memberId = null;
+                  let finalMemberName = memberNameInput;
+
+                  // 5. Inteligência de Vínculo: Se for Dízimo e tiver nome, procura o membro!
+                  if (type === 'income' && category.toLowerCase().includes('dízim') && memberNameInput) {
+                      const foundMember = members.find(m => m.fullName.toLowerCase() === memberNameInput.toLowerCase());
+                      if (foundMember) {
+                          memberId = foundMember.id;
+                          finalMemberName = foundMember.fullName;
+                          // Marca o membro como dizimista se ainda não for
+                          if (!foundMember.isTither) {
+                              await memberService.update(foundMember.id!, { isTither: true });
+                          }
+                      }
+                  }
+
+                  const payload: any = {
+                      churchId: churchId!,
+                      amount: amountNum,
+                      type: type,
+                      date: dateStr,
+                      category: category,
+                      description: description,
+                      memberId: memberId,
+                      memberName: finalMemberName || null
+                  };
+
+                  await financeService.create(payload);
+                  successCount++;
+                  setImportProgress({ current: successCount, total: dataRows.length });
+              }
+
+              alert(`✅ Importação Concluída!\n\n${successCount} lançamentos financeiros foram importados com sucesso.`);
+              setShowImportModal(false);
+              carregarDados(churchId!); 
+
+          } catch (error) {
+              console.error("Erro na importação:", error);
+              alert("Ocorreu um erro ao ler o arquivo. Certifique-se de que ele é um arquivo CSV válido salvo pelo Excel.");
+          } finally {
+              setImporting(false);
+              setImportProgress({ current: 0, total: 0 });
+              if (e.target) e.target.value = ''; // Limpa o input
+          }
+      };
+      
+      reader.readAsText(file, 'UTF-8');
+  };
+
   const handlePrint = async () => {
       setPrinting(true);
       const printWindow = window.open('', '', 'width=900,height=600');
@@ -229,8 +369,6 @@ export default function FinancialPage() {
                     th { text-align: left; background: #f9fafb; padding: 10px 8px; color: #666; text-transform: uppercase; font-size: 10px; border-bottom: 2px solid #eee; }
                     .summary { display: flex; justify-content: space-between; gap: 10px; }
                     .card { border: 1px solid #e5e7eb; padding: 15px; border-radius: 12px; flex: 1; text-align: center; background: #fff; }
-                    
-                    /* BOTÃO FLUTUANTE DE FECHAR PARA MOBILE */
                     .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; }
                     @media print { .close-btn { display: none; } body { padding: 0; } }
                 </style>
@@ -278,7 +416,6 @@ export default function FinancialPage() {
     { name: 'Saídas', value: totalExpense },
   ];
   
-  // Cores do gráfico atualizadas para o novo layout de banco (Cinza Escuro e Vermelho)
   const COLORS = ['#1f2937', '#ef4444']; 
 
   if (authLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
@@ -296,9 +433,8 @@ export default function FinancialPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans print:p-0 print:bg-white">
       
-      {/* --- CABEÇALHO AZUL --- */}
       <div className="bg-[#1D4ED8] pt-10 pb-20 px-8 shadow-sm print:hidden">
-        <div className="max-w-6xl mx-auto flex justify-between items-end">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div>
                 <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
                   <DollarSign className="text-blue-300"/> Tesouraria
@@ -309,8 +445,12 @@ export default function FinancialPage() {
                 <button onClick={handlePrint} disabled={printing} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition">
                     {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} Imprimir
                 </button>
+                {/* BOTÃO IMPORTAR NOVO NO DESKTOP */}
+                <button onClick={() => setShowImportModal(true)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg transition">
+                    <Upload size={18} /> Importar CSV
+                </button>
                 <button onClick={() => handleOpenModal()} className="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg transition">
-                    <PlusCircle size={18} /> Novo Lançamento
+                    <PlusCircle size={18} /> Lançar
                 </button>
             </div>
         </div>
@@ -321,20 +461,23 @@ export default function FinancialPage() {
           <p className="text-sm text-gray-500">Relatório Financeiro ({startDate ? new Date(startDate).toLocaleDateString() : 'Início'} até {endDate ? new Date(endDate).toLocaleDateString() : 'Hoje'})</p>
       </div>
 
-      {/* --- CONTEÚDO PRINCIPAL --- */}
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-8 relative z-10 print:mt-0">
 
-          {/* BOTÕES MOBILE CORRIGIDOS (Não escondem mais os filtros) */}
+          {/* BOTÕES MOBILE */}
           <div className="md:hidden flex gap-2 mb-4 w-full print:hidden">
               <button onClick={() => handleOpenModal()} className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-200 flex justify-center items-center gap-2 active:scale-[0.98] transition">
-                  <PlusCircle size={18}/> Novo Lançamento
+                  <PlusCircle size={18}/> Novo
+              </button>
+              {/* BOTÃO IMPORTAR NO MOBILE */}
+              <button onClick={() => setShowImportModal(true)} className="bg-emerald-500 text-white px-5 py-3.5 rounded-xl font-bold shadow-sm flex justify-center items-center active:scale-[0.98] transition">
+                  <Upload size={20}/>
               </button>
               <button onClick={handlePrint} disabled={printing} className="bg-white text-gray-700 px-5 py-3.5 rounded-xl font-bold shadow-sm border border-gray-200 flex justify-center items-center active:scale-[0.98] transition">
                   {printing ? <Loader2 className="animate-spin" size={20}/> : <Printer size={20}/>}
               </button>
           </div>
 
-          {/* BARRA DE FILTROS DE DATA */}
+          {/* BARRA DE FILTROS */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 print:hidden">
               <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                   <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-1 scrollbar-hide">
@@ -357,7 +500,6 @@ export default function FinancialPage() {
               </div>
           </div>
 
-          {/* CARDS VISUAL DE BANCO (Tipografia ajustada) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 print:grid-cols-3 print:gap-2">
              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between min-h-[110px]">
                 <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1 tracking-wider mb-1"> Entradas ({filteredTransactions.filter(t => t.type === 'income').length})</p>
@@ -373,7 +515,6 @@ export default function FinancialPage() {
              </div>
           </div>
 
-          {/* GRÁFICO ESTILO ROSQUINHA (DONUT) */}
           {(totalIncome > 0 || totalExpense > 0) && (
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden animate-in fade-in zoom-in-95">
                 <div className="text-center md:text-left mb-4 md:mb-0">
@@ -395,7 +536,7 @@ export default function FinancialPage() {
                     </ResponsiveContainer>
                     
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                        <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Saldo em Conta</span>
+                        <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Saldo</span>
                         <span className={`text-xs font-bold tracking-tight mt-0.5 ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {formatMoney(balance)}
                         </span>
@@ -420,8 +561,6 @@ export default function FinancialPage() {
               <div className="relative border-l-2 border-gray-100 ml-3 space-y-8 pb-4">
                   {filteredTransactions.length > 0 ? filteredTransactions.map((t, index) => (
                       <div key={t.id} className="relative pl-8 animate-in slide-in-from-bottom-2 fade-in duration-300" style={{animationDelay: `${Math.min(index * 50, 500)}ms`}}>
-                          
-                          {/* BOLINHA INDICADORA (Preta para Entrada, Vermelha para Saída) */}
                           <div className={`
                               absolute -left-[9px] top-1 w-5 h-5 rounded-full border-4 border-white shadow-sm ring-1 ring-gray-100
                               ${t.type === 'income' ? 'bg-gray-800' : 'bg-red-500'}
@@ -441,7 +580,6 @@ export default function FinancialPage() {
                               </div>
 
                               <div className="flex items-center justify-between md:justify-end gap-3 mt-2 md:mt-0">
-                                  {/* VALOR ESTILO BANCO */}
                                   <span className={`text-lg font-bold tracking-tight ${t.type === 'income' ? 'text-gray-900' : 'text-red-500'}`}>
                                       {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
                                   </span>
@@ -466,6 +604,57 @@ export default function FinancialPage() {
               </div>
           </div>
       </div>
+
+      {/* --- MODAL IMPORTAR CSV --- */}
+      {showImportModal && (
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in zoom-in-95">
+                  <button onClick={() => !importing && setShowImportModal(false)} disabled={importing} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-1.5 rounded-full transition disabled:opacity-50">
+                      <X size={18} />
+                  </button>
+                  
+                  <div className="flex flex-col items-center mb-6 mt-2">
+                      <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4 border border-emerald-100">
+                          <Upload size={32}/>
+                      </div>
+                      <h2 className="text-xl font-bold text-gray-800">Importar Caixa</h2>
+                      <p className="text-sm text-gray-500 text-center mt-2">Puxe dízimos e despesas direto do Excel.</p>
+                  </div>
+
+                  {!importing ? (
+                      <div className="space-y-4">
+                          <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                              <h3 className="text-xs font-bold text-blue-800 uppercase mb-2">Passo 1: Baixe o Modelo</h3>
+                              <p className="text-xs text-blue-600 mb-3">O arquivo tem as colunas exatas que o sistema lê.</p>
+                              <button onClick={downloadTemplate} className="w-full py-2.5 bg-white text-blue-700 border border-blue-200 font-bold rounded-lg hover:bg-blue-100 transition flex justify-center items-center gap-2 text-sm shadow-sm">
+                                  <Download size={16}/> Baixar Planilha
+                              </button>
+                          </div>
+                          
+                          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                              <h3 className="text-xs font-bold text-slate-700 uppercase mb-2">Passo 2: Subir Arquivo CSV</h3>
+                              <p className="text-[10px] text-slate-500 mb-3">Preencha os dados no Excel e Salve como CSV.</p>
+                              
+                              <label htmlFor="csv-upload-finance" className="w-full py-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition flex justify-center items-center gap-2 text-sm shadow-md cursor-pointer">
+                                  <Upload size={16}/> Escolher Arquivo CSV
+                              </label>
+                              <input id="csv-upload-finance" type="file" accept=".csv, text/csv" className="hidden" onChange={handleFileUpload} />
+                          </div>
+                      </div>
+                  ) : (
+                      <div className="py-8 flex flex-col items-center text-center">
+                          <Loader2 size={48} className="text-emerald-500 animate-spin mb-4"/>
+                          <h3 className="text-lg font-bold text-gray-800">Lançando valores...</h3>
+                          <p className="text-gray-500 mt-2 text-sm">Não feche o aplicativo.</p>
+                          <div className="w-full bg-gray-100 rounded-full h-3 mt-6 overflow-hidden">
+                              <div className="bg-emerald-500 h-3 transition-all duration-300" style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}></div>
+                          </div>
+                          <p className="text-xs font-bold text-emerald-600 mt-2">{importProgress.current} de {importProgress.total} processados</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+      )}
 
       {/* --- MODAL NOVO/EDITAR LANÇAMENTO --- */}
       {isModalOpen && (
