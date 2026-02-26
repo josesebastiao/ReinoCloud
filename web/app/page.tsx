@@ -104,14 +104,14 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-50 pb-24 relative">
       
-      {/* BOTÃO CENTRAL FLUTUANTE (FAB) */}
+      {/* BOTÃO CENTRAL FLUTUANTE NO MOBILE */}
       <button onClick={() => setViewMode('member')} className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[100] bg-blue-600 text-white w-14 h-14 rounded-full shadow-2xl shadow-blue-900/40 flex items-center justify-center hover:scale-110 transition border-4 border-gray-50 animate-in zoom-in md:hidden" title="Ver App Membro">
           <Smartphone size={24}/>
       </button>
 
-      {/* Botão Desktop */}
-      <button onClick={() => setViewMode('member')} className="hidden md:flex fixed top-24 right-4 z-50 bg-white text-blue-600 px-4 py-2 rounded-full shadow-lg font-bold text-[10px] items-center gap-2 hover:bg-blue-50 transition border border-blue-100">
-          <Smartphone size={14}/> Ver App Membro
+      {/* BOTÃO DESKTOP (AGORA NO CANTO INFERIOR DIREITO) */}
+      <button onClick={() => setViewMode('member')} className="hidden md:flex fixed bottom-8 right-8 z-50 bg-blue-600 text-white px-5 py-3 rounded-full shadow-2xl shadow-blue-900/20 font-bold text-xs items-center gap-2 hover:bg-blue-700 hover:-translate-y-1 transition-all border border-blue-500">
+          <Smartphone size={16}/> Ver App Membro
       </button>
 
       {/* HERO HEADER (NOVO VISUAL DARK) */}
