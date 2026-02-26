@@ -405,7 +405,8 @@ export default function MembersPage() {
 
   const handlePrintExecute = async () => {
     setPrinting(true);
-    const printWindow = window.open('', '_blank', 'width=900,height=600,noopener,noreferrer');
+    // Removido noopener,noreferrer para permitir a impressão funcionar
+    const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) { setPrinting(false); return; }
     
     const today = new Date().toLocaleDateString('pt-BR');
@@ -435,14 +436,12 @@ export default function MembersPage() {
 
   const handlePrintCard = async (member: Member) => {
     setPrinting(true);
-    const printWindow = window.open('', '_blank', 'width=900,height=600,noopener,noreferrer');
+    // Removido noopener,noreferrer para a aba nova não quebrar em branco
+    const printWindow = window.open('', '', 'width=900,height=600');
     if (!printWindow) { setPrinting(false); return; }
 
     const safeFormatDate = (dateStr?: string) => {
         if (!dateStr) return '---';
-        // Date from input is YYYY-MM-DD. new Date() parses this as UTC.
-        // toLocaleDateString() can shift it to previous day in some timezones.
-        // Adding T00:00 makes it parse as local time midnight and avoids issues.
         const date = new Date(dateStr + 'T00:00:00');
         if (isNaN(date.getTime())) return '---';
         return date.toLocaleDateString('pt-BR');
@@ -643,9 +642,10 @@ export default function MembersPage() {
                     <h3 className="text-xl font-semibold text-white relative z-10">{viewMember.fullName}</h3>
                     <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
                     
-                    <div className="absolute bottom-4 left-0 right-0 px-4 z-20 flex justify-center">
-                         <button onClick={() => handlePrintCard(viewMember)} disabled={printing} className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg backdrop-blur-sm transition flex items-center gap-2 text-xs font-bold border border-white/20" title="Imprimir Carteirinha">
-                            {printing ? <Loader2 className="animate-spin" size={14}/> : <CreditCard size={16}/>} Carteirinha
+                    {/* AQUI ESTÁ A CORREÇÃO: O BOTÃO NÃO É MAIS ABSOLUTE, FICA NA ORDEM NATURAL COM MT-5 */}
+                    <div className="mt-5 flex justify-center relative z-20">
+                         <button onClick={() => handlePrintCard(viewMember)} disabled={printing} className="bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl backdrop-blur-md transition flex items-center gap-2 text-xs font-bold border border-white/30 shadow-lg" title="Imprimir Carteirinha">
+                            {printing ? <Loader2 className="animate-spin" size={14}/> : <CreditCard size={16}/>} Imprimir Carteirinha
                          </button>
                     </div>
                 </div>
