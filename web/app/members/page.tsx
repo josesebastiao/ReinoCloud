@@ -86,6 +86,7 @@ export default function MembersPage() {
           case 'leader': return 'Líder';
           case 'secretary': return 'Secretaria';
           case 'treasurer': return 'Tesouraria';
+          case 'visitor': return 'Visitante / Convertido'; // NOVA OPÇÃO ADICIONADA
           default: return 'Membro';
       }
   };
@@ -213,7 +214,7 @@ export default function MembersPage() {
       setEditingId(null);
       setFormData({
         fullName: "", email: "", phone: "", document: "", birthDate: "", baptismDate: "", photoUrl: "",
-        gender: "male", maritalStatus: "single", role: "member", status: "active", isTither: false,
+        gender: "male", maritalStatus: "single", role: "visitor", status: "active", isTither: false, // Default alterado levemente (opcional)
         street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "",
         selectedMinistries: [],
         permissions: []
@@ -301,7 +302,7 @@ export default function MembersPage() {
         return;
     }
 
-    if (formData.email && !isValidEmail(formData.email)) {
+    if (formData.email && formData.email.trim() !== "" && !isValidEmail(formData.email)) {
         alert("O formato do e-mail é inválido.");
         setLoading(false);
         return;
@@ -358,11 +359,11 @@ export default function MembersPage() {
           alert("Apenas administradores podem excluir membros.");
           return;
       }
-      if (confirm("Excluir membro?")) { await memberService.delete(id); loadData(); } 
+      if (confirm("Excluir membro permanentemente?")) { await memberService.delete(id); loadData(); } 
   };
   
   const openAccessModal = (member: Member) => { 
-      if(!member.email) { alert("Este membro precisa de um e-mail."); return; } 
+      if(!member.email) { alert("Este membro precisa de um e-mail cadastrado."); return; } 
       if (userRole === 'secretary' && member.role === 'admin') {
           alert("Secretaria não pode alterar o acesso de um Pastor (Admin).");
           return;
@@ -405,72 +406,98 @@ export default function MembersPage() {
 
   const handlePrintExecute = async () => {
     setPrinting(true);
-    // Removido noopener,noreferrer para permitir a impressão funcionar
-    const printWindow = window.open('', '', 'width=900,height=600');
-    if (!printWindow) { setPrinting(false); return; }
+    const printWindow = window.open('', '_blank', 'width=900,height=600');
+    if (!printWindow) { setPrinting(false); return alert("Por favor, permita os pop-ups do navegador para imprimir."); }
     
-    const today = new Date().toLocaleDateString('pt-BR');
-    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
-    const safeLogoUrl = (base64Logo && (base64Logo.startsWith('data:image') || base64Logo.startsWith('http'))) ? base64Logo : '';
-    const logoHtml = safeLogoUrl ? `<img src="${safeLogoUrl}" style="height: 60px; margin-bottom: 10px;" />` : '';
-    
-    const sortedMembers = [...filteredMembers].sort((a, b) => a.fullName.localeCompare(b.fullName));
+    try {
+        printWindow.document.open();
+        printWindow.document.write('<html><body style="font-family: sans-serif; padding: 40px; text-align: center; color: #333;"><h2>Gerando relatório...</h2><p>Por favor, aguarde alguns segundos.</p></body></html>');
+        printWindow.document.close();
 
-    const rows = sortedMembers.map((m, index) => `
-        <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 8px;">${index + 1}</td>
-            <td style="padding: 8px;"><strong>${escapeHtml(m.fullName)}</strong></td>
-            <td style="padding: 8px;">${escapeHtml(translateRole(m.role))}</td>
-            <td style="padding: 8px;">${escapeHtml(m.phone || '-')}</td>
-            <td style="padding: 8px;">${m.status === 'active' ? 'Ativo' : 'Inativo'}</td>
-        </tr>
-    `).join('');
+        const today = new Date().toLocaleDateString('pt-BR');
+        const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
+        const safeLogoUrl = (base64Logo && (base64Logo.startsWith('data:image') || base64Logo.startsWith('http'))) ? base64Logo : '';
+        const logoHtml = safeLogoUrl ? `<img src="${safeLogoUrl}" style="height: 60px; margin-bottom: 10px;" />` : '';
+        
+        const sortedMembers = [...filteredMembers].sort((a, b) => a.fullName.localeCompare(b.fullName));
 
-    const html = `
-        <html><head><title>Lista de Membros</title><meta http-equiv="X-Frame-Options" content="DENY"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body { font-family: sans-serif; padding: 20px; text-align: center; } table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; } th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${logoHtml}<h1>${escapeHtml(churchName || '')}</h1><p>Relatório de Membros • ${escapeHtml(today)}</p><table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(() => window.print(), 500);</script></body></html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    setPrinting(false);
+        const rows = sortedMembers.map((m, index) => `
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 8px;">${index + 1}</td>
+                <td style="padding: 8px;"><strong>${escapeHtml(m.fullName)}</strong></td>
+                <td style="padding: 8px;">${escapeHtml(translateRole(m.role))}</td>
+                <td style="padding: 8px;">${escapeHtml(m.phone || '-')}</td>
+                <td style="padding: 8px;">${m.status === 'active' ? 'Ativo' : 'Inativo'}</td>
+            </tr>
+        `).join('');
+
+        const html = `
+            <html><head><title>Lista de Membros</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body { font-family: sans-serif; padding: 20px; text-align: center; } table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; } th { background: #f9fafb; padding: 8px; border-bottom: 2px solid #eee; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { .close-btn { display: none; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button>${logoHtml}<h1>${escapeHtml(churchName || '')}</h1><p>Relatório de Membros • ${escapeHtml(today)}</p><table><thead><tr><th>#</th><th>Nome</th><th>Cargo</th><th>Telefone</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload = function() { setTimeout(() => window.print(), 500); }</script></body></html>
+        `;
+        
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+    } catch(error) {
+        console.error("Erro na impressão:", error);
+        printWindow.document.open();
+        printWindow.document.write('<html><body><h3 style="color:red; text-align:center;">Erro ao gerar relatório. Tente novamente.</h3></body></html>');
+        printWindow.document.close();
+    } finally {
+        setPrinting(false);
+    }
   };
 
   const handlePrintCard = async (member: Member) => {
     setPrinting(true);
-    // Removido noopener,noreferrer para a aba nova não quebrar em branco
-    const printWindow = window.open('', '', 'width=900,height=600');
-    if (!printWindow) { setPrinting(false); return; }
+    const printWindow = window.open('', '_blank', 'width=900,height=600');
+    if (!printWindow) { setPrinting(false); return alert("Por favor, permita os pop-ups do navegador para imprimir a carteirinha."); }
 
-    const safeFormatDate = (dateStr?: string) => {
-        if (!dateStr) return '---';
-        const date = new Date(dateStr + 'T00:00:00');
-        if (isNaN(date.getTime())) return '---';
-        return date.toLocaleDateString('pt-BR');
-    };
+    try {
+        printWindow.document.open();
+        printWindow.document.write('<html><body style="font-family: sans-serif; padding: 40px; text-align: center; color: #333;"><h2>Preparando Carteirinha...</h2><p>Processando imagens de alta qualidade.</p></body></html>');
+        printWindow.document.close();
 
-    const safeGetFullYear = (dateStr?: string) => {
-        if (!dateStr) return new Date().getFullYear();
-        const date = new Date(dateStr + 'T00:00:00');
-        if (isNaN(date.getTime())) return new Date().getFullYear();
-        return date.getFullYear();
-    };
+        const safeFormatDate = (dateStr?: string) => {
+            if (!dateStr) return '---';
+            const date = new Date(dateStr + 'T00:00:00');
+            if (isNaN(date.getTime())) return '---';
+            return date.toLocaleDateString('pt-BR');
+        };
 
-    const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
-    const base64Photo = member.photoUrl ? await convertImageToBase64(getDirectImageUrl(member.photoUrl) || member.photoUrl) : "";
-    const base64Signature = signatureUrl ? await convertImageToBase64(signatureUrl) : "";
-    const baptismText = safeFormatDate(member.baptismDate);
+        const safeGetFullYear = (dateStr?: string) => {
+            if (!dateStr) return new Date().getFullYear();
+            const date = new Date(dateStr + 'T00:00:00');
+            if (isNaN(date.getTime())) return new Date().getFullYear();
+            return date.getFullYear();
+        };
 
-    const safeSignature = (base64Signature && (base64Signature.startsWith('data:image') || base64Signature.startsWith('http'))) ? base64Signature : '';
+        const base64Logo = logoUrl ? await convertImageToBase64(logoUrl) : "";
+        const base64Photo = member.photoUrl ? await convertImageToBase64(getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl) || member.photoUrl) : "";
+        const base64Signature = signatureUrl ? await convertImageToBase64(signatureUrl) : "";
+        const baptismText = safeFormatDate(member.baptismDate);
 
-    const signatureHtml = safeSignature
-      ? `<img src="${safeSignature}" style="height: 35px; margin-bottom: -2px; display: block; margin-left: auto; margin-right: auto;" />`
-      : `<div style="height:30px;"></div>`;
+        const safeSignature = (base64Signature && (base64Signature.startsWith('data:image') || base64Signature.startsWith('http'))) ? base64Signature : '';
 
-    const html = `
-      <html><head><title>Carteirinha - ${escapeHtml(member.fullName)}</title><meta http-equiv="X-Frame-Options" content="DENY"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap'); body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .card.front { background: linear-gradient(120deg, #1e3a8a 0%, #172554 100%); color: white; display: flex; flex-direction: column; } .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); } .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); } .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; } .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); } .photo-frame img { width: 100%; height: 100%; object-fit: cover; } .member-info { display: flex; flex-direction: column; justify-content: center; } .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; } .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; } .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; } .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; } .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; } .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; } .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; } .data-col { display: flex; flex-direction: column; } .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; } .data-value { font-size: 9px; font-weight: 600; color: #000; } .signature-box { text-align: center; margin-top: 10px; } .line { height: 1px; background: #000; width: 100%; margin: 2px auto; } .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .close-btn { display: none !important; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button><div class="card-wrapper"><div class="card front"><div class="front-header">${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}<div class="church-title">${escapeHtml(churchName || '')}</div></div><div class="front-body"><div class="photo-frame">${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}</div><div class="member-info"><span class="label">Membro</span><span class="name">${escapeHtml(member.fullName)}</span><span class="role-badge">Batismo: ${escapeHtml(baptismText)}</span></div></div><div class="front-footer">Cartão de Membro</div></div><div class="card back"><div class="back-body"><div><div class="data-row"><div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${safeFormatDate(member.birthDate)}</span></div><div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${safeGetFullYear(member.baptismDate)}</span></div></div><div class="data-row" style="border:none"><div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div></div></div><div class="signature-box">${signatureHtml}<div class="line"></div><div class="sig-label">Pastor Presidente</div></div><div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;"><span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`reino_member_id:${member.id}`)}" style="width:35px; height:35px; opacity:0.8;" /></div></div></div></div><script>setTimeout(function(){ window.print(); }, 500);</script></body></html>
-    `;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    setPrinting(false);
+        const signatureHtml = safeSignature
+          ? `<img src="${safeSignature}" style="height: 35px; margin-bottom: -2px; display: block; margin-left: auto; margin-right: auto;" />`
+          : `<div style="height:30px;"></div>`;
+
+        const html = `
+          <html><head><title>Carteirinha - ${escapeHtml(member.fullName)}</title><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap'); body { font-family: 'Montserrat', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; } .card-wrapper { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; } .card { width: 324px; height: 204px; background: #fff; border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .card.front { background: linear-gradient(120deg, #1e3a8a 0%, #172554 100%); color: white; display: flex; flex-direction: column; } .front-header { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); } .front-logo { width: 35px; height: 35px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); } .church-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; text-shadow: 0 2px 4px rgba(0,0,0,0.5); } .front-body { flex: 1; display: flex; align-items: center; padding: 0 15px; gap: 15px; } .photo-frame { width: 75px; height: 75px; border-radius: 12px; background: #fff; border: 3px solid rgba(255,255,255,0.3); overflow: hidden; flex-shrink: 0; box-shadow: 0 4px 8px rgba(0,0,0,0.3); } .photo-frame img { width: 100%; height: 100%; object-fit: cover; } .member-info { display: flex; flex-direction: column; justify-content: center; } .label { font-size: 7px; text-transform: uppercase; opacity: 0.7; letter-spacing: 1px; margin-bottom: 2px; } .name { font-size: 14px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 6px; } .role-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 20px; font-size: 8px; font-weight: 700; text-transform: uppercase; width: fit-content; } .front-footer { background: rgba(0,0,0,0.2); padding: 6px 15px; text-align: right; font-size: 7px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.8; } .card.back { background: #fff; color: #333; display: flex; flex-direction: column; background-image: radial-gradient(#e5e7eb 1px, transparent 1px); background-size: 10px 10px; } .back-body { padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: space-between; } .data-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding-bottom: 4px; margin-bottom: 8px; } .data-col { display: flex; flex-direction: column; } .data-label { font-size: 6px; font-weight: 700; text-transform: uppercase; color: #888; } .data-value { font-size: 9px; font-weight: 600; color: #000; } .signature-box { text-align: center; margin-top: 10px; } .line { height: 1px; background: #000; width: 100%; margin: 2px auto; } .sig-label { font-size: 7px; font-weight: 700; text-transform: uppercase; } .close-btn { position: fixed; top: 15px; left: 15px; z-index: 9999; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; text-decoration: none; font-size: 14px; } @media print { body { background: white; height: auto; display: block; } .card-wrapper { margin-bottom: 20px; page-break-inside: avoid; } .card { border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .close-btn { display: none !important; } }</style></head><body><button onclick="window.close()" class="close-btn">← FECHAR</button><div class="card-wrapper"><div class="card front"><div class="front-header">${base64Logo ? `<img src="${base64Logo}" class="front-logo" />` : ''}<div class="church-title">${escapeHtml(churchName || '')}</div></div><div class="front-body"><div class="photo-frame">${base64Photo ? `<img src="${base64Photo}" />` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:30px;">👤</div>`}</div><div class="member-info"><span class="label">Membro</span><span class="name">${escapeHtml(member.fullName)}</span><span class="role-badge">Batismo: ${escapeHtml(baptismText)}</span></div></div><div class="front-footer">Cartão de Membro</div></div><div class="card back"><div class="back-body"><div><div class="data-row"><div class="data-col"><span class="data-label">Data de Nascimento</span><span class="data-value">${safeFormatDate(member.birthDate)}</span></div><div class="data-col" style="text-align:right"><span class="data-label">Desde</span><span class="data-value">${safeGetFullYear(member.baptismDate)}</span></div></div><div class="data-row" style="border:none"><div class="data-col"><span class="data-label">Validade</span><span class="data-value">INDETERMINADA</span></div></div></div><div class="signature-box">${signatureHtml}<div class="line"></div><div class="sig-label">Pastor Presidente</div></div><div style="display:flex; align-items:flex-end; justify-content:space-between; margin-top:10px;"><span style="font-size:6px; color:#999; width: 60%;">Este cartão é pessoal e intransferível.</span><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`reino_member_id:${member.id}`)}" style="width:35px; height:35px; opacity:0.8;" /></div></div></div></div><script>window.onload = function(){ setTimeout(function(){ window.print(); }, 800); }</script></body></html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+    } catch(error) {
+        console.error("Erro na impressão:", error);
+        printWindow.document.open();
+        printWindow.document.write('<html><body><h3 style="color:red; text-align:center;">Erro ao gerar carteirinha. Tente novamente.</h3></body></html>');
+        printWindow.document.close();
+    } finally {
+        setPrinting(false);
+    }
   };
 
   if (loading && members.length === 0) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600"/></div>;
@@ -545,8 +572,13 @@ export default function MembersPage() {
                                         {member.permissions && member.permissions.includes('secretary') && <span title="Acesso Secretaria"><Shield size={14} className="text-blue-500 fill-blue-100"/></span>}
                                         {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100"/></span>}
                                     </span>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                                        {/* COR DE DESTAQUE PARA VISITANTE / NOVO CONVERTIDO AQUI */}
+                                        <span className={`text-[10px] px-2 rounded uppercase font-bold ${
+                                            member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 
+                                            member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
+                                            'bg-gray-100 text-gray-500'
+                                        }`}>
                                             {translateRole(member.role)}
                                         </span>
                                     </div>
@@ -588,7 +620,12 @@ export default function MembersPage() {
                                     {member.permissions && member.permissions.includes('financial') && <Shield size={12} className="text-green-500 fill-green-100"/>}
                                 </h3>
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                    <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'}`}>
+                                     {/* COR DE DESTAQUE PARA VISITANTE NO MOBILE */}
+                                    <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${
+                                        member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 
+                                        member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
+                                        'bg-gray-100 text-gray-500'
+                                    }`}>
                                         {translateRole(member.role)}
                                     </span>
                                     <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -632,22 +669,22 @@ export default function MembersPage() {
       {showViewModal && viewMember && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 relative">
-                <button onClick={() => setShowViewModal(false)} className="absolute top-4 right-4 z-10 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full transition"><X size={18}/></button>
+                <button onClick={() => setShowViewModal(false)} className="absolute top-4 right-4 z-[60] bg-black/20 hover:bg-black/40 text-white p-2 rounded-full transition"><X size={18}/></button>
                 
-                <div className="bg-gradient-to-br from-blue-700 to-blue-900 p-8 text-center relative overflow-hidden">
+                <div className="bg-gradient-to-br from-blue-700 to-blue-900 p-8 flex flex-col items-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-                    <div className="w-24 h-24 bg-white rounded-full mx-auto mb-4 flex items-center justify-center border-4 border-blue-600 shadow-lg relative z-10 overflow-hidden">
+                    
+                    <div className="w-24 h-24 bg-white rounded-full mb-4 flex items-center justify-center border-4 border-blue-600 shadow-lg relative z-10 overflow-hidden shrink-0">
                         {viewMember.photoUrl ? <img src={getCachedImage(viewMember.photoUrl) || getDirectImageUrl(viewMember.photoUrl)} alt={viewMember.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(viewMember.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover"/> : <User className="text-blue-300" size={48}/>}
                     </div>
-                    <h3 className="text-xl font-semibold text-white relative z-10">{viewMember.fullName}</h3>
-                    <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10">{translateRole(viewMember.role)}</p>
                     
-                    {/* AQUI ESTÁ A CORREÇÃO: O BOTÃO NÃO É MAIS ABSOLUTE, FICA NA ORDEM NATURAL COM MT-5 */}
-                    <div className="mt-5 flex justify-center relative z-20">
-                         <button onClick={() => handlePrintCard(viewMember)} disabled={printing} className="bg-white/20 hover:bg-white/30 text-white py-2 px-4 rounded-xl backdrop-blur-md transition flex items-center gap-2 text-xs font-bold border border-white/30 shadow-lg" title="Imprimir Carteirinha">
-                            {printing ? <Loader2 className="animate-spin" size={14}/> : <CreditCard size={16}/>} Imprimir Carteirinha
-                         </button>
-                    </div>
+                    <h3 className="text-xl font-semibold text-white relative z-10 text-center leading-tight">{viewMember.fullName}</h3>
+                    <p className="text-blue-200 text-sm uppercase font-bold tracking-wider relative z-10 text-center mt-1">{translateRole(viewMember.role)}</p>
+                    
+                    <button onClick={() => handlePrintCard(viewMember)} disabled={printing} className="mt-6 relative z-20 bg-white/20 hover:bg-white/30 text-white py-2.5 px-5 rounded-xl backdrop-blur-md transition flex items-center gap-2 text-sm font-bold border border-white/30 shadow-lg" title="Imprimir Carteirinha">
+                        {printing ? <Loader2 className="animate-spin" size={16}/> : <CreditCard size={18}/>} 
+                        {printing ? 'Gerando...' : 'Carteirinha'}
+                    </button>
                 </div>
 
                 <div className="p-6 space-y-5">
@@ -770,6 +807,7 @@ export default function MembersPage() {
                                 className="w-full p-3 border rounded-lg bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
                                 disabled={userRole !== 'admin'}
                             >
+                                <option value="visitor">Visitante / Convertido</option>
                                 <option value="member">Membro</option>
                                 <option value="deacon">Diácono</option>
                                 <option value="leader">Líder</option>

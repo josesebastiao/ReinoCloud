@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { eventService } from "../../services/eventService";
 import { Event } from "../../types/event";
 import { 
-  Calendar, Clock, MapPin, Plus, Trash2, CheckCircle, X, Edit, AlertCircle 
-} from "lucide-react";
+  Calendar, Clock, MapPin, Plus, Trash2, CheckCircle, X, Edit, AlertCircle, Loader2 
+} from "lucide-react"; // <-- Loader2 importado aqui para corrigir o erro!
 
 export default function AgendaPage() {
   const router = useRouter();
@@ -143,7 +143,7 @@ export default function AgendaPage() {
         </div>
         <button 
           onClick={() => { closeModal(); setIsModalOpen(true); }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm font-bold w-full md:w-auto justify-center"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm font-bold w-full md:w-auto justify-center transition"
         >
           <Plus size={20} /> Agendar Compromisso
         </button>
@@ -166,15 +166,16 @@ export default function AgendaPage() {
           ) : (
             upcomingEvents.map(event => (
               <div key={event.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 hover:shadow-md transition group">
-                {/* Data Box */}
-                <div className="flex flex-col items-center justify-center bg-gray-50 p-3 rounded-lg min-w-[80px] border border-gray-100">
-                  <span className="text-xs font-bold text-gray-400 uppercase">
+                
+                {/* --- DATA BOX EM VERDE --- */}
+                <div className="flex flex-col items-center justify-center bg-green-50 p-3 rounded-xl min-w-[85px] border border-green-100">
+                  <span className="text-[10px] font-bold text-green-600 uppercase tracking-widest">
                     {new Date(event.date + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short' }).replace('.','')}
                   </span>
-                  <span className="text-2xl font-bold text-gray-800">
+                  <span className="text-3xl font-black text-green-700 my-0.5 leading-none">
                     {event.date.split('-')[2]}
                   </span>
-                  <span className="text-xs text-gray-500 capitalize">
+                  <span className="text-[10px] font-semibold text-green-600/80 capitalize">
                     {new Date(event.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.','')}
                   </span>
                 </div>
@@ -208,11 +209,11 @@ export default function AgendaPage() {
                   </div>
                   
                   <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 font-medium">
                         <Clock size={16} className="text-gray-400"/> {event.time}
                     </div>
                     {event.location && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 font-medium">
                             <MapPin size={16} className="text-gray-400"/> {event.location}
                         </div>
                     )}
@@ -229,19 +230,18 @@ export default function AgendaPage() {
           <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2 mb-4">
             <CheckCircle size={20} className="text-green-600"/> Realizados
           </h2>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4 max-h-[500px] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar">
               {pastEvents.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Nenhum histórico recente.</p>}
               {pastEvents.map(event => (
                   <div key={event.id} className="flex gap-3 items-start opacity-60 hover:opacity-100 transition group relative">
                       <div className="w-2 h-2 mt-2 rounded-full bg-gray-300 flex-shrink-0"></div>
                       <div className="flex-1">
                           <p className="text-sm font-bold text-gray-700 line-through">{event.title}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 font-medium">
                               {new Date(event.date + 'T12:00:00').toLocaleDateString('pt-BR')} • {event.time}
                           </p>
                       </div>
-                      {/* Botão de excluir no histórico também */}
-                      <button onClick={() => handleDelete(event.id!)} className="hidden group-hover:block text-gray-300 hover:text-red-500 absolute right-0 top-0">
+                      <button onClick={() => handleDelete(event.id!)} className="hidden group-hover:block text-gray-300 hover:text-red-500 absolute right-0 top-0 transition">
                           <Trash2 size={14}/>
                       </button>
                   </div>
@@ -253,34 +253,34 @@ export default function AgendaPage() {
 
       {/* MODAL (SERVE PARA CRIAR E EDITAR) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 relative">
-                <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                    <X size={20} />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-in fade-in">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative animate-in zoom-in-95">
+                <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-1.5 rounded-full transition">
+                    <X size={18} />
                 </button>
                 
-                <h2 className="text-xl font-bold text-gray-800 mb-6">
-                    {editingId ? '✏️ Editar Compromisso' : '📅 Agendar Novo'}
+                <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    {editingId ? <><Edit className="text-blue-600" size={20}/> Editar Compromisso</> : <><Calendar className="text-blue-600" size={20}/> Agendar Novo</>}
                 </h2>
 
                 <form onSubmit={handleSave} className="space-y-4">
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase">Título</label>
-                        <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Culto de Santa Ceia" />
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Título</label>
+                        <input required type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none bg-gray-50 focus:bg-white transition" placeholder="Ex: Culto de Santa Ceia" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Data</label>
-                            <input required type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full p-3 border rounded-lg" />
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Data</label>
+                            <input required type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none bg-gray-50 focus:bg-white transition" />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase">Hora</label>
-                            <input required type="time" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} className="w-full p-3 border rounded-lg" />
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Hora</label>
+                            <input required type="time" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none bg-gray-50 focus:bg-white transition" />
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase">Tipo</label>
-                        <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-3 border rounded-lg bg-white">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Tipo</label>
+                        <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none bg-gray-50 focus:bg-white transition">
                             <option value="culto">Culto</option>
                             <option value="reuniao">Reunião</option>
                             <option value="visita">Visita Pastoral</option>
@@ -288,16 +288,21 @@ export default function AgendaPage() {
                         </select>
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase">Local</label>
-                        <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full p-3 border rounded-lg" placeholder="Ex: Templo Principal" />
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Local</label>
+                        <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none bg-gray-50 focus:bg-white transition" placeholder="Ex: Templo Principal" />
                     </div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase">Observações</label>
-                        <textarea rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-3 border rounded-lg" placeholder="Detalhes adicionais..." />
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Observações</label>
+                        <textarea rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 outline-none bg-gray-50 focus:bg-white transition resize-none" placeholder="Detalhes adicionais..." />
                     </div>
-                    <button type="submit" disabled={loading} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-lg disabled:opacity-70">
-                        {loading ? 'Salvando...' : (editingId ? 'Salvar Alterações' : 'Confirmar Agendamento')}
-                    </button>
+                    
+                    <div className="flex gap-3 pt-2">
+                        <button type="button" onClick={closeModal} className="flex-1 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl font-bold transition">Cancelar</button>
+                        <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 disabled:opacity-70 transition flex justify-center items-center gap-2">
+                            {loading && <Loader2 size={18} className="animate-spin"/>}
+                            {loading ? 'Salvando...' : (editingId ? 'Salvar' : 'Agendar')}
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

@@ -6,7 +6,7 @@ import { memberService } from "../../services/memberService";
 import { Member } from "../../types/member"; 
 import { 
   Users, BarChart3, Cake, HandCoins, HeartHandshake, AlertCircle, Sparkles, 
-  PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2, ArrowLeft, X, Phone, Mail, MapPin, User
+  PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2, ArrowLeft, X, Phone, Mail, MapPin, User, Droplets
 } from "lucide-react";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -22,6 +22,10 @@ export default function ReportsPage() {
   const [activeCount, setActiveCount] = useState(0);
   const [tithersCount, setTithersCount] = useState(0);
   const [genderStats, setGenderStats] = useState({ male: 0, female: 0 });
+  
+  // NOVOS ESTADOS: Batismos
+  const [baptizedCount, setBaptizedCount] = useState(0);
+  const [unbaptizedCount, setUnbaptizedCount] = useState(0);
   
   // Listas
   const [birthdays, setBirthdays] = useState<Member[]>([]);
@@ -69,6 +73,11 @@ export default function ReportsPage() {
         const males = members.filter(m => m.gender === 'male').length;
         const females = members.filter(m => m.gender === 'female').length;
         setGenderStats({ male: males, female: females });
+
+        // Cálculo de Batizados (Se tem data de batismo cadastrada, é considerado batizado)
+        const baptized = members.filter(m => m.baptismDate && m.baptismDate.trim() !== "").length;
+        setBaptizedCount(baptized);
+        setUnbaptizedCount(members.length - baptized);
 
         let k = 0, y = 0, a = 0, s = 0;
         activeMembers.forEach(m => {
@@ -120,7 +129,7 @@ export default function ReportsPage() {
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-6xl mx-auto">
-            <Link href="/secretary" className="text-blue-200 hover:text-white flex items-center gap-2 mb-4 transition w-fit">
+            <Link href="/secretary" className="text-blue-200 hover:text-white hidden md:flex items-center gap-2 mb-4 transition w-fit">
                 <ArrowLeft size={20}/> Voltar para Secretaria
             </Link>
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3"><BarChart3 className="text-blue-300"/> Relatórios & Estatísticas</h1>
@@ -129,11 +138,40 @@ export default function ReportsPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16 relative z-10">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-center gap-4"><div className="p-3 bg-blue-50 text-blue-600 rounded-full"><Users size={24}/></div><div><p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Membros</p><h3 className="text-2xl font-black text-gray-800">{totalMembers}</h3></div></div>
-              <div className="bg-white p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-center gap-4"><div className="p-3 bg-green-50 text-green-600 rounded-full"><HandCoins size={24}/></div><div><p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Dizimistas</p><h3 className="text-2xl font-black text-gray-800">{tithersCount}</h3></div></div>
-              <div className="bg-white p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-center gap-4"><div className="p-3 bg-indigo-50 text-indigo-600 rounded-full"><ArrowUpRight size={24}/></div><div><p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Homens</p><h3 className="text-2xl font-black text-gray-800">{genderStats.male}</h3></div></div>
-              <div className="bg-white p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex items-center gap-4"><div className="p-3 bg-pink-50 text-pink-600 rounded-full"><ArrowDownRight size={24}/></div><div><p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Mulheres</p><h3 className="text-2xl font-black text-gray-800">{genderStats.female}</h3></div></div>
+          
+          {/* GRID DE DADOS RÁPIDOS - Agora com 6 colunas para telas grandes e 2 para celular */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+              <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                  <div className="p-3 bg-blue-50 text-blue-600 rounded-full"><Users size={20}/></div>
+                  <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Membros</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{totalMembers}</h3></div>
+              </div>
+              
+              <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                  <div className="p-3 bg-green-50 text-green-600 rounded-full"><HandCoins size={20}/></div>
+                  <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Dizimistas</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{tithersCount}</h3></div>
+              </div>
+
+              {/* CARD BATIZADOS */}
+              <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                  <div className="p-3 bg-cyan-50 text-cyan-600 rounded-full"><Droplets size={20}/></div>
+                  <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Batizados</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{baptizedCount}</h3></div>
+              </div>
+
+              {/* CARD NÃO BATIZADOS */}
+              <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                  <div className="p-3 bg-orange-50 text-orange-600 rounded-full"><User size={20}/></div>
+                  <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Não Batiz.</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{unbaptizedCount}</h3></div>
+              </div>
+              
+              <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-full"><ArrowUpRight size={20}/></div>
+                  <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Homens</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{genderStats.male}</h3></div>
+              </div>
+              
+              <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
+                  <div className="p-3 bg-pink-50 text-pink-600 rounded-full"><ArrowDownRight size={20}/></div>
+                  <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Mulheres</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{genderStats.female}</h3></div>
+              </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
