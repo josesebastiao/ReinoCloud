@@ -9,7 +9,7 @@ import { Member } from "../../types/member";
 import { getDirectImageUrl } from "../../utils/imageHelper"; 
 import { 
   TrendingUp, TrendingDown, Printer, PlusCircle, Trash2, User, 
-  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2, Edit, Lock, Upload, Download 
+  PieChart as PieIcon, Calendar, Filter, X, DollarSign, Loader2, Edit, Lock, Upload, Download, Target, Activity
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
@@ -89,6 +89,31 @@ export default function FinancialPage() {
   const totalIncome = filteredTransactions.filter(t => t.type === 'income').reduce((acc, c) => acc + Number(c.amount), 0);
   const totalExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, c) => acc + Number(c.amount), 0);
   const balance = totalIncome - totalExpense;
+
+  // --- INTELIGÊNCIA DE CATEGORIAS (RANKING DE RECEITAS E DESPESAS) ---
+  const incomeByCategory = filteredTransactions.filter(t => t.type === 'income').reduce((acc, curr) => {
+      acc[curr.category] = (acc[curr.category] || 0) + Number(curr.amount);
+      return acc;
+  }, {} as Record<string, number>);
+  
+  const incomeData = Object.entries(incomeByCategory)
+      .map(([name, value]) => ({ name, value, percent: totalIncome > 0 ? (value / totalIncome) * 100 : 0 }))
+      .sort((a, b) => b.value - a.value);
+
+  const expenseByCategory = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, curr) => {
+      acc[curr.category] = (acc[curr.category] || 0) + Number(curr.amount);
+      return acc;
+  }, {} as Record<string, number>);
+  
+  const expenseData = Object.entries(expenseByCategory)
+      .map(([name, value]) => ({ name, value, percent: totalExpense > 0 ? (value / totalExpense) * 100 : 0 }))
+      .sort((a, b) => b.value - a.value);
+
+  const chartData = [
+    { name: 'Entradas', value: totalIncome },
+    { name: 'Saídas', value: totalExpense },
+  ];
+  const COLORS = ['#1f2937', '#ef4444']; 
 
   const setFilterPeriod = (period: 'thisMonth' | 'lastMonth' | 'last7' | 'all') => {
       const now = new Date();
@@ -299,8 +324,6 @@ export default function FinancialPage() {
 
               alert(`✅ Importação Concluída!\n\n${successCount} lançamentos financeiros foram importados com sucesso.`);
               setShowImportModal(false);
-              
-              // TRUQUE DE MESTRE AQUI: MUDA O FILTRO PARA "TUDO" PARA O CLIENTE VER OS DADOS ANTIGOS
               setFilterPeriod('all');
               carregarDados(churchId!); 
 
@@ -395,13 +418,6 @@ export default function FinancialPage() {
       setPrinting(false);
   };
 
-  const chartData = [
-    { name: 'Entradas', value: totalIncome },
-    { name: 'Saídas', value: totalExpense },
-  ];
-  
-  const COLORS = ['#1f2937', '#ef4444']; 
-
   if (authLoading) return <div className="flex justify-center items-center min-h-screen bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   if (userRole !== 'admin' && userRole !== 'pastor' && userRole !== 'treasurer' && !hasPermission('financial')) {
@@ -495,33 +511,83 @@ export default function FinancialPage() {
              </div>
           </div>
 
+          {/* --- NOVO PAINEL DE INTELIGÊNCIA FINANCEIRA --- */}
           {(totalIncome > 0 || totalExpense > 0) && (
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row items-center justify-around print:hidden animate-in fade-in zoom-in-95">
-                <div className="text-center md:text-left mb-4 md:mb-0">
-                    <h3 className="text-lg font-bold text-gray-700 flex items-center justify-center md:justify-start gap-2">
-                        <PieIcon size={20} className="text-blue-500"/> Visão do Período
-                    </h3>
-                    <p className="text-xs text-gray-400 mt-1">Proporção de Entradas vs Saídas</p>
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6 print:hidden">
                 
-                <div className="w-full h-48 md:h-40 md:w-64 relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie data={chartData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
-                                {chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
-                            </Pie>
-                            <Tooltip formatter={(value: any) => formatMoney(Number(value))} contentStyle={{backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                            <Legend verticalAlign="bottom" height={36} iconType="circle"/>
-                        </PieChart>
-                    </ResponsiveContainer>
-                    
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                        <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Saldo</span>
-                        <span className={`text-xs font-bold tracking-tight mt-0.5 ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatMoney(balance)}
-                        </span>
+                {/* 1. Visão Macro (Gráfico) */}
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center relative animate-in fade-in zoom-in-95">
+                    <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4 w-full justify-center">
+                        <PieIcon size={16} className="text-blue-500"/> Visão do Período
+                    </h3>
+                    <div className="w-full h-40 relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={chartData} innerRadius={45} outerRadius={65} paddingAngle={5} dataKey="value">
+                                    {chartData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
+                                </Pie>
+                                <Tooltip formatter={(value: any) => formatMoney(Number(value))} contentStyle={{backgroundColor: '#fff', borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">Saldo</span>
+                            <span className={`text-xs font-bold tracking-tight mt-0.5 ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatMoney(balance)}
+                            </span>
+                        </div>
+                    </div>
+                    {/* Alerta de Saúde Financeira */}
+                    <div className="mt-4 w-full bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
+                        {totalIncome > 0 ? (
+                            <p className="text-xs text-gray-600 leading-tight">
+                                As despesas comprometeram <strong className={totalExpense > totalIncome ? 'text-red-600' : 'text-gray-900'}>{((totalExpense / totalIncome) * 100).toFixed(1)}%</strong> da receita.
+                            </p>
+                        ) : (
+                            <p className="text-xs text-gray-600">Nenhuma entrada no período.</p>
+                        )}
                     </div>
                 </div>
+
+                {/* 2. Ranking de Receitas */}
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-in fade-in zoom-in-95 delay-100">
+                    <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4">
+                        <TrendingUp size={16} className="text-emerald-500"/> Origem das Receitas
+                    </h3>
+                    <div className="space-y-4 overflow-y-auto max-h-[180px] custom-scrollbar pr-2">
+                        {incomeData.length > 0 ? incomeData.map(item => (
+                            <div key={item.name}>
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span className="font-medium text-gray-600 truncate">{item.name}</span>
+                                    <span className="font-bold text-gray-900">{formatMoney(item.value)}</span>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                    <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${item.percent}%` }}></div>
+                                </div>
+                            </div>
+                        )) : <p className="text-xs text-gray-400 text-center py-4">Nenhuma entrada registrada.</p>}
+                    </div>
+                </div>
+
+                {/* 3. Ranking de Despesas */}
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 animate-in fade-in zoom-in-95 delay-200">
+                    <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4">
+                        <TrendingDown size={16} className="text-red-500"/> Destino das Despesas
+                    </h3>
+                    <div className="space-y-4 overflow-y-auto max-h-[180px] custom-scrollbar pr-2">
+                        {expenseData.length > 0 ? expenseData.map(item => (
+                            <div key={item.name}>
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span className="font-medium text-gray-600 truncate">{item.name}</span>
+                                    <span className="font-bold text-gray-900">{formatMoney(item.value)}</span>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                    <div className="bg-red-500 h-1.5 rounded-full" style={{ width: `${item.percent}%` }}></div>
+                                </div>
+                            </div>
+                        )) : <p className="text-xs text-gray-400 text-center py-4">Nenhuma despesa registrada.</p>}
+                    </div>
+                </div>
+
             </div>
           )}
 
