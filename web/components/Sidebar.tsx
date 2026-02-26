@@ -63,13 +63,14 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       }
   };
 
+  // --- MENU REORGANIZADO CONFORME SOLICITADO ---
   const menuItems = [
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Início", href: "/" }] : []),
+    ...(canAccess('secretary') ? [{ icon: FolderOpen, label: "Secretaria", href: "/secretary" }] : []),
+    ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
+    ...(canAccess('ministry')  ? [{ icon: Music, label: "Departamentos", href: "/ministries" }] : []),
     ...(canAccess('posts')     ? [{ icon: Megaphone, label: "Mural de Avisos", href: "/posts" }] : []),
     ...(canAccess('prayers')   ? [{ icon: Heart, label: "Pedidos de Oração", href: "/prayers" }] : []), 
-    ...(canAccess('secretary') ? [{ icon: FolderOpen, label: "Secretaria", href: "/secretary" }] : []),
-    ...(canAccess('ministry')  ? [{ icon: Music, label: "Departamentos", href: "/ministries" }] : []),
-    ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
     ...(canAccess('settings')  ? [{ icon: Settings, label: "Configurações", href: "/settings" }] : []),
     ...(isSuperAdmin ? [{ icon: ShieldAlert, label: "Painel SaaS", href: "/admin", special: true }] : []),
   ];
@@ -89,7 +90,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           <div className={`mt-6 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
             <Shield size={10} />
             <span className="truncate max-w-[150px]">
-                {/* AQUI ESTÁ A CORREÇÃO */}
                 {getRoleLabel()}
             </span>
           </div>

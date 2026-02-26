@@ -65,18 +65,18 @@ export default function PrayersPage() {
       }
   };
 
-  if (authLoading) return <div className="flex justify-center items-center min-h-screen"><Loader2 className="animate-spin text-purple-600"/></div>;
+  if (authLoading) return <div className="flex justify-center items-center min-h-screen"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       
-      {/* CABEÇALHO */}
-      <div className="bg-purple-700 pt-10 pb-24 px-8 shadow-sm">
+      {/* CABEÇALHO PADRONIZADO EM AZUL */}
+      <div className="bg-[#1D4ED8] pt-10 pb-24 px-8 shadow-sm">
         <div className="max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-              <Heart className="text-purple-300" fill="currentColor"/> Caixa de Oração
+              <Heart className="text-blue-300" fill="currentColor"/> Caixa de Oração
             </h1>
-            <p className="text-purple-100 text-lg opacity-90">Intercessão e cuidado pastoral.</p>
+            <p className="text-blue-100 text-lg opacity-90">Intercessão e cuidado pastoral.</p>
         </div>
       </div>
 
@@ -85,7 +85,7 @@ export default function PrayersPage() {
           <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden min-h-[400px]">
               {loading ? (
                   <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-2">
-                      <Loader2 className="animate-spin"/> Carregando pedidos...
+                      <Loader2 className="animate-spin text-blue-600"/> Carregando pedidos...
                   </div>
               ) : prayers.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-64 text-gray-400 gap-2">
@@ -112,8 +112,8 @@ export default function PrayersPage() {
                               
                               {/* Conteúdo */}
                               <div className="flex-1">
-                                  <div className="bg-purple-50 p-4 rounded-xl text-sm text-gray-700 leading-relaxed border border-purple-100 relative">
-                                      <span className="absolute -top-2 left-4 text-purple-200 text-4xl font-serif h-4">“</span>
+                                  <div className="bg-blue-50 p-4 rounded-xl text-sm text-gray-700 leading-relaxed border border-blue-100 relative">
+                                      <span className="absolute -top-2 left-4 text-blue-200 text-4xl font-serif h-4">“</span>
                                       <p className="relative z-10">{prayer.content}</p>
                                   </div>
 
@@ -131,12 +131,12 @@ export default function PrayersPage() {
                                           <input 
                                               autoFocus
                                               type="text" 
-                                              className="flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-purple-200"
+                                              className="flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-blue-200"
                                               placeholder="Escreva uma palavra de conforto..."
                                               value={replyText}
                                               onChange={e => setReplyText(e.target.value)}
                                           />
-                                          <button onClick={() => handleSendReply(prayer.id!)} className="bg-purple-600 text-white p-2 rounded-lg hover:bg-purple-700"><Send size={16}/></button>
+                                          <button onClick={() => handleSendReply(prayer.id!)} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700"><Send size={16}/></button>
                                           <button onClick={() => setReplyingId(null)} className="text-gray-400 p-2 hover:text-red-500"><CheckCircle2 size={16}/></button>
                                       </div>
                                   ) : (
@@ -147,7 +147,7 @@ export default function PrayersPage() {
                                               </span>
                                           ) : (
                                               <>
-                                                  <button onClick={() => { setReplyingId(prayer.id!); setReplyText(prayer.response || ""); }} className="text-xs font-bold text-purple-600 flex items-center gap-1 hover:bg-purple-50 px-3 py-2 rounded-lg transition border border-purple-200">
+                                                  <button onClick={() => { setReplyingId(prayer.id!); setReplyText(prayer.response || ""); }} className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-3 py-2 rounded-lg transition border border-blue-200">
                                                       <MessageCircle size={14}/> {prayer.response ? 'Editar Resposta' : 'Responder'}
                                                   </button>
                                                   
