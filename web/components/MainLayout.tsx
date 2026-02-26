@@ -59,9 +59,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     <span className="font-bold text-white text-lg tracking-tight">{pathname === '/' ? 'ReinoCloud' : 'Voltar'}</span>
                 </div>
             </div>
-            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm border border-blue-500 shadow-sm">
-                {userRole ? userRole.slice(0,2).toUpperCase() : 'ME'}
-            </div>
+            {/* A bolinha do 'AD' foi removida daqui para deixar o layout mais limpo */}
         </header>
 
         {/* ÁREA DE CONTEÚDO */}
