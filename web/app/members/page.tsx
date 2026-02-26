@@ -409,12 +409,12 @@ export default function MembersPage() {
       } 
   };
 
-  // --- LÓGICA DE IMPORTAÇÃO DE PLANILHA ---
+  // --- LÓGICA DE IMPORTAÇÃO DE PLANILHA (AGORA COM DATA DE NASCIMENTO) ---
   const downloadTemplate = () => {
-    // Definindo o cabeçalho padrão
-    const headers = "Nome Completo;Email;Telefone;Sexo (M/F);Estado Civil (solteiro/casado/divorciado/viuvo);Cargo (membro/visitante/diacono);Dizimista (S/N)\n";
+    // Definindo o cabeçalho padrão com Data de Nascimento adicionada
+    const headers = "Nome Completo;Email;Telefone;Sexo (M/F);Estado Civil (solteiro/casado/divorciado/viuvo);Cargo (membro/visitante/diacono);Dizimista (S/N);Data de Nascimento (DD/MM/AAAA)\n";
     // Linha de exemplo
-    const sample = "Joao da Silva;joao@email.com;11999999999;M;casado;membro;S\n";
+    const sample = "Joao da Silva;joao@email.com;11999999999;M;casado;membro;S;15/08/1990\n";
     
     // Suporte a acentos (UTF-8 BOM)
     const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
@@ -499,6 +499,20 @@ export default function MembersPage() {
                   const rawDizimista = (columns[6] || "").toUpperCase();
                   const isDizimista = rawDizimista.startsWith('S') || rawDizimista === 'SIM';
 
+                  // Tratamento Data de Nascimento (Formato DD/MM/AAAA para YYYY-MM-DD)
+                  let formatedBirthDate = "";
+                  const rawBirthDate = columns[7] ? columns[7].trim() : "";
+                  if (rawBirthDate) {
+                      const parts = rawBirthDate.includes('/') ? rawBirthDate.split('/') : rawBirthDate.split('-');
+                      if (parts.length === 3) {
+                          if (parts[2].length === 4) { // Se for DD/MM/YYYY
+                              formatedBirthDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                          } else if (parts[0].length === 4) { // Se o Excel já salvou como YYYY/MM/DD
+                               formatedBirthDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                          }
+                      }
+                  }
+
                   const payload: Member = {
                       churchId: churchId!,
                       fullName: nome,
@@ -509,6 +523,7 @@ export default function MembersPage() {
                       role: cargo,
                       status: 'active',
                       isTither: isDizimista,
+                      birthDate: formatedBirthDate, // Inserido aqui!
                       ministries: [],
                       permissions: [],
                       address: { street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "" }
