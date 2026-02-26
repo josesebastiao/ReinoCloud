@@ -11,7 +11,7 @@ import { db } from "../../lib/firebase";
 import { doc, getDoc } from "firebase/firestore"; 
 import { 
   Users, Search, PlusCircle, Edit, Trash2, Key, Printer,
-  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard, AlertTriangle, Shield 
+  MapPin, Phone, Mail, ChevronLeft, ChevronRight, Loader2, HandCoins, Lock, X, Building2, Heart, Briefcase, Camera, ShieldCheck, User, CreditCard, AlertTriangle, Shield, Upload, Download
 } from "lucide-react";
 
 export default function MembersPage() {
@@ -31,6 +31,11 @@ export default function MembersPage() {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printing, setPrinting] = useState(false);
   
+  // Estados para Importação de Planilha
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+
   const [viewMember, setViewMember] = useState<Member | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedMemberForAccess, setSelectedMemberForAccess] = useState<Member | null>(null);
@@ -86,7 +91,7 @@ export default function MembersPage() {
           case 'leader': return 'Líder';
           case 'secretary': return 'Secretaria';
           case 'treasurer': return 'Tesouraria';
-          case 'visitor': return 'Visitante / Convertido'; // NOVA OPÇÃO ADICIONADA
+          case 'visitor': return 'Visitante / Convertido';
           default: return 'Membro';
       }
   };
@@ -214,7 +219,7 @@ export default function MembersPage() {
       setEditingId(null);
       setFormData({
         fullName: "", email: "", phone: "", document: "", birthDate: "", baptismDate: "", photoUrl: "",
-        gender: "male", maritalStatus: "single", role: "visitor", status: "active", isTither: false, // Default alterado levemente (opcional)
+        gender: "male", maritalStatus: "single", role: "visitor", status: "active", isTither: false,
         street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "",
         selectedMinistries: [],
         permissions: []
@@ -404,6 +409,133 @@ export default function MembersPage() {
       } 
   };
 
+  // --- LÓGICA DE IMPORTAÇÃO DE PLANILHA ---
+  const downloadTemplate = () => {
+    // Definindo o cabeçalho padrão
+    const headers = "Nome Completo;Email;Telefone;Sexo (M/F);Estado Civil (solteiro/casado/divorciado/viuvo);Cargo (membro/visitante/diacono);Dizimista (S/N)\n";
+    // Linha de exemplo
+    const sample = "Joao da Silva;joao@email.com;11999999999;M;casado;membro;S\n";
+    
+    // Suporte a acentos (UTF-8 BOM)
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, headers + sample], { type: 'text/csv;charset=utf-8;' });
+    
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "ReinoCloud_Modelo_Membros.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          const text = event.target?.result as string;
+          if (!text) return;
+
+          setImporting(true);
+          try {
+              // Descobre se o Excel salvou com vírgula ou ponto-e-vírgula
+              const separator = text.indexOf(';') > -1 ? ';' : ',';
+              
+              // Separa as linhas (ignorando linhas vazias no final)
+              const rows = text.split('\n').filter(row => row.trim() !== '');
+              
+              if (rows.length <= 1) {
+                  alert("A planilha parece estar vazia ou conter apenas o cabeçalho.");
+                  setImporting(false);
+                  return;
+              }
+
+              // Remove o cabeçalho para processar só os dados
+              const dataRows = rows.slice(1);
+              
+              // Validação do Limite de Plano
+              if (activeMembersCount + dataRows.length > planLimit) {
+                  alert(`LIMITE DE PLANO ATINGIDO!\n\nVocê tem ${activeMembersCount} membros e está tentando importar ${dataRows.length} novos.\nO limite do seu plano é ${planLimit}.\n\nFaça o upgrade do seu plano para importar toda a lista.`);
+                  setImporting(false);
+                  return;
+              }
+
+              setImportProgress({ current: 0, total: dataRows.length });
+
+              // Processa linha por linha
+              let successCount = 0;
+              for (let i = 0; i < dataRows.length; i++) {
+                  const columns = dataRows[i].split(separator).map(col => col.trim());
+                  
+                  // Ignora linhas incompletas
+                  if (columns.length < 1 || !columns[0]) continue;
+
+                  const nome = columns[0] || "";
+                  const email = columns[1] || "";
+                  const telefone = columns[2] || "";
+                  
+                  // Tratamento Sexo
+                  const rawSexo = (columns[3] || "").toUpperCase();
+                  const sexo = rawSexo.startsWith('F') ? 'female' : 'male';
+                  
+                  // Tratamento Estado Civil
+                  const rawCivil = (columns[4] || "").toLowerCase();
+                  let civil = 'single';
+                  if (rawCivil.includes('casad')) civil = 'married';
+                  else if (rawCivil.includes('divorciad')) civil = 'divorced';
+                  else if (rawCivil.includes('viuv') || rawCivil.includes('viúv')) civil = 'widowed';
+
+                  // Tratamento Cargo
+                  const rawCargo = (columns[5] || "").toLowerCase();
+                  let cargo = 'member';
+                  if (rawCargo.includes('visit') || rawCargo.includes('novo')) cargo = 'visitor';
+                  else if (rawCargo.includes('diacon') || rawCargo.includes('diácon')) cargo = 'deacon';
+                  else if (rawCargo.includes('lider') || rawCargo.includes('líder')) cargo = 'leader';
+
+                  // Tratamento Dizimista
+                  const rawDizimista = (columns[6] || "").toUpperCase();
+                  const isDizimista = rawDizimista.startsWith('S') || rawDizimista === 'SIM';
+
+                  const payload: Member = {
+                      churchId: churchId!,
+                      fullName: nome,
+                      email: email,
+                      phone: telefone,
+                      gender: sexo,
+                      maritalStatus: civil,
+                      role: cargo,
+                      status: 'active',
+                      isTither: isDizimista,
+                      ministries: [],
+                      permissions: [],
+                      address: { street: "", number: "", neighborhood: "", city: "", state: "", zipCode: "" }
+                  };
+
+                  await memberService.create(payload);
+                  successCount++;
+                  setImportProgress({ current: successCount, total: dataRows.length });
+              }
+
+              alert(`✅ Importação Concluída!\n\ ${successCount} membros foram adicionados à sua igreja.`);
+              setShowImportModal(false);
+              loadData(); // Recarrega a lista
+          } catch (error) {
+              console.error("Erro na importação:", error);
+              alert("Ocorreu um erro ao ler o arquivo. Certifique-se de que ele é um arquivo CSV válido salvo pelo Excel.");
+          } finally {
+              setImporting(false);
+              setImportProgress({ current: 0, total: 0 });
+              // Limpa o input de arquivo
+              if (e.target) e.target.value = '';
+          }
+      };
+      
+      reader.readAsText(file, 'UTF-8');
+  };
+
   const handlePrintExecute = async () => {
     setPrinting(true);
     const printWindow = window.open('', '_blank', 'width=900,height=600');
@@ -539,15 +671,20 @@ export default function MembersPage() {
                         onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                     />
                 </div>
-                <div className="flex gap-3 w-full md:w-auto">
-                    <button onClick={handlePrintExecute} disabled={printing} className="flex-1 md:flex-none px-4 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition flex items-center justify-center gap-2">
+                <div className="flex gap-2 w-full md:w-auto">
+                    <button onClick={handlePrintExecute} disabled={printing} className="flex-1 md:flex-none px-4 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition flex items-center justify-center gap-2" title="Imprimir Lista">
                         {printing ? <Loader2 className="animate-spin" size={20}/> : <Printer size={20}/>} 
-                        <span className="hidden md:inline">Relatório</span>
                     </button>
                     {(userRole === 'admin' || userRole === 'secretary') && (
-                        <button onClick={() => handleOpenEdit()} className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2">
-                            <PlusCircle size={20}/> Novo Cadastro
-                        </button>
+                        <>
+                            {/* BOTÃO DE IMPORTAÇÃO DE PLANILHA */}
+                            <button onClick={() => setShowImportModal(true)} className="flex-1 md:flex-none px-4 py-3 rounded-xl bg-emerald-50 text-emerald-600 font-bold border border-emerald-200 hover:bg-emerald-100 transition flex items-center justify-center gap-2">
+                                <Upload size={20}/> <span className="hidden md:inline">Importar</span>
+                            </button>
+                            <button onClick={() => handleOpenEdit()} className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2">
+                                <PlusCircle size={20}/> Novo
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -573,7 +710,6 @@ export default function MembersPage() {
                                         {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100"/></span>}
                                     </span>
                                     <div className="flex items-center gap-2 flex-wrap mt-1">
-                                        {/* COR DE DESTAQUE PARA VISITANTE / NOVO CONVERTIDO AQUI */}
                                         <span className={`text-[10px] px-2 rounded uppercase font-bold ${
                                             member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 
                                             member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
@@ -620,7 +756,6 @@ export default function MembersPage() {
                                     {member.permissions && member.permissions.includes('financial') && <Shield size={12} className="text-green-500 fill-green-100"/>}
                                 </h3>
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                     {/* COR DE DESTAQUE PARA VISITANTE NO MOBILE */}
                                     <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${
                                         member.role === 'admin' ? 'bg-purple-100 text-purple-700' : 
                                         member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
@@ -666,8 +801,59 @@ export default function MembersPage() {
         </div>
       </div>
 
+      {/* --- MODAL DE IMPORTAÇÃO DE PLANILHA CSV --- */}
+      {showImportModal && (
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in zoom-in-95">
+                  <button onClick={() => !importing && setShowImportModal(false)} disabled={importing} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-1.5 rounded-full transition disabled:opacity-50">
+                      <X size={18} />
+                  </button>
+                  
+                  <div className="flex flex-col items-center mb-6 mt-2">
+                      <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                          <Upload size={32}/>
+                      </div>
+                      <h2 className="text-xl font-bold text-gray-800">Importar Membros</h2>
+                      <p className="text-sm text-gray-500 text-center mt-2">Adicione vários membros de uma vez através de uma planilha do Excel (CSV).</p>
+                  </div>
+
+                  {!importing ? (
+                      <div className="space-y-4">
+                          <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                              <h3 className="text-xs font-bold text-blue-800 uppercase mb-2">Passo 1: Baixe o Modelo</h3>
+                              <p className="text-xs text-blue-600 mb-3">Sua planilha precisa ter colunas específicas para o sistema ler corretamente.</p>
+                              <button onClick={downloadTemplate} className="w-full py-2.5 bg-white text-blue-700 border border-blue-200 font-bold rounded-lg hover:bg-blue-100 transition flex justify-center items-center gap-2 text-sm shadow-sm">
+                                  <Download size={16}/> Baixar Planilha Modelo
+                              </button>
+                          </div>
+                          
+                          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                              <h3 className="text-xs font-bold text-slate-700 uppercase mb-2">Passo 2: Suba o arquivo CSV</h3>
+                              <p className="text-[10px] text-slate-500 mb-3">Preencha os dados no Excel, vá em "Salvar Como" e escolha o formato "CSV (separado por vírgulas)".</p>
+                              
+                              <label htmlFor="csv-upload" className="w-full py-3 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition flex justify-center items-center gap-2 text-sm shadow-md cursor-pointer">
+                                  <Upload size={16}/> Escolher Arquivo CSV
+                              </label>
+                              <input id="csv-upload" type="file" accept=".csv, text/csv" className="hidden" onChange={handleFileUpload} />
+                          </div>
+                      </div>
+                  ) : (
+                      <div className="py-8 flex flex-col items-center text-center">
+                          <Loader2 size={48} className="text-emerald-500 animate-spin mb-4"/>
+                          <h3 className="text-lg font-bold text-gray-800">Importando Membros...</h3>
+                          <p className="text-gray-500 mt-2 text-sm">Por favor, não feche esta janela.</p>
+                          <div className="w-full bg-gray-100 rounded-full h-3 mt-6 overflow-hidden">
+                              <div className="bg-emerald-500 h-3 transition-all duration-300" style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}></div>
+                          </div>
+                          <p className="text-xs font-bold text-emerald-600 mt-2">{importProgress.current} de {importProgress.total} processados</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+      )}
+
       {showViewModal && viewMember && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 relative">
                 <button onClick={() => setShowViewModal(false)} className="absolute top-4 right-4 z-[60] bg-black/20 hover:bg-black/40 text-white p-2 rounded-full transition"><X size={18}/></button>
                 
@@ -723,7 +909,7 @@ export default function MembersPage() {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 custom-scrollbar">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
                     <h2 className="text-xl font-semibold text-slate-800">{editingId ? 'Editar Membro' : 'Novo Cadastro'}</h2>
@@ -889,7 +1075,7 @@ export default function MembersPage() {
       )}
 
       {showAccessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
                 <div className="text-center mb-6"><div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4"><Lock size={32}/></div><h2 className="text-xl font-bold">Criar Acesso</h2></div>
                 <form onSubmit={handleCreateAccess} className="space-y-4">
