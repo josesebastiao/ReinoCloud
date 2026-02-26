@@ -16,7 +16,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 export default function FinancialPage() {
   const router = useRouter();
   
-  // 1. Contexto e Segurança
   const { formatMoney, churchName, logoUrl, userRole, hasPermission, churchId, loading: authLoading } = useChurch();
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -25,12 +24,10 @@ export default function FinancialPage() {
   const [dataLoading, setDataLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
 
-  // Estados para Importação de Planilha
   const [showImportModal, setShowImportModal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
 
-  // 2. TRAVA DE SEGURANÇA BLINDADA
   useEffect(() => {
     if (!authLoading) {
         if (userRole !== 'admin' && userRole !== 'pastor' && userRole !== 'treasurer' && !hasPermission('financial')) {
@@ -39,7 +36,6 @@ export default function FinancialPage() {
     }
   }, [authLoading, userRole, hasPermission, router]);
 
-  // FILTROS
   const [filterType, setFilterType] = useState<'all'|'income'|'expense'>('all');
   
   const today = new Date();
@@ -49,7 +45,6 @@ export default function FinancialPage() {
   const [startDate, setStartDate] = useState(firstDay);
   const [endDate, setEndDate] = useState(lastDay);
   
-  // MODAL E EDIÇÃO
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null); 
   
@@ -65,7 +60,6 @@ export default function FinancialPage() {
   const INCOME_CATEGORIES = ["Dízimo", "Oferta de Culto", "Oferta Especial", "Voto", "Bazar", "Cantina", "Doação Externa", "Outros"];
   const EXPENSE_CATEGORIES = ["Aluguel", "Energia", "Água", "Internet", "Manutenção", "Material de Limpeza", "Ajuda Social", "Salário Pastoral", "Equipamentos", "Outros"];
 
-  // 3. Carregar Dados
   useEffect(() => {
     if (churchId && !authLoading) {
         carregarDados(churchId);
@@ -197,15 +191,11 @@ export default function FinancialPage() {
     }
   };
 
-  // --- LÓGICA DE IMPORTAÇÃO DE PLANILHA CSV (FINANCEIRO) ---
   const downloadTemplate = () => {
-    // Cabeçalho claro e autoexplicativo
     const headers = "Tipo (E ou S);Data (DD/MM/AAAA);Valor;Categoria;Descricao;Nome do Membro (Opcional)\n";
-    // Exemplos práticos
     const sample1 = "E;15/10/2023;250,00;Dízimo;Dízimo do Mês;João Batista\n";
     const sample2 = "S;18/10/2023;120,50;Energia;Conta de Luz da Sede;\n";
     
-    // Força o Excel a entender que tem acentos (UTF-8)
     const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
     const blob = new Blob([bom, headers + sample1 + sample2], { type: 'text/csv;charset=utf-8;' });
     
@@ -230,7 +220,6 @@ export default function FinancialPage() {
 
           setImporting(true);
           try {
-              // Verifica se o CSV usa Ponto-e-Vírgula (Brasil/Angola) ou Vírgula (Padrão Inglês)
               const separator = text.indexOf(';') > -1 ? ';' : ',';
               const rows = text.split('\n').filter(row => row.trim() !== '');
               
@@ -246,40 +235,34 @@ export default function FinancialPage() {
               let successCount = 0;
               
               for (let i = 0; i < dataRows.length; i++) {
-                  // Limpa as aspas indesejadas do Excel
                   const columns = dataRows[i].split(separator).map(col => col.trim().replace(/^"|"$/g, ''));
-                  
-                  if (columns.length < 3) continue; // Precisa de pelo menos Tipo, Data e Valor
+                  if (columns.length < 3) continue; 
 
-                  // 1. Tratamento do TIPO (Entrada ou Saída)
                   const rawType = columns[0].toUpperCase();
                   const type = (rawType.startsWith('E') || rawType.startsWith('I') || rawType.startsWith('+')) ? 'income' : 'expense';
 
-                  // 2. Tratamento da DATA
-                  let dateStr = new Date().toISOString().split('T')[0]; // Padrão: Hoje
+                  let dateStr = new Date().toISOString().split('T')[0]; 
                   const rawDate = columns[1];
                   if (rawDate) {
                       const parts = rawDate.includes('/') ? rawDate.split('/') : rawDate.split('-');
                       if (parts.length === 3) {
-                          if (parts[2].length === 4) { // DD/MM/YYYY
+                          if (parts[2].length === 4) { 
                               dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                          } else if (parts[0].length === 4) { // YYYY/MM/DD
+                          } else if (parts[0].length === 4) { 
                               dateStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
                           }
                       }
                   }
 
-                  // 3. Tratamento de VALOR MONETÁRIO (Aceita 1.500,00 ou 1500.00)
-                  let rawAmount = columns[2].replace(/[R$Kz\s]/gi, ''); // Tira símbolos de moeda
+                  let rawAmount = columns[2].replace(/[R$Kz\s]/gi, ''); 
                   if (rawAmount.includes('.') && rawAmount.includes(',')) {
-                      rawAmount = rawAmount.replace(/\./g, '').replace(',', '.'); // BR: 1.500,00 -> 1500.00
+                      rawAmount = rawAmount.replace(/\./g, '').replace(',', '.'); 
                   } else if (rawAmount.includes(',')) {
-                      rawAmount = rawAmount.replace(',', '.'); // BR: 150,00 -> 150.00
+                      rawAmount = rawAmount.replace(',', '.'); 
                   }
                   const amountNum = parseFloat(rawAmount);
-                  if (isNaN(amountNum) || amountNum <= 0) continue; // Pula se o valor for inválido
+                  if (isNaN(amountNum) || amountNum <= 0) continue; 
 
-                  // 4. Outros campos
                   const category = columns[3] || (type === 'income' ? 'Outros' : 'Outros');
                   const description = columns[4] || category;
                   const memberNameInput = columns[5] || "";
@@ -287,13 +270,11 @@ export default function FinancialPage() {
                   let memberId = null;
                   let finalMemberName = memberNameInput;
 
-                  // 5. Inteligência de Vínculo: Se for Dízimo e tiver nome, procura o membro!
                   if (type === 'income' && category.toLowerCase().includes('dízim') && memberNameInput) {
                       const foundMember = members.find(m => m.fullName.toLowerCase() === memberNameInput.toLowerCase());
                       if (foundMember) {
                           memberId = foundMember.id;
                           finalMemberName = foundMember.fullName;
-                          // Marca o membro como dizimista se ainda não for
                           if (!foundMember.isTither) {
                               await memberService.update(foundMember.id!, { isTither: true });
                           }
@@ -318,6 +299,9 @@ export default function FinancialPage() {
 
               alert(`✅ Importação Concluída!\n\n${successCount} lançamentos financeiros foram importados com sucesso.`);
               setShowImportModal(false);
+              
+              // TRUQUE DE MESTRE AQUI: MUDA O FILTRO PARA "TUDO" PARA O CLIENTE VER OS DADOS ANTIGOS
+              setFilterPeriod('all');
               carregarDados(churchId!); 
 
           } catch (error) {
@@ -326,7 +310,7 @@ export default function FinancialPage() {
           } finally {
               setImporting(false);
               setImportProgress({ current: 0, total: 0 });
-              if (e.target) e.target.value = ''; // Limpa o input
+              if (e.target) e.target.value = ''; 
           }
       };
       
@@ -445,7 +429,6 @@ export default function FinancialPage() {
                 <button onClick={handlePrint} disabled={printing} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl flex items-center gap-2 font-bold transition">
                     {printing ? <Loader2 className="animate-spin" size={18}/> : <Printer size={18}/>} Imprimir
                 </button>
-                {/* BOTÃO IMPORTAR NOVO NO DESKTOP */}
                 <button onClick={() => setShowImportModal(true)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-bold shadow-lg transition">
                     <Upload size={18} /> Importar CSV
                 </button>
@@ -463,12 +446,10 @@ export default function FinancialPage() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-8 relative z-10 print:mt-0">
 
-          {/* BOTÕES MOBILE */}
           <div className="md:hidden flex gap-2 mb-4 w-full print:hidden">
               <button onClick={() => handleOpenModal()} className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl font-bold shadow-md shadow-blue-200 flex justify-center items-center gap-2 active:scale-[0.98] transition">
                   <PlusCircle size={18}/> Novo
               </button>
-              {/* BOTÃO IMPORTAR NO MOBILE */}
               <button onClick={() => setShowImportModal(true)} className="bg-emerald-500 text-white px-5 py-3.5 rounded-xl font-bold shadow-sm flex justify-center items-center active:scale-[0.98] transition">
                   <Upload size={20}/>
               </button>
@@ -477,7 +458,6 @@ export default function FinancialPage() {
               </button>
           </div>
 
-          {/* BARRA DE FILTROS */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 print:hidden">
               <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                   <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-1 scrollbar-hide">
@@ -545,7 +525,6 @@ export default function FinancialPage() {
             </div>
           )}
 
-          {/* EXTRATO */}
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden p-6 print:shadow-none print:border-0">
               <div className="flex justify-between items-center mb-6">
                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
@@ -605,7 +584,6 @@ export default function FinancialPage() {
           </div>
       </div>
 
-      {/* --- MODAL IMPORTAR CSV --- */}
       {showImportModal && (
           <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative animate-in zoom-in-95">
@@ -656,7 +634,6 @@ export default function FinancialPage() {
           </div>
       )}
 
-      {/* --- MODAL NOVO/EDITAR LANÇAMENTO --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm print:hidden animate-in fade-in">
            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
