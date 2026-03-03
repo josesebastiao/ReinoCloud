@@ -6,7 +6,7 @@ import { memberService } from "../../services/memberService";
 import { generalScaleService } from "../../services/generalScaleService";
 import { Member } from "../../types/member";
 import { db } from "../../lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { getDirectImageUrl } from "../../utils/imageHelper";
 
 import {
@@ -37,6 +37,7 @@ export default function ServicesPage() {
     const [loading, setLoading] = useState(false);
     const [printing, setPrinting] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [savingOrganogram, setSavingOrganogram] = useState(false);
 
     const [selectedDoc, setSelectedDoc] = useState<'recommendation' | 'transfer' | 'scale' | 'certificate' | 'baptism' | 'organogram' | null>(null);
     const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -94,6 +95,9 @@ export default function ServicesPage() {
                 if (data.city) {
                     setChurchCity(data.city);
                 }
+                if (data.organogram) {
+                    setOrganogramData(data.organogram);
+                }
             }
         } catch (e) { console.error(e); }
     };
@@ -150,6 +154,24 @@ export default function ServicesPage() {
         const newRows = [...scaleData.rows];
         newRows[index] = { ...newRows[index], [field]: value };
         setScaleData({ ...scaleData, rows: newRows });
+    };
+
+    // --- FUNÇÕES DO ORGANOGRAMA ---
+    const handleSaveOrganogram = async () => {
+        if (!churchId) return;
+        setSavingOrganogram(true);
+        try {
+            const docRef = doc(db, "churches", churchId);
+            await updateDoc(docRef, {
+                organogram: organogramData
+            });
+            alert("Organograma salvo com sucesso!");
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao salvar organograma.");
+        } finally {
+            setSavingOrganogram(false);
+        }
     };
 
     // --- IMPRESSÃO ---
@@ -583,9 +605,14 @@ export default function ServicesPage() {
                                             Preencha os nomes dos líderes nas respectivas áreas. Ao clicar em Imprimir, o sistema gerará a árvore (mapa visual) formatada em paisagem.
                                         </p>
                                     </div>
-                                    <button onClick={handlePrint} disabled={printing} className="bg-pink-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-pink-200 hover:bg-pink-700 transition flex items-center gap-2 w-full md:w-auto shrink-0">
-                                        {printing ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />} Imprimir Organograma
-                                    </button>
+                                    <div className="flex gap-2 w-full md:w-auto shrink-0 flex-col sm:flex-row">
+                                        <button onClick={handleSaveOrganogram} disabled={savingOrganogram} className="bg-white border border-pink-200 text-pink-700 hover:bg-pink-50 px-6 py-3 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-2">
+                                            {savingOrganogram ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} Salvar Dados
+                                        </button>
+                                        <button onClick={handlePrint} disabled={printing} className="bg-pink-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-pink-200 hover:bg-pink-700 transition flex items-center gap-2 justify-center">
+                                            {printing ? <Loader2 className="animate-spin" size={18} /> : <Printer size={18} />} Imprimir Organograma
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
