@@ -771,6 +771,12 @@ export default function MembersPage() {
                         </div>
                     </div>
 
+                    <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                        <p className="text-sm font-medium text-slate-600">
+                            Total: <strong className="text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full ml-1">{filteredMembers.length}</strong> {filteredMembers.length === 1 ? 'resultado' : 'resultados'}
+                        </p>
+                    </div>
+
                     <div className="hidden md:block bg-white overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
@@ -793,8 +799,8 @@ export default function MembersPage() {
                                                         </span>
                                                         <div className="flex items-center gap-2 flex-wrap mt-1">
                                                             <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                                    member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
-                                                                        'bg-gray-100 text-gray-500'
+                                                                member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
+                                                                    'bg-gray-100 text-gray-500'
                                                                 }`}>
                                                                 {translateRole(member.role)}
                                                             </span>
@@ -838,8 +844,8 @@ export default function MembersPage() {
                                         </h3>
                                         <div className="flex flex-wrap gap-1 mt-1">
                                             <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                    member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
-                                                        'bg-gray-100 text-gray-500'
+                                                member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
+                                                    'bg-gray-100 text-gray-500'
                                                 }`}>
                                                 {translateRole(member.role)}
                                             </span>
