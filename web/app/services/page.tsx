@@ -305,8 +305,11 @@ export default function ServicesPage() {
         `;
 
             // --- CASO 3: CARTAS (RECOMENDAÇÃO E TRANSFERÊNCIA) ---
-        } else {
-            if (!selectedMember) return;
+        } else if (selectedDoc === 'recommendation' || selectedDoc === 'transfer') {
+            if (!selectedMember) {
+                setPrinting(false);
+                return;
+            }
 
             let bodyText = "";
 
