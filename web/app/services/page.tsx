@@ -627,6 +627,110 @@ export default function ServicesPage() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* PREVIEW VISUAL */}
+                                <div className="mt-8">
+                                    <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                        <Network size={18} className="text-pink-600" /> Pré-visualização do Organograma
+                                    </h4>
+                                    <div className="bg-white border text-center border-gray-200 rounded-3xl p-6 overflow-x-auto custom-scrollbar shadow-inner min-h-[400px]">
+                                        <style dangerouslySetInnerHTML={{
+                                            __html: `
+                                            .preview-tree ul { padding-top: 20px; position: relative; transition: all 0.5s; display: flex; justify-content: center; margin: 0; padding-left: 0; }
+                                            .preview-tree li { float: left; text-align: center; list-style-type: none; position: relative; padding: 20px 10px 0 10px; transition: all 0.5s; }
+                                            .preview-tree li::before, .preview-tree li::after{ content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #cbd5e1; width: 50%; height: 20px; }
+                                            .preview-tree li::after{ right: auto; left: 50%; border-left: 2px solid #cbd5e1; }
+                                            .preview-tree li:only-child::after, .preview-tree li:only-child::before { display: none; }
+                                            .preview-tree li:only-child{ padding-top: 0;}
+                                            .preview-tree li:first-child::before, .preview-tree li:last-child::after{ border: 0 none; }
+                                            .preview-tree li:last-child::before{ border-right: 2px solid #cbd5e1; border-radius: 0 5px 0 0; }
+                                            .preview-tree li:first-child::after{ border-radius: 5px 0 0 0; }
+                                            .preview-tree ul ul::before{ content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #cbd5e1; width: 0; height: 20px; margin-left: -1px; }
+                                            .preview-tree li .node-card { border: 2px solid #e2e8f0; padding: 10px 20px; text-decoration: none; color: #333; font-size: 14px; display: inline-block; border-radius: 12px; background: white; min-width: 150px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.2s;}
+                                            .preview-tree li .node-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+                                            .preview-tree li .node-card .role { font-weight: bold; margin-bottom: 5px; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;}
+                                            .preview-tree li .node-card .name { font-weight: 800; font-size: 14px; color: #1e293b; }
+                                            
+                                            .preview-tree li .node-card.lvl1 { border-color: #1d4ed8; background: #eff6ff; }
+                                            .preview-tree li .node-card.lvl1 .role { color: #1e3a8a; }
+                                            .preview-tree li .node-card.lvl2 { border-color: #3b82f6; background: #f0f9ff; }
+                                            .preview-tree li .node-card.lvl3 { border-color: #10b981; background: #ecfdf5; }
+                                            .preview-tree li .node-card.lvl3 .name { color: #064e3b; }
+                                            .preview-tree li .node-card.lvl4 { border-color: #e2e8f0; background: #ffffff; border-style: dashed; }
+                                            .preview-tree li .node-card.lvl4 .name { color: #4338ca; }
+                                        `}} />
+
+                                        <div className="preview-tree inline-block mt-4">
+                                            <ul>
+                                                <li>
+                                                    <div className="node-card lvl1">
+                                                        <div className="role">Pastor Presidente</div>
+                                                        <div className="name">{organogramData.president || 'Não informado'}</div>
+                                                    </div>
+                                                    <ul>
+                                                        <li>
+                                                            <div className="node-card lvl2">
+                                                                <div className="role">Vice-Presidente</div>
+                                                                <div className="name">{organogramData.vice || 'Não informado'}</div>
+                                                            </div>
+                                                            <ul>
+                                                                <li>
+                                                                    <div className="node-card lvl3">
+                                                                        <div className="role">Administração</div>
+                                                                        <div className="name">Secretaria & Finanças</div>
+                                                                    </div>
+                                                                    <ul>
+                                                                        <li>
+                                                                            <div className="node-card lvl4">
+                                                                                <div className="role">Secretaria</div>
+                                                                                <div className="name">{organogramData.secretary || '-'}</div>
+                                                                            </div>
+                                                                        </li>
+                                                                        <li>
+                                                                            <div className="node-card lvl4">
+                                                                                <div className="role">Tesouraria</div>
+                                                                                <div className="name">{organogramData.treasurer || '-'}</div>
+                                                                            </div>
+                                                                        </li>
+                                                                    </ul>
+                                                                </li>
+                                                                <li>
+                                                                    <div className="node-card lvl3">
+                                                                        <div className="role">Corpo Diaconal</div>
+                                                                        <div className="name">{organogramData.deacons || 'Líder dos Diáconos'}</div>
+                                                                    </div>
+                                                                </li>
+                                                                <li>
+                                                                    <div className="node-card lvl3">
+                                                                        <div className="role">Departamentos</div>
+                                                                        <div className="name">Ministérios</div>
+                                                                    </div>
+                                                                    <ul>
+                                                                        <li>
+                                                                            <div className="node-card lvl4"><div className="role">Louvor</div><div className="name">{organogramData.worship || '-'}</div></div>
+                                                                        </li>
+                                                                        <li>
+                                                                            <div className="node-card lvl4"><div className="role">Jovens</div><div className="name">{organogramData.youth || '-'}</div></div>
+                                                                        </li>
+                                                                        <li>
+                                                                            <div className="node-card lvl4"><div className="role">Mulheres</div><div className="name">{organogramData.women || '-'}</div></div>
+                                                                        </li>
+                                                                        <li>
+                                                                            <div className="node-card lvl4"><div className="role">Homens</div><div className="name">{organogramData.men || '-'}</div></div>
+                                                                        </li>
+                                                                        <li>
+                                                                            <div className="node-card lvl4"><div className="role">Infantil</div><div className="name">{organogramData.kids || '-'}</div></div>
+                                                                        </li>
+                                                                    </ul>
+                                                                </li>
+                                                            </ul>
+                                                        </li>
+                                                    </ul>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         ) : (
                             // --- MODO DOCUMENTOS ---
