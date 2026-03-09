@@ -43,6 +43,9 @@ export default function MembersPage() {
     const [newPassword, setNewPassword] = useState("");
     const [creatingAccess, setCreatingAccess] = useState(false);
 
+    const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+    const [isDeletingMass, setIsDeletingMass] = useState(false);
+
     const [formData, setFormData] = useState({
         fullName: "", email: "", phone: "", document: "",
         birthDate: "", baptismDate: "", photoUrl: "",
@@ -212,7 +215,12 @@ export default function MembersPage() {
     const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
     const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-    const activeMembersCount = members.filter(m => m.status === 'active').length;
+    const activeMembersCount = members.filter(m => {
+        if (m.status !== 'active') return false;
+        const age = calculateAge(m.birthDate || '');
+        if (age !== null && age <= 12) return false;
+        return true;
+    }).length;
 
     const handleOpenView = (member: Member) => {
         setViewMember(member);
@@ -223,7 +231,7 @@ export default function MembersPage() {
         setShowViewModal(false);
 
         if (!member && activeMembersCount >= planLimit) {
-            alert(`LIMITE ATINGIDO!\n\nSua igreja atingiu o limite de ${planLimit} membros ativos no plano atual.\n\nAltere membros antigos para 'Inativo' ou fale com o Suporte (ReinoCloud) para fazer o Upgrade do seu plano.`);
+            alert(`LIMITE ATINGIDO!\n\nSua igreja atingiu o limite de ${planLimit} membros ativos (Adultos) no plano atual.\n\nAltere membros antigos para 'Inativo' ou fale com o Suporte (ReinoCloud) para fazer o Upgrade do seu plano.`);
             return;
         }
 
@@ -316,7 +324,7 @@ export default function MembersPage() {
         }
 
         if ((isNewActive || isReactivating) && activeMembersCount >= planLimit) {
-            alert(`LIMITE ATINGIDO!\n\nSua igreja atingiu o limite de ${planLimit} membros ativos.\n\nPara ativar este cadastro, você precisa inativar outro membro ou fazer um Upgrade.`);
+            alert(`LIMITE ATINGIDO!\n\nSua igreja atingiu o limite de ${planLimit} membros ativos adultos.\n\nPara ativar este cadastro, você precisa inativar outro membro ou fazer um Upgrade.`);
             return;
         }
 
@@ -398,6 +406,49 @@ export default function MembersPage() {
             return;
         }
         if (confirm("Excluir membro permanentemente?")) { await memberService.delete(id); loadData(); }
+    };
+
+    const handleSelectMember = (id: string) => {
+        if (selectedMembers.includes(id)) {
+            setSelectedMembers(selectedMembers.filter(mId => mId !== id));
+        } else {
+            setSelectedMembers([...selectedMembers, id]);
+        }
+    };
+
+    const handleSelectAllCurrentPage = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            const newSelections = currentMembers.map(m => m.id!).filter(id => !selectedMembers.includes(id));
+            setSelectedMembers([...selectedMembers, ...newSelections]);
+        } else {
+            const currentIds = currentMembers.map(m => m.id!);
+            setSelectedMembers(selectedMembers.filter(id => !currentIds.includes(id)));
+        }
+    };
+
+    const handleMassDelete = async () => {
+        if (userRole !== 'admin') {
+            alert("Apenas administradores podem excluir membros.");
+            return;
+        }
+        if (selectedMembers.length === 0) return;
+
+        if (confirm(`Tem certeza que deseja excluir ${selectedMembers.length} membro(s) permanentemente? Esta ação não pode ser desfeita.`)) {
+            setIsDeletingMass(true);
+            try {
+                const chunkSize = 10;
+                for (let i = 0; i < selectedMembers.length; i += chunkSize) {
+                    const chunk = selectedMembers.slice(i, i + chunkSize);
+                    await Promise.all(chunk.map(id => memberService.delete(id)));
+                }
+                setSelectedMembers([]);
+                loadData();
+            } catch (error) {
+                alert("Erro ao excluir alguns membros.");
+            } finally {
+                setIsDeletingMass(false);
+            }
+        }
     };
 
     const openAccessModal = (member: Member) => {
@@ -707,7 +758,7 @@ export default function MembersPage() {
                         </p>
                     </div>
                     <div className="bg-blue-700/50 p-3 rounded-lg border border-blue-600 backdrop-blur-sm">
-                        <p className="text-sm text-blue-100 font-medium">Capacidade do Plano</p>
+                        <p className="text-sm text-blue-100 font-medium">Lotação (Exclui Crianças)</p>
                         <div className="flex items-baseline gap-1">
                             <span className={`text-2xl font-bold ${activeMembersCount >= planLimit ? 'text-red-400' : 'text-white'}`}>
                                 {activeMembersCount}
@@ -754,6 +805,12 @@ export default function MembersPage() {
                             </div>
                         </div>
                         <div className="flex gap-2 w-full lg:w-auto flex-wrap lg:flex-nowrap">
+                            {userRole === 'admin' && selectedMembers.length > 0 && (
+                                <button onClick={handleMassDelete} disabled={isDeletingMass} className="flex-1 md:flex-none px-4 py-3 rounded-xl bg-red-50 text-red-600 font-bold border border-red-200 hover:bg-red-100 transition flex items-center justify-center gap-2">
+                                    {isDeletingMass ? <Loader2 className="animate-spin" size={20} /> : <Trash2 size={20} />}
+                                    <span className="hidden md:inline">Apagar ({selectedMembers.length})</span>
+                                </button>
+                            )}
                             <button onClick={handlePrintExecute} disabled={printing} className="flex-1 md:flex-none px-4 py-3 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition flex items-center justify-center gap-2" title="Imprimir Lista">
                                 {printing ? <Loader2 className="animate-spin" size={20} /> : <Printer size={20} />}
                             </button>
@@ -775,17 +832,62 @@ export default function MembersPage() {
                         <p className="text-sm font-medium text-slate-600">
                             Total: <strong className="text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full ml-1">{filteredMembers.length}</strong> {filteredMembers.length === 1 ? 'resultado' : 'resultados'}
                         </p>
+                        {(userRole === 'admin' || userRole === 'secretary') && (
+                            <div className="flex gap-3 items-center">
+                                {selectedMembers.length > 0 && (
+                                    <button onClick={() => setSelectedMembers([])} className="text-sm text-slate-500 hover:text-slate-700 font-semibold transition">
+                                        Limpar Seleção
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        if (selectedMembers.length === filteredMembers.length) {
+                                            setSelectedMembers([]);
+                                        } else {
+                                            setSelectedMembers(filteredMembers.map(m => m.id!));
+                                        }
+                                    }}
+                                    className="text-sm text-blue-600 hover:text-blue-800 font-semibold transition bg-blue-50/50 px-3 py-1 rounded-lg border border-blue-100"
+                                >
+                                    {selectedMembers.length === filteredMembers.length && filteredMembers.length > 0
+                                        ? "Desmarcar Todos"
+                                        : `Selecionar todos os ${filteredMembers.length}`}
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <div className="hidden md:block bg-white overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-slate-50 border-b border-slate-200">
-                                    <tr><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nome</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contato</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th></tr>
+                                    <tr>
+                                        {(userRole === 'admin' || userRole === 'secretary') && (
+                                            <th className="p-4 w-12 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                    checked={currentMembers.length > 0 && currentMembers.every(m => selectedMembers.includes(m.id!))}
+                                                    onChange={handleSelectAllCurrentPage}
+                                                />
+                                            </th>
+                                        )}
+                                        <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nome</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contato</th><th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ações</th>
+                                    </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {currentMembers.map(member => (
-                                        <tr key={member.id} onClick={() => handleOpenView(member)} className="hover:bg-blue-50/50 transition group cursor-pointer">
+                                        <tr key={member.id} onClick={() => handleOpenView(member)} className={`hover:bg-blue-50/50 transition group cursor-pointer ${selectedMembers.includes(member.id!) ? 'bg-blue-50/30' : ''}`}>
+                                            {(userRole === 'admin' || userRole === 'secretary') && (
+                                                <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                        checked={selectedMembers.includes(member.id!)}
+                                                        onChange={() => handleSelectMember(member.id!)}
+                                                    />
+                                                </td>
+                                            )}
                                             <td className="p-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
@@ -830,9 +932,32 @@ export default function MembersPage() {
                     </div>
 
                     <div className="md:hidden space-y-3 p-4 bg-slate-100">
+                        {(userRole === 'admin' || userRole === 'secretary') && currentMembers.length > 0 && (
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        checked={currentMembers.every(m => selectedMembers.includes(m.id!))}
+                                        onChange={handleSelectAllCurrentPage}
+                                    />
+                                    Selecionar página atual
+                                </label>
+                            </div>
+                        )}
                         {currentMembers.map(member => (
-                            <div key={member.id} onClick={() => handleOpenView(member)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-3 active:scale-[0.98] transition">
-                                <div className="flex items-center gap-3">
+                            <div key={member.id} onClick={() => handleOpenView(member)} className={`bg-white p-4 rounded-xl shadow-sm border ${selectedMembers.includes(member.id!) ? 'border-blue-300 ring-1 ring-blue-300' : 'border-slate-100'} flex flex-col gap-3 active:scale-[0.98] transition relative`}>
+                                {(userRole === 'admin' || userRole === 'secretary') && (
+                                    <div className="absolute top-4 right-4 z-10" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer shadow-sm"
+                                            checked={selectedMembers.includes(member.id!)}
+                                            onChange={() => handleSelectMember(member.id!)}
+                                        />
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-3 pr-8">
                                     <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden border border-gray-300">
                                         {member.photoUrl ? (<img src={getCachedImage(member.photoUrl) || getDirectImageUrl(member.photoUrl)} alt={member.fullName} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(member.fullName)}&background=e5e7eb&color=9ca3af`; }} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center text-gray-400"><Users size={24} /></div>)}
                                     </div>

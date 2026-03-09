@@ -9,15 +9,16 @@ interface ChurchContextData {
   churchId: string | null;
   churchName: string | null;
   userRole: string | null;
-  userPermissions: string[]; 
+  userPermissions: string[];
   userName: string | null;
   loading: boolean;
   logoUrl: string | null;
   signatureUrl: string | null;
   currency: string;
   formatMoney: (value: number) => string;
-  setChurchData: (id: string | null, name: string | null, role: string | null, userName: string | null, logoUrl: string | null, signatureUrl: string | null, currency: string) => void;
-  hasPermission: (permission: string) => boolean; 
+  setChurchData: (id: string | null, name: string | null, role: string | null, userName: string | null, logoUrl: string | null, signatureUrl: string | null, currency: string, modules?: string) => void;
+  hasPermission: (permission: string) => boolean;
+  churchModules: string | null;
 }
 
 const ChurchContext = createContext<ChurchContextData>({} as ChurchContextData);
@@ -27,20 +28,21 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
   const [churchId, setChurchId] = useState<string | null>(null);
   const [churchName, setChurchName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [userPermissions, setUserPermissions] = useState<string[]>([]); 
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [userName, setUserName] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [currency, setCurrency] = useState("AO");
+  const [churchModules, setChurchModules] = useState<string | null>("full");
   const [loading, setLoading] = useState(true);
 
   // BLINDAGEM DE PERFORMANCE: useCallback impede que a função entre em loop de re-renderização
   const hasPermission = useCallback((permission: string) => {
-    if (userRole === 'admin') return true; 
+    if (userRole === 'admin') return true;
     return userPermissions.includes(permission);
   }, [userRole, userPermissions]);
 
-  const setChurchData = useCallback((id: string | null, name: string | null, role: string | null, uName: string | null, logo: string | null, signature: string | null, curr: string) => {
+  const setChurchData = useCallback((id: string | null, name: string | null, role: string | null, uName: string | null, logo: string | null, signature: string | null, curr: string, modules: string = "full") => {
     setChurchId(id);
     setChurchName(name);
     setUserRole(role);
@@ -48,7 +50,8 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     setLogoUrl(logo);
     setSignatureUrl(signature);
     setCurrency(curr);
-    
+    setChurchModules(modules);
+
     if (id) localStorage.setItem("churchId", id);
     if (name) localStorage.setItem("churchName", name);
     if (role) localStorage.setItem("userRole", role);
@@ -56,45 +59,59 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     if (logo) localStorage.setItem("churchLogo", logo);
     if (signature) localStorage.setItem("churchSignature", signature);
     if (curr) localStorage.setItem("churchCurrency", curr);
+    if (modules) localStorage.setItem("churchModules", modules);
   }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      
+
       if (currentUser) {
         const storedId = localStorage.getItem("churchId");
         if (storedId) {
-            setChurchId(storedId);
-            setChurchName(localStorage.getItem("churchName"));
-            setUserRole(localStorage.getItem("userRole"));
-            setUserName(localStorage.getItem("userName"));
-            setLogoUrl(localStorage.getItem("churchLogo"));
-            setSignatureUrl(localStorage.getItem("churchSignature")); 
-            setCurrency(localStorage.getItem("churchCurrency") || "AO");
+          setChurchId(storedId);
+          setChurchName(localStorage.getItem("churchName"));
+          setUserRole(localStorage.getItem("userRole"));
+          setUserName(localStorage.getItem("userName"));
+          setLogoUrl(localStorage.getItem("churchLogo"));
+          setSignatureUrl(localStorage.getItem("churchSignature"));
+          setCurrency(localStorage.getItem("churchCurrency") || "AO");
+          setChurchModules(localStorage.getItem("churchModules") || "full");
         }
 
         try {
-            // Tenta buscar como membro primeiro
-            const q = query(collection(db, "members"), where("email", "==", currentUser.email));
-            const querySnapshot = await getDocs(q);
-            
-            if (!querySnapshot.empty) {
-                const data = querySnapshot.docs[0].data();
-                setUserPermissions(data.permissions || []);
-                if (data.role) setUserRole(data.role);
-            } else {
-                // FALLBACK DE SEGURANÇA: Garante que o Dono da Igreja sempre seja Admin
-                const churchDocRef = doc(db, "churches", currentUser.uid);
-                const churchDocSnap = await getDoc(churchDocRef);
-                if (churchDocSnap.exists()) {
-                    const data = churchDocSnap.data();
-                    setSignatureUrl(data.signatureUrl); 
-                    setUserRole('admin'); // Força o nível máximo de acesso
-                }
+          // Tenta buscar como membro primeiro
+          const q = query(collection(db, "members"), where("email", "==", currentUser.email));
+          const querySnapshot = await getDocs(q);
+
+          if (!querySnapshot.empty) {
+            const data = querySnapshot.docs[0].data();
+            setUserPermissions(data.permissions || []);
+            if (data.role) setUserRole(data.role);
+          } else {
+            // FALLBACK DE SEGURANÇA: Garante que o Dono da Igreja sempre seja Admin
+            const churchDocRef = doc(db, "churches", currentUser.uid);
+            const churchDocSnap = await getDoc(churchDocRef);
+            if (churchDocSnap.exists()) {
+              const data = churchDocSnap.data();
+              setSignatureUrl(data.signatureUrl);
+              setUserRole('admin'); // Força o nível máximo de acesso
             }
+          }
+
+          // SEMPRE valida os módulos contratados pelo documento da Igreja
+          if (storedId) {
+            const churchDocRef = doc(db, "churches", storedId);
+            const churchDocSnap = await getDoc(churchDocRef);
+            if (churchDocSnap.exists()) {
+              const data = churchDocSnap.data();
+              const forceModules = data.planModules || "full";
+              setChurchModules(forceModules);
+              localStorage.setItem("churchModules", forceModules);
+            }
+          }
         } catch (error) {
-            console.error("Erro ao carregar permissões:", error);
+          console.error("Erro ao carregar permissões:", error);
         }
 
       } else {
@@ -104,7 +121,8 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
         setUserPermissions([]);
         setUserName(null);
         setLogoUrl(null);
-        setSignatureUrl(null); 
+        setSignatureUrl(null);
+        setChurchModules("full");
         localStorage.clear();
       }
       setLoading(false);
@@ -121,9 +139,9 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
   }, [currency]);
 
   return (
-    <ChurchContext.Provider value={{ 
-        user, churchId, churchName, userRole, userName, loading, logoUrl, signatureUrl,
-        currency, formatMoney, setChurchData, userPermissions, hasPermission 
+    <ChurchContext.Provider value={{
+      user, churchId, churchName, userRole, userName, loading, logoUrl, signatureUrl,
+      currency, formatMoney, setChurchData, userPermissions, hasPermission, churchModules
     }}>
       {children}
     </ChurchContext.Provider>
