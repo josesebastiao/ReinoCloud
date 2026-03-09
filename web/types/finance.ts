@@ -5,11 +5,12 @@ export interface Transaction {
   amount: number;
   type: 'income' | 'expense';
   date: string;
-  
+
   // CORREÇÃO: Adicionei "| null" para permitir valores vazios
   category: string;
-  memberId?: string | null;       
-  memberName?: string | null;     
-  
+  memberId?: string | null;
+  memberName?: string | null;
+  isFixed?: boolean;
+
   createdAt?: any;
 }
