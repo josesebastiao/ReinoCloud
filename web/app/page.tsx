@@ -27,6 +27,8 @@ export default function Dashboard() {
   const [birthdays, setBirthdays] = useState<Member[]>([]);
   const [pastoralVisits, setPastoralVisits] = useState<Member[]>([]);
   const [markingVisitId, setMarkingVisitId] = useState<string | null>(null);
+  const WEEKLY_VISIT_GOAL = 5;
+  const [weeklyVisitCount, setWeeklyVisitCount] = useState(0);
   
   // Controle de Visão (Gestão vs Membro)
   const [viewMode, setViewMode] = useState<'management' | 'member'>('management');
@@ -107,6 +109,20 @@ export default function Dashboard() {
           .slice(0, 5);
         setPastoralVisits(sortedForVisit);
 
+        // Contagem de visitas realizadas na semana atual
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0 (Domingo) - 6 (Sábado)
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - dayOfWeek);
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const visitsThisWeek = activeMembers.filter((m: Member) => {
+          if (!m.lastPastoralVisit) return false;
+          const visitDate = new Date(m.lastPastoralVisit);
+          return visitDate >= startOfWeek && visitDate <= now;
+        }).length;
+        setWeeklyVisitCount(visitsThisWeek);
+
         const today = new Date().toISOString().split('T')[0]; 
         const qEvents = query(collection(db, "events"), where("churchId", "==", churchId), where("date", ">=", today), orderBy("date", "asc"), limit(3));
         const eventSnap = await getDocs(qEvents);
@@ -125,7 +141,14 @@ export default function Dashboard() {
     const text = `A Paz do Senhor, *${firstName}*! 🎉\n\nPassando aqui em nome da *${churchName}* para te desejar um Feliz Aniversário! Que Deus continue te abençoando grandemente.\n\nFelicidades! 🎂🙏`;
 
     const url = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent || "",
+    );
+    if (isMobile) {
+      window.location.href = url;
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   };
 
   const handleMarkPastoralVisit = async (member: Member) => {
@@ -137,6 +160,7 @@ export default function Dashboard() {
       setPastoralVisits(prev =>
         prev.map(m => (m.id === member.id ? { ...m, lastPastoralVisit: today, needsPastoralVisit: false } : m)),
       );
+      setWeeklyVisitCount(prev => Math.min(prev + 1, WEEKLY_VISIT_GOAL));
     } catch (error) {
       console.error("Erro ao marcar visita pastoral:", error);
       alert("Não foi possível marcar a visita. Tente novamente.");
@@ -382,10 +406,13 @@ export default function Dashboard() {
             <div className="mb-4 p-3 rounded-2xl bg-blue-50 border border-blue-100">
               <div className="flex justify-between text-[11px] font-bold text-blue-700 mb-1">
                 <span>Meta semanal</span>
-                <span>2/5 visitas</span>
+                <span>{weeklyVisitCount}/{WEEKLY_VISIT_GOAL} visitas</span>
               </div>
               <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
-                <div className="bg-blue-600 h-2 rounded-full w-[40%]" />
+                <div
+                  className="bg-blue-600 h-2 rounded-full"
+                  style={{ width: `${Math.min(100, (weeklyVisitCount / WEEKLY_VISIT_GOAL) * 100)}%` }}
+                />
               </div>
             </div>
 

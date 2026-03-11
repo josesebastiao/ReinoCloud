@@ -61,7 +61,14 @@ export default function BirthdaysPage() {
       const text = `A Paz do Senhor, *${member.fullName.split(' ')[0]}*! 🎉\n\nPassando aqui em nome da *${churchName}* para te desejar um Feliz Aniversário! Que Deus continue te abençoando grandemente.\n\nFelicidades! 🎂🙏`;
       
       const url = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(text)}`;
-      window.open(url, '_blank');
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent || "",
+      );
+      if (isMobile) {
+        window.location.href = url;
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
   };
 
   // --- CÁLCULO IDADE ---
