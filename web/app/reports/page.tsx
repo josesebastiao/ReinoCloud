@@ -109,7 +109,18 @@ export default function ReportsPage() {
         });
         setBirthdays(bdays);
 
-        const visitList = activeMembers.sort(() => 0.5 - Math.random()).slice(0, 3);
+        // FILA INTELIGENTE PARA VISITAS PASTORAIS (para secretaria/pastor gerenciar)
+        const visitList = activeMembers
+          .slice()
+          .sort((a, b) => {
+            const aPriority = a.needsPastoralVisit ? 0 : 1;
+            const bPriority = b.needsPastoralVisit ? 0 : 1;
+            if (aPriority !== bPriority) return aPriority - bPriority;
+            const aDate = a.lastPastoralVisit ? new Date(a.lastPastoralVisit).getTime() : 0;
+            const bDate = b.lastPastoralVisit ? new Date(b.lastPastoralVisit).getTime() : 0;
+            return aDate - bDate;
+          })
+          .slice(0, 15);
         setNeedsVisit(visitList);
 
     } catch (e) {
@@ -120,6 +131,19 @@ export default function ReportsPage() {
   };
 
   const currentMonthName = new Date().toLocaleString('pt-BR', { month: 'long' });
+
+  const togglePastoralPriority = async (member: Member) => {
+    if (!member.id) return;
+    const newValue = !member.needsPastoralVisit;
+    try {
+      await memberService.update(member.id, { needsPastoralVisit: newValue });
+      setNeedsVisit(prev =>
+        prev.map(m => (m.id === member.id ? { ...m, needsPastoralVisit: newValue } : m)),
+      );
+    } catch (error) {
+      console.error("Erro ao atualizar prioridade de visita pastoral:", error);
+    }
+  };
 
   if (authLoading || (loadingData && !totalMembers)) return <div className="flex justify-center p-10 min-h-screen items-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
@@ -187,11 +211,70 @@ export default function ReportsPage() {
               </div>
 
               <div className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col h-[420px]">
-                  <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-50"><h3 className="font-bold text-gray-800 flex items-center gap-2"><HeartHandshake className="text-blue-500" size={20}/> Visitas Pastorais</h3></div>
-                  <div className="mb-6 p-4 bg-blue-50 rounded-2xl border border-blue-100"><div className="flex justify-between text-xs font-bold text-blue-700 mb-2"><span>Meta Semanal</span><span>2/5 Visitas</span></div><div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden"><div className="bg-blue-600 h-2 rounded-full w-[40%] transition-all duration-1000"></div></div></div>
-                  <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1"><AlertCircle size={12}/> Sugestão de Visita (Aleatório)</h4>
+                  <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-50">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                      <HeartHandshake className="text-blue-500" size={20}/> Visitas Pastorais
+                    </h3>
+                    <span className="text-[11px] font-semibold text-blue-500 bg-blue-50 px-2 py-1 rounded-full">
+                      Fila para o Pastor
+                    </span>
+                  </div>
+                  <div className="mb-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                    <p className="text-[11px] text-blue-800 font-medium">
+                      Use esta lista para marcar quem precisa de visita pastoral. Os marcados como{" "}
+                      <strong>Prioridade</strong> aparecerão em destaque no painel inicial do Pastor.
+                    </p>
+                  </div>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1">
+                    <AlertCircle size={12}/> Sugestão inteligente
+                  </h4>
                   <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
-                      {needsVisit.map(m => (<div key={m.id} className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100 rounded-xl hover:bg-white hover:shadow-sm transition"><div><p className="font-bold text-sm text-gray-700 truncate max-w-[120px]">{m.fullName}</p><p className="text-[10px] text-gray-400">Status: {m.status === 'active' ? 'Ativo' : 'Inativo'}</p></div><button onClick={() => setSelectedMember(m)} className="text-[10px] bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:text-blue-600 hover:border-blue-200 transition">Ver Ficha</button></div>))}
+                      {needsVisit.map(m => {
+                        const lastVisitLabel = m.lastPastoralVisit
+                          ? new Date(m.lastPastoralVisit).toLocaleDateString('pt-BR')
+                          : 'Nunca visitado';
+                        return (
+                          <div
+                            key={m.id}
+                            className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100 rounded-xl hover:bg-white hover:shadow-sm transition"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm text-gray-700 truncate max-w-[140px]">
+                                {m.fullName}
+                              </p>
+                              <p className="text-[10px] text-gray-400">
+                                Última visita:{" "}
+                                <span className={m.lastPastoralVisit ? "font-semibold text-gray-600" : "font-semibold text-amber-600"}>
+                                  {lastVisitLabel}
+                                </span>
+                              </p>
+                              {m.needsPastoralVisit && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full mt-1">
+                                  Prioridade da secretaria
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 ml-3">
+                              <button
+                                onClick={() => togglePastoralPriority(m)}
+                                className={`text-[10px] px-3 py-1.5 rounded-lg font-bold border transition ${
+                                  m.needsPastoralVisit
+                                    ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                                    : "bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"
+                                }`}
+                              >
+                                {m.needsPastoralVisit ? "Remover da fila" : "Marcar prioridade"}
+                              </button>
+                              <button
+                                onClick={() => setSelectedMember(m)}
+                                className="text-[10px] bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:text-blue-600 hover:border-blue-200 transition"
+                              >
+                                Ver Ficha
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
               </div>
 

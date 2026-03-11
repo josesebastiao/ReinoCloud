@@ -311,146 +311,148 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* SEGUNDA LINHA: Aniversariantes + Visitas Pastorais */}
-      <div className="max-w-6xl mx-auto px-4 md:px-0 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Aniversariantes do mês com WhatsApp */}
-        {birthdays.length > 0 && (
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col h-full min-h-[240px] group hover:border-pink-300 transition duration-300">
-            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-50">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <Cake className="text-pink-500" size={18} /> Aniversariantes do mês
-              </h3>
-              <span className="text-xs font-bold bg-pink-50 text-pink-600 px-2 py-1 rounded-lg capitalize">
-                {new Date().toLocaleString("pt-BR", { month: "long" })}
-              </span>
-            </div>
-            <div className="flex-1 space-y-3 overflow-y-auto max-h-[260px] pr-1 custom-scrollbar">
-              {birthdays.map((m) => {
-                const day = m.birthDate ? m.birthDate.split("-")[2] : "??";
-                const isToday = parseInt(day) === new Date().getDate();
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition ${
-                      isToday
-                        ? "bg-pink-50 border-pink-100"
-                        : "bg-gray-50 border-transparent hover:bg-white hover:border-gray-100"
-                    }`}
-                  >
+      {/* SEGUNDA LINHA: Aniversariantes + Visitas Pastorais (apenas Pastor / Secretaria) */}
+      {canSee(['secretary']) && (
+        <div className="max-w-6xl mx-auto px-4 md:px-0 mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Aniversariantes do mês com WhatsApp */}
+          {birthdays.length > 0 && (
+            <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col h-full min-h-[240px] group hover:border-pink-300 transition duration-300">
+              <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-50">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                  <Cake className="text-pink-500" size={18} /> Aniversariantes do mês
+                </h3>
+                <span className="text-xs font-bold bg-pink-50 text-pink-600 px-2 py-1 rounded-lg capitalize">
+                  {new Date().toLocaleString("pt-BR", { month: "long" })}
+                </span>
+              </div>
+              <div className="flex-1 space-y-3 overflow-y-auto max-h-[260px] pr-1 custom-scrollbar">
+                {birthdays.map((m) => {
+                  const day = m.birthDate ? m.birthDate.split("-")[2] : "??";
+                  const isToday = parseInt(day) === new Date().getDate();
+                  return (
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                        isToday ? "bg-pink-500 text-white shadow-lg shadow-pink-200" : "bg-gray-100 text-gray-600"
+                      key={m.id}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition ${
+                        isToday
+                          ? "bg-pink-50 border-pink-100"
+                          : "bg-gray-50 border-transparent hover:bg-white hover:border-gray-100"
                       }`}
                     >
-                      {day}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className={`font-bold text-sm truncate ${
-                          isToday ? "text-pink-700" : "text-gray-800"
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                          isToday ? "bg-pink-500 text-white shadow-lg shadow-pink-200" : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {m.fullName}
-                      </p>
-                      <p className="text-[10px] text-gray-400 uppercase">
-                        {m.role === "admin" ? "Pastor" : "Membro"}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleSendBirthdayWhatsApp(m)}
-                      className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition shadow-sm"
-                      title="Enviar parabéns no WhatsApp"
-                    >
-                      <MessageCircle size={18} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Visitas Pastorais inteligentes */}
-        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col h-full min-h-[240px] group hover:border-blue-300 transition duration-300 lg:col-span- birth">
-          <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-50">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2">
-              <HeartHandshake className="text-blue-500" size={18} /> Visitas Pastorais
-            </h3>
-          </div>
-
-          <div className="mb-4 p-3 rounded-2xl bg-blue-50 border border-blue-100">
-            <div className="flex justify-between text-[11px] font-bold text-blue-700 mb-1">
-              <span>Meta semanal</span>
-              <span>2/5 visitas</span>
-            </div>
-            <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
-              <div className="bg-blue-600 h-2 rounded-full w-[40%]" />
-            </div>
-          </div>
-
-          <p className="text-[11px] font-bold text-gray-400 uppercase mb-3 flex items-center gap-1">
-            <AlertCircle size={12} /> Sugestão inteligente (prioriza quem precisa mais)
-          </p>
-
-          <div className="flex-1 space-y-2 overflow-y-auto max-h-[260px] pr-1 custom-scrollbar">
-            {pastoralVisits.length === 0 ? (
-              <div className="text-center text-gray-400 text-xs py-8">
-                Nenhum membro sugerido para visita agora.
-              </div>
-            ) : (
-              pastoralVisits.map((m) => {
-                const lastVisitLabel = m.lastPastoralVisit
-                  ? new Date(m.lastPastoralVisit).toLocaleDateString("pt-BR")
-                  : "Nunca visitado";
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100 hover:bg-white hover:shadow-sm transition"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm text-gray-800 truncate max-w-[160px]">
-                        {m.fullName}
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        Última visita:{" "}
-                        <span className={m.lastPastoralVisit ? "font-semibold" : "font-semibold text-amber-600"}>
-                          {lastVisitLabel}
-                        </span>
-                      </p>
-                      {m.needsPastoralVisit && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full mt-1">
-                          <AlertCircle size={10} /> Prioridade da secretaria
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-3">
-                      <button
-                        onClick={() => handleMarkPastoralVisit(m)}
-                        disabled={markingVisitId === m.id}
-                        className={`flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold border transition ${
-                          m.lastPastoralVisit
-                            ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                            : "bg-white border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700"
-                        }`}
-                        title="Marcar visita realizada"
-                      >
-                        <CheckCircle2 size={18} />
-                      </button>
+                        {day}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`font-bold text-sm truncate ${
+                            isToday ? "text-pink-700" : "text-gray-800"
+                          }`}
+                        >
+                          {m.fullName}
+                        </p>
+                        <p className="text-[10px] text-gray-400 uppercase">
+                          {m.role === "admin" ? "Pastor" : "Membro"}
+                        </p>
+                      </div>
                       <button
                         onClick={() => handleSendBirthdayWhatsApp(m)}
-                        className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition shadow-sm"
-                        title="Chamar no WhatsApp"
+                        className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition shadow-sm"
+                        title="Enviar parabéns no WhatsApp"
                       >
                         <MessageCircle size={18} />
                       </button>
                     </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Visitas Pastorais inteligentes */}
+          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col h-full min-h-[240px] group hover:border-blue-300 transition duration-300 lg:col-span-2">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-50">
+              <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <HeartHandshake className="text-blue-500" size={18} /> Visitas Pastorais
+              </h3>
+            </div>
+
+            <div className="mb-4 p-3 rounded-2xl bg-blue-50 border border-blue-100">
+              <div className="flex justify-between text-[11px] font-bold text-blue-700 mb-1">
+                <span>Meta semanal</span>
+                <span>2/5 visitas</span>
+              </div>
+              <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                <div className="bg-blue-600 h-2 rounded-full w-[40%]" />
+              </div>
+            </div>
+
+            <p className="text-[11px] font-bold text-gray-400 uppercase mb-3 flex items-center gap-1">
+              <AlertCircle size={12} /> Sugestão inteligente (prioriza quem precisa mais)
+            </p>
+
+            <div className="flex-1 space-y-2 overflow-y-auto max-h-[260px] pr-1 custom-scrollbar">
+              {pastoralVisits.length === 0 ? (
+                <div className="text-center text-gray-400 text-xs py-8">
+                  Nenhum membro sugerido para visita agora.
+                </div>
+              ) : (
+                pastoralVisits.map((m) => {
+                  const lastVisitLabel = m.lastPastoralVisit
+                    ? new Date(m.lastPastoralVisit).toLocaleDateString("pt-BR")
+                    : "Nunca visitado";
+                  return (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100 hover:bg-white hover:shadow-sm transition"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-gray-800 truncate max-w-[160px]">
+                          {m.fullName}
+                        </p>
+                        <p className="text-[10px] text-gray-500">
+                          Última visita:{" "}
+                          <span className={m.lastPastoralVisit ? "font-semibold" : "font-semibold text-amber-600"}>
+                            {lastVisitLabel}
+                          </span>
+                        </p>
+                        {m.needsPastoralVisit && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full mt-1">
+                            <AlertCircle size={10} /> Prioridade da secretaria
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 ml-3">
+                        <button
+                          onClick={() => handleMarkPastoralVisit(m)}
+                          disabled={markingVisitId === m.id}
+                          className={`flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold border transition ${
+                            m.lastPastoralVisit
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                              : "bg-white border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700"
+                          }`}
+                          title="Marcar visita realizada"
+                        >
+                          <CheckCircle2 size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleSendBirthdayWhatsApp(m)}
+                          className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-600 hover:text-white transition shadow-sm"
+                          title="Chamar no WhatsApp"
+                        >
+                          <MessageCircle size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
