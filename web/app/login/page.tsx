@@ -8,6 +8,7 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail, RecaptchaVerifier, 
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { useChurch } from "../../contexts/ChurchContext";
+import { AppFooter } from "../../components/AppFooter";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -324,11 +325,7 @@ export default function LoginPage() {
         </div>
       </main>
       
-      {/* FOOTER COMPACTO - ALINHADO */}
-      <footer className="w-full px-6 py-6 md:py-4 flex flex-col md:flex-row justify-center md:justify-between items-center gap-2 text-[10px] text-gray-400 border-t border-gray-200 bg-white shrink-0">
-          <div className="flex gap-4 font-medium"><a href="#" className="hover:text-blue-600">Privacidade</a><a href="#" className="hover:text-blue-600">Termos</a></div>
-          <div className="font-medium text-center md:text-right">COPYRIGHT © {new Date().getFullYear()} SEBASTEC SYSTEM.</div>
-      </footer>
+      <AppFooter />
     </div>
   );
 }

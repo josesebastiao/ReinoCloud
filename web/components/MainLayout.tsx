@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useChurch } from "../contexts/ChurchContext";
+import { AppFooter } from "./AppFooter";
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -76,6 +77,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     </Link>
                     <div className="w-12 h-12 -mt-8 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-600/30 text-white border-4 border-gray-50"><img src="/icon.svg" className="w-6 h-6 invert brightness-0" /></div>
                     <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600 transition"><Menu size={24} /> <span className="text-[10px] font-medium">Menu</span></button>
+                </div>
+
+                {/* Rodapé global (desktop) */}
+                <div className="hidden md:block mt-auto">
+                    <AppFooter />
                 </div>
 
             </main>

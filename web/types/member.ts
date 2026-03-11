@@ -33,5 +33,10 @@ export interface Member {
   
   unavailableDates?: string[]; // Lista de datas indisponíveis "YYYY-MM-DD"
   
+  // Visitas pastorais
+  lastPastoralVisit?: string;   // Data da última visita pastoral (ISO)
+  needsPastoralVisit?: boolean; // Marcado pela secretaria para visita prioritária
+  pastoralNote?: string;        // Observação opcional sobre a visita
+  
   createdAt?: string;
 }
