@@ -112,16 +112,21 @@ export default function AdminPage() {
             // 2. SALVAR NO FIRESTORE (BANCO DE DADOS)
             const churchId = `church_${user.uid}`;
 
+            const nowIso = new Date().toISOString();
+
             await setDoc(doc(db, "churches", churchId), {
                 name: newChurch.churchName,
                 ownerName: newChurch.name,
                 email: newChurch.email,
-                createdAt: new Date().toISOString(),
+                createdAt: nowIso,
                 plan: newChurch.plan,
                 planLimit: newChurch.planLimit,
                 planModules: newChurch.planModules,
                 status: "active",
-                ownerId: user.uid
+                ownerId: user.uid,
+                // Controle da senha inicial: força troca após alguns dias
+                initialPasswordCreatedAt: nowIso,
+                initialPasswordShouldChange: true
             });
 
             // Cria o registro do Membro Admin (Pastor)

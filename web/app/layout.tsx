@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ChurchProvider } from "../contexts/ChurchContext";
 import MainLayout from "../components/MainLayout";
+import { ServiceWorkerRegister } from "../components/ServiceWorkerRegister";
 import { Inter } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className="antialiased">
       <body className={`${inter.className} bg-slate-50 text-slate-800`}>
         <ChurchProvider>
+           <ServiceWorkerRegister />
            <MainLayout>
               {children}
            </MainLayout>

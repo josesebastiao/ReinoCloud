@@ -34,9 +34,20 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
+  const [initialPasswordCreatedAt, setInitialPasswordCreatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (churchId) loadData();
+
+    // Lê querystring para saber se veio de um login que está forçando troca de senha
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("forcePasswordChange") === "1") {
+        setActiveTab("security");
+        setForcePasswordChange(true);
+      }
+    }
   }, [churchId]);
 
   const loadData = async () => {
@@ -45,7 +56,7 @@ export default function SettingsPage() {
         const ref = doc(db, "churches", churchId);
         const snap = await getDoc(ref);
         if (snap.exists()) {
-            const d = snap.data();
+            const d: any = snap.data();
             setName(d.name || "");
             setPastor(d.ownerName || "");
             setCity(d.city || "");
@@ -54,6 +65,12 @@ export default function SettingsPage() {
             setSignatureUrl(d.signatureUrl || ""); 
             setTextRecommendation(d.textRecommendation || "");
             setTextTransfer(d.textTransfer || "");
+
+            const createdAtStr = (d.initialPasswordCreatedAt as string) || (d.createdAt as string) || null;
+            setInitialPasswordCreatedAt(createdAtStr);
+            if (d.initialPasswordShouldChange === false) {
+              setForcePasswordChange(false);
+            }
         }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
@@ -190,7 +207,14 @@ export default function SettingsPage() {
         await reauthenticateWithCredential(user, credential);
 
         await updatePassword(user, newPassword);
-        
+
+        // Marca no cadastro da igreja que a senha inicial já foi trocada
+        if (churchId) {
+          const ref = doc(db, "churches", churchId);
+          await updateDoc(ref, { initialPasswordShouldChange: false });
+          setForcePasswordChange(false);
+        }
+
         alert("✅ Senha alterada com sucesso!");
         setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
     } catch (error: any) {
@@ -318,12 +342,29 @@ export default function SettingsPage() {
                                   <Lock size={32}/>
                               </div>
                               <h2 className="text-xl font-bold text-gray-800">Alterar Senha</h2>
-                              <p className="text-sm text-gray-500">Defina uma nova senha para acessar o painel.</p>
+                              <p className="text-sm text-gray-500">
+                                {forcePasswordChange
+                                  ? "Por segurança, esta senha inicial precisa ser atualizada."
+                                  : "Defina uma nova senha para acessar o painel."}
+                              </p>
                           </div>
 
                           <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-3 mb-6">
                               <AlertTriangle className="text-amber-500 shrink-0" size={20}/>
-                              <p className="text-xs text-amber-700 font-bold">Por segurança, você precisará confirmar sua senha atual antes de criar uma nova.</p>
+                              <div className="space-y-1">
+                                <p className="text-xs text-amber-700 font-bold">
+                                  Por segurança, você precisará confirmar sua senha atual antes de criar uma nova.
+                                </p>
+                                {initialPasswordCreatedAt && forcePasswordChange && (
+                                  <p className="text-[11px] text-amber-700">
+                                    Esta senha inicial foi criada em{" "}
+                                    <span className="font-semibold">
+                                      {new Date(initialPasswordCreatedAt).toLocaleDateString("pt-BR")}
+                                    </span>
+                                    . Recomendamos definir agora uma senha definitiva da igreja.
+                                  </p>
+                                )}
+                              </div>
                           </div>
 
                           <div className="space-y-4">

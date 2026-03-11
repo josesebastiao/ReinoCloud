@@ -64,9 +64,26 @@ export default function LoginPage() {
           const churchDocRef = doc(db, "churches", user.uid);
           const churchDocSnap = await getDoc(churchDocRef);
           if (churchDocSnap.exists()) {
-              const data = churchDocSnap.data();
+              const data: any = churchDocSnap.data();
               setChurchData(user.uid, data.name, 'admin', data.ownerName || "Pastor", data.logoUrl || "", data.signatureUrl || "", data.currency || "AO");
-              router.push("/");
+
+              // Controle da senha inicial da igreja: depois de alguns dias, força a troca
+              const createdAtStr = (data.initialPasswordCreatedAt as string) || (data.createdAt as string);
+              let mustForcePasswordChange = data.initialPasswordShouldChange === true;
+              if (createdAtStr) {
+                  const createdAt = new Date(createdAtStr);
+                  const diffDays = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+                  // Após 7 dias da criação, começamos a insistir na troca da senha
+                  if (diffDays >= 7) {
+                      mustForcePasswordChange = true;
+                  }
+              }
+
+              if (mustForcePasswordChange) {
+                  router.push("/settings?tab=security&forcePasswordChange=1");
+              } else {
+                  router.push("/");
+              }
               return;
           }
       }
@@ -239,6 +256,11 @@ export default function LoginPage() {
                 <div className="text-center mb-5">
                     <h2 className="text-2xl font-bold text-gray-900 mb-1">Bem-vindo!</h2>
                     <p className="text-gray-400 text-xs">Escolha como deseja entrar.</p>
+                    <p className="mt-2 text-[10px] text-gray-400 max-w-xs mx-auto">
+                      Se esta é a sua primeira vez, use a senha inicial enviada pelo atendimento.
+                      Após a configuração da igreja, você poderá ser orientado a trocar essa senha em
+                      <span className="font-semibold"> Configurações &gt; Segurança</span>.
+                    </p>
                 </div>
 
                 <div className="flex bg-gray-100 p-1 rounded-xl mb-5">
