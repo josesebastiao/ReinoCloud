@@ -256,11 +256,6 @@ export default function LoginPage() {
                 <div className="text-center mb-5">
                     <h2 className="text-2xl font-bold text-gray-900 mb-1">Bem-vindo!</h2>
                     <p className="text-gray-400 text-xs">Escolha como deseja entrar.</p>
-                    <p className="mt-2 text-[10px] text-gray-400 max-w-xs mx-auto">
-                      Se esta é a sua primeira vez, use a senha inicial enviada pelo atendimento.
-                      Após a configuração da igreja, você poderá ser orientado a trocar essa senha em
-                      <span className="font-semibold"> Configurações &gt; Segurança</span>.
-                    </p>
                 </div>
 
                 <div className="flex bg-gray-100 p-1 rounded-xl mb-5">

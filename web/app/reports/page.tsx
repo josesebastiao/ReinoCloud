@@ -6,14 +6,14 @@ import { memberService } from "../../services/memberService";
 import { Member } from "../../types/member"; 
 import { 
   Users, BarChart3, Cake, HandCoins, HeartHandshake, AlertCircle, Sparkles, 
-  PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2, ArrowLeft, X, Phone, Mail, MapPin, User, Droplets
+  PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, Loader2, ArrowLeft, X, Phone, Mail, MapPin, User, Droplets, MessageCircle
 } from "lucide-react";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function ReportsPage() {
   const router = useRouter();
-  const { churchId, userRole, hasPermission, loading: authLoading } = useChurch();
+  const { churchId, churchName, userRole, hasPermission, loading: authLoading } = useChurch();
   
   const [loadingData, setLoadingData] = useState(true);
   
@@ -145,6 +145,23 @@ export default function ReportsPage() {
     }
   };
 
+  const sendCongratulation = (member: Member) => {
+      if (!member.phone) return alert("Este membro não tem telefone cadastrado.");
+      
+      const cleanPhone = member.phone.replace(/\D/g, '');
+      const text = `A Paz do Senhor, *${member.fullName.split(' ')[0]}*! 🎉\n\nPassando aqui em nome da *${churchName || "Nossa Igreja"}* para te desejar um Feliz Aniversário! Que Deus continue te abençoando grandemente.\n\nFelicidades! 🎂🙏`;
+      
+      const url = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(text)}`;
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent || "",
+      );
+      if (isMobile) {
+        window.location.href = url;
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+  };
+
   if (authLoading || (loadingData && !totalMembers)) return <div className="flex justify-center p-10 min-h-screen items-center bg-gray-50"><Loader2 className="animate-spin text-blue-600"/></div>;
 
   if (userRole !== 'admin' && !hasPermission('secretary')) return null;
@@ -205,7 +222,7 @@ export default function ReportsPage() {
                       {birthdays.length > 0 ? birthdays.map(m => {
                           const day = m.birthDate ? m.birthDate.split('-')[2] : '??';
                           const isToday = parseInt(day) === new Date().getDate();
-                          return (<div key={m.id} className={`flex items-center gap-3 p-3 rounded-xl transition ${isToday ? 'bg-pink-50 border border-pink-100' : 'hover:bg-gray-50 border border-transparent'}`}><div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${isToday ? 'bg-pink-500 text-white shadow-lg shadow-pink-200' : 'bg-gray-100 text-gray-500'}`}>{day}</div><div className="flex-1 min-w-0"><p className={`font-bold text-sm truncate ${isToday ? 'text-pink-700' : 'text-gray-700'}`}>{m.fullName}</p><p className="text-[10px] text-gray-400 uppercase">{m.role === 'admin' ? 'Pastor' : 'Membro'}</p></div>{isToday && <Sparkles size={16} className="text-pink-500 animate-pulse"/>}</div>)
+                          return (<div key={m.id} className={`flex items-center gap-3 p-3 rounded-xl transition ${isToday ? 'bg-pink-50 border border-pink-100' : 'hover:bg-gray-50 border border-transparent'}`}><div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${isToday ? 'bg-pink-500 text-white shadow-lg shadow-pink-200' : 'bg-gray-100 text-gray-500'}`}>{day}</div><div className="flex-1 min-w-0"><p className={`font-bold text-sm truncate ${isToday ? 'text-pink-700' : 'text-gray-700'}`}>{m.fullName}</p><p className="text-[10px] text-gray-400 uppercase">{m.role === 'admin' ? 'Pastor' : 'Membro'}</p></div>{isToday && <Sparkles size={16} className="text-pink-500 animate-pulse shrink-0"/>}<button onClick={(e) => { e.stopPropagation(); sendCongratulation(m); }} className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center hover:bg-green-500 hover:text-white transition shrink-0" title="Enviar Parabéns no WhatsApp"><MessageCircle size={14} /></button></div>)
                       }) : (<div className="text-center py-10 text-gray-400 flex flex-col items-center"><Cake size={40} className="mb-2 opacity-20"/><p className="text-sm">Nenhum aniversariante.</p></div>)}
                   </div>
               </div>
