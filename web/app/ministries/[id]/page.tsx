@@ -291,7 +291,11 @@ export default function MinistryDetails() {
                 <div className="max-h-48 overflow-y-auto border rounded-xl p-2 space-y-1 custom-scrollbar bg-gray-50">
                   {teamMembers.map(member => {
                     // --- AQUI ESTÁ A LÓGICA DE INDISPONIBILIDADE ---
-                    const isUnavailable = newScale.date && member.unavailableDates?.includes(newScale.date);
+                    const isUnavailable = newScale.date && member.unavailableDates?.some(d => {
+                        // Tratar datas antigas com ISO string / T12:00
+                        const normalizedMemberDate = d.includes('T') ? d.split('T')[0] : d;
+                        return normalizedMemberDate === newScale.date;
+                    });
 
                     return (
                       <div 
