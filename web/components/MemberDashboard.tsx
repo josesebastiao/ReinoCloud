@@ -8,6 +8,7 @@ import { generalScaleService } from "../services/generalScaleService"; // Lê do
 import { ministryService } from "../services/ministryService";
 import { scaleService } from "../services/scaleService"; // Lê dos Departamentos
 import { prayerService, PrayerRequest } from "../services/prayerService";
+import { notificationService, AppNotification } from "../services/notificationService";
 import { Member } from "../types/member";
 import { auth } from "../lib/firebase";
 import { 
@@ -40,6 +41,10 @@ export function MemberDashboard() {
   const [showAvailability, setShowAvailability] = useState(false);
   const [showBible, setShowBible] = useState(false);
   const [activeStory, setActiveStory] = useState<Post | null>(null);
+
+  // NOTIFICAÇÕES
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Estados Auxiliares
   const [postComments, setPostComments] = useState<Record<string, Comment[]>>({});
@@ -100,6 +105,10 @@ export function MemberDashboard() {
             const allTrans = await financeService.listByChurch(churchId);
             const mine = allTrans.filter(t => t.memberId === me.id && t.type === 'income');
             setMyContributions(mine);
+
+            // Notificações
+            const notifs = await notificationService.listByMember(me.id);
+            setNotifications(notifs);
 
             // --- PROCESSAMENTO DE ESCALAS ---
             const scalesFound: any[] = [];
@@ -220,11 +229,42 @@ export function MemberDashboard() {
                       <h1 className="text-white font-bold text-sm opacity-90 tracking-wide">{churchName}</h1>
                   </div>
                   <div className="flex items-center gap-3">
-                      <button className="bg-white/10 p-2 rounded-full text-white hover:bg-white/20 transition relative">
-                          <Bell size={20}/>
-                          {hasRecentPosts && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-blue-600 rounded-full"></span>}
-                      </button>
-                      <button onClick={handleLogout} className="bg-white/10 p-2 rounded-full text-white hover:bg-white/20 transition"><LogOut size={20}/></button>
+                      <div className="relative text-left">
+                          <button onClick={async () => {
+                              setShowNotifications(!showNotifications);
+                              if (!showNotifications && notifications.some(n => !n.read)) {
+                                  await notificationService.markAllAsRead(memberData?.id || "");
+                                  setNotifications(prev => prev.map(n => ({...n, read: true})));
+                              }
+                          }} className="bg-white/10 w-10 h-10 rounded-full text-white hover:bg-white/20 transition relative flex items-center justify-center shadow-sm">
+                              <Bell size={18}/>
+                              {notifications.some(n => !n.read) && <span className="absolute top-2 right-2.5 w-2.5 h-2.5 bg-red-500 border-2 border-blue-600 rounded-full"></span>}
+                          </button>
+                          
+                          {showNotifications && (
+                              <div className="absolute top-12 right-0 bg-white shadow-2xl rounded-2xl w-80 max-h-96 overflow-y-auto z-50 p-2 custom-scrollbar border border-gray-100 origin-top-right animate-in fade-in zoom-in-95">
+                                  <h3 className="text-xs font-bold text-gray-800 uppercase p-2 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-xl mb-1">
+                                      Notificações
+                                      <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 p-1 bg-white rounded-lg shadow-sm border"><X size={12}/></button>
+                                  </h3>
+                                  <div className="flex flex-col gap-1 p-1">
+                                      {notifications.length === 0 ? (
+                                          <p className="text-xs text-gray-500 text-center py-8">Nenhuma notificação.</p>
+                                      ) : notifications.map(notif => (
+                                          <div key={notif.id} className={`p-3 rounded-xl border ${notif.read ? 'bg-white border-transparent' : 'bg-blue-50 border-blue-100 shadow-sm'} hover:bg-gray-50 transition cursor-default`}>
+                                              <p className="text-xs font-bold text-gray-800 flex items-center gap-1.5 mb-1.5">
+                                                  {notif.type === 'scale' ? <Calendar size={14} className="text-green-600"/> : <Bell size={14} className="text-blue-600"/>}
+                                                  {notif.title}
+                                              </p>
+                                              <p className="text-[11px] text-gray-600 leading-snug">{notif.message}</p>
+                                              <p className="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-wider">{new Date(notif.createdAt).toLocaleDateString()} • {new Date(notif.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                      <button onClick={handleLogout} className="bg-white/10 w-10 h-10 flex items-center justify-center rounded-full text-white hover:bg-white/20 transition shadow-sm"><LogOut size={18}/></button>
                   </div>
               </div>
               <div className="flex items-center gap-4">

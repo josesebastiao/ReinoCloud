@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ministryService } from "../../../services/ministryService"; 
 import { scaleService } from "../../../services/scaleService";
 import { memberService } from "../../../services/memberService";
+import { notificationService } from "../../../services/notificationService";
 import { useChurch } from "../../../contexts/ChurchContext";
 import { Ministry } from "../../../types/ministry";
 import { Scale } from "../../../types/scale";
@@ -83,10 +84,32 @@ export default function MinistryDetails() {
       members: newScale.members
     });
 
+    // Enviar notificação para cada membro escalado
+    const churchId = localStorage.getItem("churchId");
+    try {
+        const now = new Date().toISOString();
+        const promises = newScale.members.map(memberId => {
+            const member = teamMembers.find(m => m.id === memberId);
+            if (!member || !churchId) return Promise.resolve();
+            return notificationService.create({
+                memberId,
+                churchId,
+                title: "Nova Escala!",
+                message: `Você foi escalado para '${newScale.title}' no nível do ministério ${ministry?.name} na data ${new Date(newScale.date + "T12:00:00").toLocaleDateString('pt-BR')}.`,
+                type: 'scale',
+                read: false,
+                createdAt: now
+            });
+        });
+        await Promise.all(promises);
+    } catch(err) {
+        console.error("Erro ao notificar membros: ", err);
+    }
+
     setIsModalOpen(false);
     setNewScale({ date: "", title: "", members: [] });
     carregarDados();
-    alert("✅ Escala criada com sucesso!");
+    alert("✅ Escala criada com sucesso e membros notificados!");
   };
 
   const handleDeleteScale = async (id: string) => {

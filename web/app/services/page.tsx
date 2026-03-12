@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useChurch } from "../../contexts/ChurchContext";
 import { memberService } from "../../services/memberService";
 import { generalScaleService } from "../../services/generalScaleService";
+import { notificationService } from "../../services/notificationService";
 import { Member } from "../../types/member";
 import { db } from "../../lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -111,13 +112,59 @@ export default function ServicesPage() {
     const filteredMembers = members.filter(m => m.fullName.toLowerCase().includes(search.toLowerCase()));
 
     // --- FUNÇÕES DA ESCALA ---
+    const findMemberByText = (text: string) => {
+        if(!text) return null;
+        const lower = text.toLowerCase().trim();
+        return members.find(m => {
+            const fullName = m.fullName.toLowerCase().trim();
+            const firstName = fullName.split(' ')[0];
+            return lower.includes(fullName) || fullName.includes(lower) || lower === firstName;
+        });
+    };
+
     const handleSaveScale = async () => {
         if (!churchId) return;
         if (scaleData.rows.length === 0) return alert("Adicione pelo menos uma linha na escala.");
         setSaving(true);
         try {
             await generalScaleService.create({ churchId, ...scaleData });
-            alert("Escala salva no histórico!");
+            
+            // Disparar notificações para escala geral
+            try {
+               const now = new Date().toISOString();
+               const promises: any[] = [];
+               scaleData.rows.forEach(row => {
+                  const dateStr = row.date.includes('-') ? row.date.split('-').reverse().join('/') : row.date;
+                  const roles = [
+                      { role: 'Dirigente', name: row.leader },
+                      { role: 'Pregador', name: row.preacher },
+                      { role: 'Louvor', name: row.music }
+                  ];
+                  roles.forEach(r => {
+                      if(r.name) {
+                          const member = findMemberByText(r.name);
+                          if(member && member.id) {
+                              promises.push(
+                                  notificationService.create({
+                                      memberId: member.id,
+                                      churchId,
+                                      title: "Escala Geral!",
+                                      message: `Você foi escalado(a) em '${scaleData.title}' como ${r.role} no dia ${dateStr}.`,
+                                      type: 'scale',
+                                      read: false,
+                                      createdAt: now
+                                  })
+                              );
+                          }
+                      }
+                  });
+               });
+               await Promise.all(promises);
+            } catch (err) {
+               console.error("Erro notificando membros na escala geral: ", err);
+            }
+
+            alert("Escala salva no histórico e membros notificados!");
             loadHistory();
         } catch (error) { console.error(error); alert("Erro ao salvar."); }
         finally { setSaving(false); }
