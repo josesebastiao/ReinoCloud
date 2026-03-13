@@ -12,7 +12,7 @@ export interface Member {
   gender: string | null;        // 'male' | 'female'
   maritalStatus: string | null; // 'single', 'married', etc.
   
-  role: string;          // 'member', 'leader', 'secretary', 'treasurer', 'admin'
+  role: string;          // 'member', 'leader', 'secretary', 'treasurer', 'admin', 'administrator', 'pastor'
   status: string;        // 'active', 'inactive'
   
   isTither?: boolean;    // É dizimista?

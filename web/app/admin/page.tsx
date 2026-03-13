@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useChurch } from "../../contexts/ChurchContext";
 import {
     Building2, Users, DollarSign, PlusCircle, CheckCircle,
-    ShieldCheck, Trash2, Ban, Check, Search, Mail, User, Crown
+    ShieldCheck, Trash2, Ban, Check, Search, Mail, User, Crown, Flag
 } from "lucide-react";
 
 // FIREBASE
@@ -20,9 +20,12 @@ interface ChurchData {
     email?: string;
     plan: string;
     planLimit: number;
-    planModules: string; // ADDED: Módulo contratado
+    planModules: string; // Módulo contratado
     status: 'active' | 'blocked';
     createdAt: string;
+    currency?: string; // 'BR' | 'AO'
+    isTest?: boolean;
+    memberCount?: number;
 }
 
 export default function AdminPage() {
@@ -32,7 +35,13 @@ export default function AdminPage() {
 
     // Dados Reais
     const [churches, setChurches] = useState<ChurchData[]>([]);
-    const [stats, setStats] = useState({ total: 0, active: 0, revenue: 0 });
+    const [stats, setStats] = useState({
+        totalChurches: 0,
+        activeChurches: 0,
+        totalMembers: 0,
+        churchesBR: 0,
+        churchesAO: 0,
+    });
 
     // ADDED: Campo plan e planLimit no estado da nova igreja
     const [newChurch, setNewChurch] = useState({
@@ -49,40 +58,49 @@ export default function AdminPage() {
     const fetchChurches = async () => {
         try {
             const q = query(collection(db, "churches"));
-            const snapshot = await getDocs(q);
+            const [snapshot, membersSnapshot] = await Promise.all([
+                getDocs(q),
+                getDocs(collection(db, "members")),
+            ]);
+
+            // Conta membros por igreja
+            const membersByChurch: Record<string, number> = {};
+            membersSnapshot.forEach((mDoc) => {
+                const data: any = mDoc.data();
+                const cId = data.churchId;
+                if (!cId) return;
+                membersByChurch[cId] = (membersByChurch[cId] || 0) + 1;
+            });
 
             const list: ChurchData[] = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
+            snapshot.forEach((docSnap) => {
+                const data: any = docSnap.data();
                 list.push({
-                    id: doc.id,
+                    id: docSnap.id,
                     name: data.name,
                     ownerName: data.ownerName || "Pastor N/A",
                     email: data.email || "Sem e-mail",
-                    plan: data.plan || 'congr',
+                    plan: data.plan || "congr",
                     planLimit: data.planLimit || 100,
-                    planModules: data.planModules || 'full',
-                    status: data.status || 'active',
-                    createdAt: data.createdAt
+                    planModules: data.planModules || "full",
+                    status: data.status || "active",
+                    createdAt: data.createdAt,
+                    currency: data.currency,
+                    isTest: data.isTest === true,
+                    memberCount: membersByChurch[docSnap.id] || 0,
                 });
             });
 
             setChurches(list);
 
-            // Ajuste de estimativa de receita baseado no plano
-            let estRevenue = 0;
-            list.forEach(c => {
-                if (c.status === 'active') {
-                    if (c.planLimit <= 100) estRevenue += 60; // Ex: R$ 59,90
-                    else if (c.planLimit <= 400) estRevenue += 120; // Ex: R$ 119,90
-                    else estRevenue += 200; // Ex: Ilimitado R$ 199,90
-                }
-            });
+            const nonTest = list.filter((c) => !c.isTest);
 
             setStats({
-                total: list.length,
-                active: list.filter(c => c.status === 'active').length,
-                revenue: estRevenue
+                totalChurches: nonTest.length,
+                activeChurches: nonTest.filter((c) => c.status === "active").length,
+                totalMembers: nonTest.reduce((acc, c) => acc + (c.memberCount || 0), 0),
+                churchesBR: nonTest.filter((c) => c.currency === "BR").length,
+                churchesAO: nonTest.filter((c) => c.currency === "AO").length,
             });
 
         } catch (error) {
@@ -231,6 +249,21 @@ export default function AdminPage() {
         }
     };
 
+    const toggleTestFlag = async (church: ChurchData) => {
+        const newValue = !church.isTest;
+        const label = newValue ? "marcar como IGREJA DE TESTE" : "remover da lista de testes";
+        if (!confirm(`Deseja ${label} "${church.name}"?`)) return;
+
+        try {
+            await updateDoc(doc(db, "churches", church.id), {
+                isTest: newValue,
+            });
+            fetchChurches();
+        } catch (error) {
+            alert("Erro ao atualizar flag de teste.");
+        }
+    };
+
     const deleteChurch = async (id: string) => {
         if (confirm("⚠️ ATENÇÃO: Isso vai apagar os DADOS da igreja, mas o LOGIN (e-mail/senha) continuará existindo no Firebase Auth.\n\nPara liberar o e-mail novamente, você precisará excluir o usuário manualmente no Console do Firebase.\n\nDeseja continuar?")) {
             try {
@@ -254,18 +287,37 @@ export default function AdminPage() {
             </div>
 
             {/* STATS */}
-            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600"><Building2 size={24} /></div>
-                    <div><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Clientes</p><h3 className="text-2xl font-extrabold text-gray-800">{stats.total}</h3></div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Igrejas (Clientes)</p>
+                        <h3 className="text-2xl font-extrabold text-gray-800">{stats.totalChurches}</h3>
+                    </div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-green-50 text-green-600"><CheckCircle size={24} /></div>
-                    <div><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Ativos</p><h3 className="text-2xl font-extrabold text-gray-800">{stats.active}</h3></div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Igrejas Ativas</p>
+                        <h3 className="text-2xl font-extrabold text-gray-800">{stats.activeChurches}</h3>
+                    </div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-50 text-purple-600"><DollarSign size={24} /></div>
-                    <div><p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Receita (Est.)</p><h3 className="text-2xl font-extrabold text-gray-800">R$ {stats.revenue},00</h3></div>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-purple-50 text-purple-600"><Users size={24} /></div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Membros Cadastrados</p>
+                        <h3 className="text-2xl font-extrabold text-gray-800">{stats.totalMembers}</h3>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-orange-50 text-orange-600"><Flag size={24} /></div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Igrejas por País</p>
+                        <div className="flex gap-3 mt-1 text-xs font-semibold text-gray-700">
+                            <span className="flex items-center gap-1">🇧🇷 {stats.churchesBR}</span>
+                            <span className="flex items-center gap-1">🇦🇴 {stats.churchesAO}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -334,7 +386,7 @@ export default function AdminPage() {
                                                     <span className="flex items-center gap-1"><Mail size={10} /> {church.email}</span>
                                                 </div>
 
-                                                <div className="mt-1.5 flex items-center gap-2">
+                                                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                                                     <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${church.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                         {church.status === 'active' ? 'Ativo' : 'Bloqueado'}
                                                     </span>
@@ -344,13 +396,26 @@ export default function AdminPage() {
                                                     <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${church.planModules === 'admin' ? 'bg-orange-100 text-orange-700' : 'bg-teal-100 text-teal-700'}`} title={church.planModules === 'admin' ? "Apenas Administrativo" : "Completo"}>
                                                         Módulos: {church.planModules === 'admin' ? 'Admin' : 'Compl'}
                                                     </span>
+                                                    {church.memberCount !== undefined && (
+                                                        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                                                            Membros: {church.memberCount}
+                                                        </span>
+                                                    )}
+                                                    <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                                        {church.currency === 'BR' ? '🇧🇷 Brasil' : church.currency === 'AO' ? '🇦🇴 Angola' : '🌎 Outro'}
+                                                    </span>
+                                                    {church.isTest && (
+                                                        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                                                            Teste
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="flex items-center gap-2 w-full sm:w-auto">
 
-                                            {/* ADDED: Botões Upgrade */}
+                                            {/* Botões Upgrade / Teste / Status */}
                                             <button
                                                 onClick={() => handleUpgradePlan(church)}
                                                 className="px-3 py-2 rounded-lg text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 transition flex items-center justify-center gap-1 min-w-[36px]"
@@ -365,6 +430,15 @@ export default function AdminPage() {
                                                 title="Mudar Módulos"
                                             >
                                                 <Building2 size={14} />
+                                            </button>
+
+                                            <button
+                                                onClick={() => toggleTestFlag(church)}
+                                                className={`px-3 py-2 rounded-lg text-xs font-bold ${church.isTest ? 'text-yellow-700 bg-yellow-100 hover:bg-yellow-200' : 'text-gray-600 bg-gray-100 hover:bg-gray-200'} transition flex items-center justify-center gap-1 min-w-[60px]`}
+                                                title="Marcar ou desmarcar como igreja de teste"
+                                            >
+                                                <Flag size={14} />
+                                                {church.isTest ? 'Teste' : 'Real'}
                                             </button>
 
                                             <button

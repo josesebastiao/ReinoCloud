@@ -91,6 +91,8 @@ export default function MembersPage() {
     const translateRole = (role: string | undefined) => {
         switch (role) {
             case 'admin': return 'Pastor Titular';
+            case 'administrator': return 'Admin Tesouraria';
+            case 'pastor': return 'Pastor Auxiliar';
             case 'deacon': return 'Diácono(a)';
             case 'leader': return 'Líder';
             case 'secretary': return 'Secretaria';
@@ -98,6 +100,10 @@ export default function MembersPage() {
             case 'visitor': return 'Visitante / Convertido';
             default: return 'Membro';
         }
+    };
+
+    const isHighLeadershipRole = (role?: string) => {
+        return role === 'admin' || role === 'administrator';
     };
 
     const convertImageToBase64 = (url: string): Promise<string> => {
@@ -235,8 +241,8 @@ export default function MembersPage() {
             return;
         }
 
-        if (userRole === 'secretary' && member?.role === 'admin') {
-            alert("Secretaria não pode editar o cadastro de um Pastor (Admin).");
+        if (userRole === 'secretary' && isHighLeadershipRole(member?.role)) {
+            alert("Secretaria não pode editar o cadastro de cargos de liderança.");
             return;
         }
 
@@ -328,15 +334,15 @@ export default function MembersPage() {
             return;
         }
 
-        if (userRole !== 'admin' && formData.role === 'admin') {
-            alert("Apenas um Pastor (Admin) pode definir este cargo.");
+        if (userRole !== 'admin' && isHighLeadershipRole(formData.role)) {
+            alert("Apenas o Pastor (Admin) pode definir este cargo.");
             return;
         }
 
         if (editingId && userRole !== 'admin') {
             const existingMember = members.find(m => m.id === editingId);
-            if (existingMember?.role === 'admin') {
-                alert("Ação não permitida: Você não pode editar um Administrador.");
+            if (isHighLeadershipRole(existingMember?.role)) {
+                alert("Ação não permitida: Você não pode editar cargos de liderança.");
                 setLoading(false);
                 return;
             }
@@ -372,11 +378,11 @@ export default function MembersPage() {
                     const existing = members.find(m => m.id === editingId);
                     safePermissions = existing?.permissions || [];
                     safeRole = existing?.role || 'member';
-                    if (formData.role === 'admin') safeRole = existing?.role || 'member';
+                    if (isHighLeadershipRole(formData.role)) safeRole = existing?.role || 'member';
                     else safeRole = formData.role;
                 } else {
                     safePermissions = [];
-                    if (formData.role === 'admin') safeRole = 'member';
+                    if (isHighLeadershipRole(formData.role)) safeRole = 'member';
                 }
             }
 
@@ -453,8 +459,8 @@ export default function MembersPage() {
 
     const openAccessModal = (member: Member) => {
         if (!member.email) { alert("Este membro precisa de um e-mail cadastrado."); return; }
-        if (userRole === 'secretary' && member.role === 'admin') {
-            alert("Secretaria não pode alterar o acesso de um Pastor (Admin).");
+        if (userRole === 'secretary' && isHighLeadershipRole(member.role)) {
+            alert("Secretaria não pode alterar o acesso de cargos de liderança.");
             return;
         }
         setSelectedMemberForAccess(member);
@@ -903,9 +909,12 @@ export default function MembersPage() {
                                                             {member.permissions && member.permissions.includes('financial') && <span title="Acesso Tesouraria"><Shield size={14} className="text-green-500 fill-green-100" /></span>}
                                                         </span>
                                                         <div className="flex items-center gap-2 flex-wrap mt-1">
-                                                            <span className={`text-[10px] px-2 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                                member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
-                                                                    'bg-gray-100 text-gray-500'
+                                                            <span className={`text-[10px] px-2 rounded uppercase font-bold ${
+                                                                member.role === 'admin' || member.role === 'administrator'
+                                                                    ? 'bg-purple-100 text-purple-700'
+                                                                    : member.role === 'visitor'
+                                                                        ? 'bg-orange-100 text-orange-700'
+                                                                        : 'bg-gray-100 text-gray-500'
                                                                 }`}>
                                                                 {translateRole(member.role)}
                                                             </span>
@@ -971,9 +980,12 @@ export default function MembersPage() {
                                             {member.permissions && member.permissions.includes('financial') && <Shield size={12} className="text-green-500 fill-green-100" />}
                                         </h3>
                                         <div className="flex flex-wrap gap-1 mt-1">
-                                            <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                                                member.role === 'visitor' ? 'bg-orange-100 text-orange-700' :
-                                                    'bg-gray-100 text-gray-500'
+                                            <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${
+                                                member.role === 'admin' || member.role === 'administrator'
+                                                    ? 'bg-purple-100 text-purple-700'
+                                                    : member.role === 'visitor'
+                                                        ? 'bg-orange-100 text-orange-700'
+                                                        : 'bg-gray-100 text-gray-500'
                                                 }`}>
                                                 {translateRole(member.role)}
                                             </span>
@@ -1213,6 +1225,7 @@ export default function MembersPage() {
                                         <option value="leader">Líder</option>
                                         <option value="secretary">Secretaria</option>
                                         <option value="treasurer">Tesouraria</option>
+                                        <option value="administrator">Admin Tesouraria</option>
                                         <option value="admin">Pastor (Admin)</option>
                                     </select>
                                     {userRole !== 'admin' && <div className="text-[10px] text-slate-500 mt-1 font-medium">Apenas o Pastor (Admin) pode alterar o cargo.</div>}

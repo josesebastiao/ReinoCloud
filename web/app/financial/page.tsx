@@ -136,7 +136,14 @@ export default function FinancialPage() {
         }
     };
 
+    const canEditTransactions = userRole === 'admin' || userRole === 'pastor' || userRole === 'administrator';
+
     const handleOpenModal = (trans?: Transaction) => {
+        if (trans && !canEditTransactions) {
+            alert("Apenas o Pastor e o Administrador podem editar lançamentos existentes.");
+            return;
+        }
+
         if (trans) {
             setEditingId(trans.id || null);
             setNewTrans({
@@ -212,6 +219,10 @@ export default function FinancialPage() {
     };
 
     const handleDelete = async (id: string) => {
+        if (!canEditTransactions) {
+            alert("Apenas o Pastor e o Administrador podem excluir lançamentos.");
+            return;
+        }
         if (confirm("Excluir este lançamento permanentemente?")) {
             await financeService.delete(id);
             if (churchId) {
@@ -646,19 +657,21 @@ export default function FinancialPage() {
                                         )}
                                     </div>
 
-                                    <div className="flex items-center justify-between md:justify-end gap-3 mt-2 md:mt-0">
+                                        <div className="flex items-center justify-between md:justify-end gap-3 mt-2 md:mt-0">
                                         <span className={`text-lg font-bold tracking-tight ${t.type === 'income' ? 'text-gray-900' : 'text-red-500'}`}>
                                             {t.type === 'income' ? '+' : '-'} {formatMoney(t.amount)}
                                         </span>
 
-                                        <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition">
-                                            <button onClick={() => handleOpenModal(t)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg print:hidden">
-                                                <Edit size={16} />
-                                            </button>
-                                            <button onClick={() => handleDelete(t.id!)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg print:hidden">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
+                                        {canEditTransactions && (
+                                            <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition">
+                                                <button onClick={() => handleOpenModal(t)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg print:hidden">
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button onClick={() => handleDelete(t.id!)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg print:hidden">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
