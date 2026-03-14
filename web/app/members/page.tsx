@@ -103,7 +103,7 @@ export default function MembersPage() {
     };
 
     const isHighLeadershipRole = (role?: string) => {
-        return role === 'admin' || role === 'administrator';
+        return role === 'admin' || role === 'administrator'|| role === 'treasurer';
     };
 
     const convertImageToBase64 = (url: string): Promise<string> => {
