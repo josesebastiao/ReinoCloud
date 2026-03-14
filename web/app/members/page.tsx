@@ -1228,25 +1228,28 @@ export default function MembersPage() {
 
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200"><h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3 flex items-center gap-2"><Building2 size={14} /> Dados Eclesiásticos</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cargo</label>
-                                    <select
-                                        value={formData.role}
-                                        onChange={e => setFormData({ ...formData, role: e.target.value })}
-                                        className="w-full p-3 border rounded-lg bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
-                                        disabled={userRole !== 'admin'}
-                                    >
-                                        <option value="visitor">Visitante / Convertido</option>
-                                        <option value="member">Membro</option>
-                                        <option value="deacon">Diácono</option>
-                                        <option value="leader">Líder</option>
-                                        <option value="secretary">Secretaria</option>
-                                        <option value="treasurer">Tesouraria</option>
-                                        <option value="administrator">Admin Tesouraria</option>
-                                        <option value="admin">Pastor (Admin)</option>
-                                    </select>
-                                    {userRole !== 'admin' && <div className="text-[10px] text-slate-500 mt-1 font-medium">Apenas o Pastor (Admin) pode alterar o cargo.</div>}
-                                </div>
-                                <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label><select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full p-3 border rounded-lg bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({ ...formData, baptismDate: e.target.value })} className="w-full p-3 border rounded-lg bg-white" /></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({ ...formData, isTither: !formData.isTither })}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white" />}</div><span className="text-sm font-semibold text-slate-700">É Dizimista?</span></div></div></div></div>
+    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cargo</label>
+    <select
+        value={formData.role}
+        onChange={e => setFormData({ ...formData, role: e.target.value })}
+        className="w-full p-3 border rounded-lg bg-white"
+    >
+        <option value="visitor">Visitante / Convertido</option>
+        <option value="member">Membro</option>
+        <option value="deacon">Diácono</option>
+        <option value="leader">Líder</option>
+        <option value="secretary">Secretaria</option>
+        
+        {userRole === 'admin' && (
+            <>
+                <option value="treasurer">Tesouraria</option>
+                <option value="administrator">Admin Tesouraria</option>
+                <option value="admin">Pastor (Admin)</option>
+            </>
+        )}
+    </select>
+    {userRole !== 'admin' && <div className="text-[10px] text-slate-500 mt-1 font-medium">Cargos de Alta Liderança são restritos ao Pastor.</div>}
+</div>                                <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label><select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full p-3 border rounded-lg bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({ ...formData, baptismDate: e.target.value })} className="w-full p-3 border rounded-lg bg-white" /></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({ ...formData, isTither: !formData.isTither })}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white" />}</div><span className="text-sm font-semibold text-slate-700">É Dizimista?</span></div></div></div></div>
 
                             {userRole === 'admin' && (
                                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 animate-in fade-in">
