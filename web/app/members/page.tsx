@@ -460,7 +460,7 @@ export default function MembersPage() {
     const openAccessModal = (member: Member) => {
         if (!member.email) { alert("Este membro precisa de um e-mail cadastrado."); return; }
         if (userRole === 'secretary' && isHighLeadershipRole(member.role)) {
-            alert("Secretaria não pode alterar o acesso de cargos de liderança.");
+            alert("Secretaria não pode alterar o acesso de cargos de Alta Liderança (Pastor/Admin).");
             return;
         }
         setSelectedMemberForAccess(member);
@@ -475,6 +475,12 @@ export default function MembersPage() {
             return;
         }
 
+        // Trava de segurança adicional
+        if (userRole === 'secretary' && isHighLeadershipRole(selectedMemberForAccess?.role)) {
+            alert("Ação Bloqueada: Secretaria não tem permissão para alterar senha deste cargo.");
+            return;
+        }
+
         const passwordErrors = validatePassword(newPassword);
         if (passwordErrors.length > 0) {
             alert(`A senha não é forte o suficiente. Ela precisa:\n\n- ${passwordErrors.join('\n- ')}`);
@@ -485,7 +491,7 @@ export default function MembersPage() {
         setCreatingAccess(true);
         try {
             await createSystemUser(selectedMemberForAccess.email, newPassword);
-            alert(`✅ Acesso criado para ${selectedMemberForAccess.email}!\n\nInforme a senha diretamente ao usuário. Para maior segurança, recomende que ele(a) altere a senha no primeiro login.`);
+            alert(`✅ Acesso criado com sucesso!\n\nUsuário: ${selectedMemberForAccess.email}\nSenha: ${newPassword}\n\nInforme a senha ao membro.`);
             setShowAccessModal(false);
         } catch (error: any) {
             console.error("Erro ao criar acesso:", error);
@@ -495,9 +501,9 @@ export default function MembersPage() {
             if (errCode === 'auth/email-already-in-use') {
                 alert("Este e-mail já possui um acesso cadastrado no sistema.");
             } else if (errCode === 'permission-denied' || errMsg.includes('permission')) {
-                alert("🚫 Erro de Permissão: O sistema não permitiu a criação do acesso. Verifique as regras de segurança no Firebase.");
+                alert("🚫 Acesso Negado pelo Banco de Dados.\n\nOcorreu uma falha de permissão durante a gravação. Isso geralmente acontece porque a criação do usuário interferiu na sua sessão atual.\n\nVerifique se o usuário foi criado apesar do erro.");
             } else {
-                alert("Não foi possível criar o acesso. Verifique os dados e tente novamente.");
+                alert(`Não foi possível criar o acesso.\nErro: ${errMsg}`);
             }
         } finally {
             setCreatingAccess(false);
