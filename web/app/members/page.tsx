@@ -400,7 +400,11 @@ export default function MembersPage() {
             else await memberService.create(payload);
             setShowModal(false);
             loadData();
-        } catch (error) { alert("Erro ao salvar."); } finally { setLoading(false); }
+        } catch (error: any) {
+            console.error("Erro detalhado ao salvar:", error);
+            // Mostra a mensagem real do erro para facilitar a correção
+            alert(`Erro ao salvar: ${error.message || "Erro desconhecido. Verifique o console (F12)."}`);
+        } finally { setLoading(false); }
     };
 
     const handleDelete = async (id: string) => {
