@@ -402,10 +402,8 @@ export default function MembersPage() {
             loadData();
         } catch (error: any) {
             console.error("Erro detalhado ao salvar:", error);
-            // Mostra a mensagem real do erro para facilitar a correção
-            alert(`Erro ao salvar: ${error.message || "Erro desconhecido. Verifique o console (F12)."}`);
             if (error.message && error.message.toLowerCase().includes('permission')) {
-                alert("🚫 Erro de Permissão ao Salvar\n\nO banco de dados negou sua solicitação. Isso geralmente acontece porque as Regras de Segurança do Firebase não reconhecem seu cargo (role) como 'admin' ou 'secretary'.\n\nVerifique se o seu próprio cadastro de membro tem o cargo correto definido.");
+                alert("🚫 Erro de Permissão ao Salvar\n\nO banco de dados negou sua solicitação. Isso acontece por um dos motivos:\n\n1. O seu cargo no cadastro não é 'admin' ou 'secretary' (verifique se não está como 'Secretaria' com letra maiúscula).\n2. Você está tentando editar um Pastor ou Admin, o que não é permitido para seu cargo.\n\nPeça para o Pastor Titular verificar seu cadastro.");
             } else {
                 // Mostra a mensagem real de outros erros para facilitar a correção
                 alert(`Erro ao salvar: ${error.message || "Erro desconhecido. Verifique o console (F12)."}`);
