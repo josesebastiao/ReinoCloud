@@ -173,12 +173,9 @@ export default function MembersPage() {
 
     const formatPhone = (value: string) => {
         if (!value) return value;
-        const digitsOnly = value.replace(/\D/g, '').slice(0, 11);
-        const len = digitsOnly.length;
-        if (len <= 2) return `(${digitsOnly}`;
-        if (len <= 6) return `(${digitsOnly.slice(0, 2)}) ${digitsOnly.slice(2)}`;
-        if (len <= 10) return `(${digitsOnly.slice(0, 2)}) ${digitsOnly.slice(2, 6)}-${digitsOnly.slice(6)}`;
-        return `(${digitsOnly.slice(0, 2)}) ${digitsOnly.slice(2, 7)}-${digitsOnly.slice(7)}`;
+        // Permite formato livre para suportar internacionalização (Angola, Brasil, etc)
+        // Apenas remove caracteres inválidos que não sejam números ou símbolos de telefone
+        return value.replace(/[^\d+()\-\s]/g, '').slice(0, 20);
     };
 
     const isValidEmail = (email: string) => {
@@ -1201,7 +1198,7 @@ export default function MembersPage() {
 
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Telefone</label>
-                                        <input type="text" value={formData.phone} onChange={e => setFormData({ ...formData, phone: formatPhone(e.target.value) })} placeholder="(XX) XXXXX-XXXX" maxLength={15} className="w-full p-3 border rounded-lg bg-white" />
+                                        <input type="text" value={formData.phone} onChange={e => setFormData({ ...formData, phone: formatPhone(e.target.value) })} placeholder="+55 (11) 99999-9999 ou +244 923 000 000" maxLength={20} className="w-full p-3 border rounded-lg bg-white" />
                                     </div>
 
                                     <div>
