@@ -404,6 +404,12 @@ export default function MembersPage() {
             console.error("Erro detalhado ao salvar:", error);
             // Mostra a mensagem real do erro para facilitar a correção
             alert(`Erro ao salvar: ${error.message || "Erro desconhecido. Verifique o console (F12)."}`);
+            if (error.message && error.message.toLowerCase().includes('permission')) {
+                alert("🚫 Erro de Permissão ao Salvar\n\nO banco de dados negou sua solicitação. Isso geralmente acontece porque as Regras de Segurança do Firebase não reconhecem seu cargo (role) como 'admin' ou 'secretary'.\n\nVerifique se o seu próprio cadastro de membro tem o cargo correto definido.");
+            } else {
+                // Mostra a mensagem real de outros erros para facilitar a correção
+                alert(`Erro ao salvar: ${error.message || "Erro desconhecido. Verifique o console (F12)."}`);
+            }
         } finally { setLoading(false); }
     };
 
