@@ -488,9 +488,14 @@ export default function MembersPage() {
             alert(`✅ Acesso criado para ${selectedMemberForAccess.email}!\n\nInforme a senha diretamente ao usuário. Para maior segurança, recomende que ele(a) altere a senha no primeiro login.`);
             setShowAccessModal(false);
         } catch (error: any) {
-            console.error(error);
-            if (error.code === 'auth/email-already-in-use') {
+            console.error("Erro ao criar acesso:", error);
+            const errCode = (error && error.code) || "";
+            const errMsg = (error && error.message ? String(error.message) : "").toLowerCase();
+
+            if (errCode === 'auth/email-already-in-use') {
                 alert("Este e-mail já possui um acesso cadastrado no sistema.");
+            } else if (errCode === 'permission-denied' || errMsg.includes('permission')) {
+                alert("🚫 Erro de Permissão: O sistema não permitiu a criação do acesso. Verifique as regras de segurança no Firebase.");
             } else {
                 alert("Não foi possível criar o acesso. Verifique os dados e tente novamente.");
             }
