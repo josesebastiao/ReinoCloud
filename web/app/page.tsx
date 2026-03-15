@@ -6,7 +6,8 @@ import { useChurch } from "../contexts/ChurchContext";
 import { memberService } from "../services/memberService";
 import { financeService } from "../services/financeService";
 import { db } from "../lib/firebase";
-import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+// IMPORT ATUALIZADO: Adicionamos o addDoc aqui
+import { collection, query, where, orderBy, limit, getDocs, addDoc } from "firebase/firestore";
 import { MemberDashboard } from "../components/MemberDashboard"; 
 import { Member } from "../types/member";
 import { 
@@ -151,12 +152,31 @@ export default function Dashboard() {
     }
   };
 
+  // FUNÇÃO ATUALIZADA: Agora integra com o Diário de Atividades
   const handleMarkPastoralVisit = async (member: Member) => {
     if (!member.id) return;
     try {
       setMarkingVisitId(member.id);
       const today = new Date().toISOString();
+      
+      // 1. Atualiza a ficha do membro
       await memberService.update(member.id, { lastPastoralVisit: today, needsPastoralVisit: false });
+      
+      // 2. INTEGRAÇÃO: Cria a atividade automaticamente no relatório pastoral
+      if (churchId) {
+          await addDoc(collection(db, "activities"), {
+              churchId: churchId,
+              title: `Visita ao membro(a): ${member.fullName}`,
+              date: today.split('T')[0], // Pega apenas YYYY-MM-DD
+              category: "Visita Pastoral",
+              quantity: 1,
+              description: `Visita registrada automaticamente a partir do painel de início. Contato do membro: ${member.phone || 'Não registrado'}.`,
+              createdBy: userRole || "admin",
+              createdAt: Date.now()
+          });
+      }
+
+      // 3. Atualiza a tela em tempo real
       setPastoralVisits(prev =>
         prev.map(m => (m.id === member.id ? { ...m, lastPastoralVisit: today, needsPastoralVisit: false } : m)),
       );
