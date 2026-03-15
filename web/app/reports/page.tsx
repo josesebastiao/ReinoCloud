@@ -11,6 +11,10 @@ import {
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
+// NOVOS IMPORTS PARA A INTEGRAÇÃO COM ATIVIDADES
+import { db } from "../../lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
+
 export default function ReportsPage() {
   const router = useRouter();
   const { churchId, churchName, userRole, hasPermission, loading: authLoading } = useChurch();
@@ -74,7 +78,7 @@ export default function ReportsPage() {
         const females = members.filter(m => m.gender === 'female').length;
         setGenderStats({ male: males, female: females });
 
-        // Cálculo de Batizados (Se tem data de batismo cadastrada, é considerado batizado)
+        // Cálculo de Batizados
         const baptized = members.filter(m => m.baptismDate && m.baptismDate.trim() !== "").length;
         setBaptizedCount(baptized);
         setUnbaptizedCount(members.length - baptized);
@@ -109,7 +113,7 @@ export default function ReportsPage() {
         });
         setBirthdays(bdays);
 
-        // FILA INTELIGENTE PARA VISITAS PASTORAIS (para secretaria/pastor gerenciar)
+        // FILA INTELIGENTE PARA VISITAS PASTORAIS
         const visitList = activeMembers
           .slice()
           .sort((a, b) => {
@@ -132,14 +136,41 @@ export default function ReportsPage() {
 
   const currentMonthName = new Date().toLocaleString('pt-BR', { month: 'long' });
 
+  // FUNÇÃO ATUALIZADA: Agora integra com o Diário de Atividades
   const togglePastoralPriority = async (member: Member) => {
-    if (!member.id) return;
-    const newValue = !member.needsPastoralVisit;
+    if (!member.id || !churchId) return;
+    const newValue = !member.needsPastoralVisit; // Se for falso, significa que a visita foi concluída!
+    
     try {
-      await memberService.update(member.id, { needsPastoralVisit: newValue });
+      // 1. Atualiza o cadastro do membro
+      await memberService.update(member.id, { 
+        needsPastoralVisit: newValue,
+        // Se estiver desmarcando a prioridade, assumimos que a visita aconteceu hoje
+        lastPastoralVisit: !newValue ? new Date().toISOString() : member.lastPastoralVisit
+      });
+      
       setNeedsVisit(prev =>
-        prev.map(m => (m.id === member.id ? { ...m, needsPastoralVisit: newValue } : m)),
+        prev.map(m => (m.id === member.id ? { 
+            ...m, 
+            needsPastoralVisit: newValue,
+            lastPastoralVisit: !newValue ? new Date().toISOString() : m.lastPastoralVisit
+        } : m)),
       );
+
+      // 2. INTEGRAÇÃO: Se a visita foi concluída (!newValue), envia para o Relatório Pastoral
+      if (!newValue) {
+          await addDoc(collection(db, "activities"), {
+              churchId: churchId,
+              title: `Visita ao membro(a): ${member.fullName}`,
+              date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+              category: "Visita Pastoral",
+              quantity: 1,
+              description: `Visita registrada automaticamente a partir do painel da Secretaria. Contato do membro: ${member.phone || 'Não registrado'}.`,
+              createdBy: userRole || "secretaria",
+              createdAt: Date.now()
+          });
+      }
+
     } catch (error) {
       console.error("Erro ao atualizar prioridade de visita pastoral:", error);
     }
@@ -180,7 +211,6 @@ export default function ReportsPage() {
 
       <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16 relative z-10">
           
-          {/* GRID DE DADOS RÁPIDOS - Agora com 6 colunas para telas grandes e 2 para celular */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
               <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
                   <div className="p-3 bg-blue-50 text-blue-600 rounded-full"><Users size={20}/></div>
@@ -192,13 +222,11 @@ export default function ReportsPage() {
                   <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Dizimistas</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{tithersCount}</h3></div>
               </div>
 
-              {/* CARD BATIZADOS */}
               <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
                   <div className="p-3 bg-cyan-50 text-cyan-600 rounded-full"><Droplets size={20}/></div>
                   <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Batizados</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{baptizedCount}</h3></div>
               </div>
 
-              {/* CARD NÃO BATIZADOS */}
               <div className="bg-white p-4 lg:p-5 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
                   <div className="p-3 bg-orange-50 text-orange-600 rounded-full"><User size={20}/></div>
                   <div><p className="text-[10px] lg:text-xs text-gray-400 font-bold uppercase tracking-wider">Não Batiz.</p><h3 className="text-xl lg:text-2xl font-black text-gray-800">{unbaptizedCount}</h3></div>
@@ -236,16 +264,11 @@ export default function ReportsPage() {
                       Fila para o Pastor
                     </span>
                   </div>
-                  <div className="mb-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                    <p className="text-[11px] text-blue-800 font-medium">
-                      Use esta lista para marcar quem precisa de visita pastoral. Os marcados como{" "}
-                      <strong>Prioridade</strong> aparecerão em destaque no painel inicial do Pastor.
-                    </p>
-                  </div>
+                  
                   <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1">
                     <AlertCircle size={12}/> Sugestão inteligente
                   </h4>
-                  <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-2">
                       {needsVisit.map(m => {
                         const lastVisitLabel = m.lastPastoralVisit
                           ? new Date(m.lastPastoralVisit).toLocaleDateString('pt-BR')
@@ -253,9 +276,9 @@ export default function ReportsPage() {
                         return (
                           <div
                             key={m.id}
-                            className="flex justify-between items-center p-3 bg-gray-50 border border-gray-100 rounded-xl hover:bg-white hover:shadow-sm transition"
+                            className={`flex justify-between items-center p-3 border rounded-xl transition ${m.needsPastoralVisit ? 'bg-red-50/50 border-red-100' : 'bg-gray-50 border-gray-100 hover:bg-white hover:shadow-sm'}`}
                           >
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="font-bold text-sm text-gray-700 truncate max-w-[140px]">
                                 {m.fullName}
                               </p>
@@ -266,27 +289,28 @@ export default function ReportsPage() {
                                 </span>
                               </p>
                               {m.needsPastoralVisit && (
-                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full mt-1">
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-100/50 px-2 py-0.5 rounded-full mt-1">
                                   Prioridade da secretaria
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 ml-3">
+                            <div className="flex flex-col items-end gap-2 ml-3">
                               <button
                                 onClick={() => togglePastoralPriority(m)}
                                 className={`text-[10px] px-3 py-1.5 rounded-lg font-bold border transition ${
                                   m.needsPastoralVisit
-                                    ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-500 hover:text-white"
                                     : "bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600"
                                 }`}
                               >
-                                {m.needsPastoralVisit ? "Remover da fila" : "Marcar prioridade"}
+                                {/* BOTÃO DINÂMICO DE AÇÃO */}
+                                {m.needsPastoralVisit ? "✓ Concluir Visita" : "Marcar prioridade"}
                               </button>
                               <button
                                 onClick={() => setSelectedMember(m)}
-                                className="text-[10px] bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg font-bold hover:text-blue-600 hover:border-blue-200 transition"
+                                className="text-[10px] text-gray-400 font-bold hover:text-blue-600 transition underline"
                               >
-                                Ver Ficha
+                                Ficha do Membro
                               </button>
                             </div>
                           </div>

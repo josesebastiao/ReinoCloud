@@ -2,10 +2,10 @@
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
 import { db } from "../../lib/firebase";
-import { collection, addDoc, getDocs, query, where, deleteDoc, doc, orderBy } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
 import {
-    Activity, PlusCircle, Printer, Calendar, Users, HeartHandshake,
-    BookOpen, Trash2, Loader2, X, PieChart, TrendingUp, Droplet
+    PlusCircle, Printer, Calendar, Users, HeartHandshake,
+    BookOpen, Trash2, Loader2, X, TrendingUp, Droplet
 } from "lucide-react";
 
 // --- INTERFACES ---
@@ -15,7 +15,6 @@ export interface ChurchActivity {
     title: string;
     date: string;
     category: string;
-    department: string;
     quantity: number;
     description: string;
     createdBy: string;
@@ -31,18 +30,17 @@ export default function ActivitiesPage() {
     const [printing, setPrinting] = useState(false);
     const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
 
-    // Dados do formulário
+    // Dados do formulário (Sem departamento agora)
     const [formData, setFormData] = useState({
         title: "", date: "", category: "Visita Pastoral",
-        department: "Geral", quantity: 1, description: ""
+        quantity: 1, description: ""
     });
     const [saving, setSaving] = useState(false);
 
     // Categorias padrão
     const categories = ["Visita Pastoral", "Batismo", "Casamento", "Ação Social", "Culto Especial", "Reunião Administrativa", "Outros"];
-    const departments = ["Geral", "Jovens", "Mulheres", "Homens", "Infantil", "Louvor", "Missões"];
 
-    // Nome dinâmico da aba baseado no cargo
+    // Nome dinâmico da aba
     const pageTitle = userRole === 'admin' ? "Relatório Pastoral" : "Relatório de Atividades";
 
     useEffect(() => {
@@ -74,16 +72,21 @@ export default function ActivitiesPage() {
         if (!churchId) return;
         setSaving(true);
         try {
+            // Se não for batismo ou ação social, força a quantidade a ser 1
+            const finalQuantity = (formData.category === 'Batismo' || formData.category === 'Ação Social') 
+                ? Number(formData.quantity) 
+                : 1;
+
             const payload: ChurchActivity = {
                 ...formData,
                 churchId,
-                quantity: Number(formData.quantity),
+                quantity: finalQuantity,
                 createdBy: userRole || "unknown",
                 createdAt: Date.now()
             };
             await addDoc(collection(db, "activities"), payload);
             setShowModal(false);
-            setFormData({ title: "", date: "", category: "Visita Pastoral", department: "Geral", quantity: 1, description: "" });
+            setFormData({ title: "", date: "", category: "Visita Pastoral", quantity: 1, description: "" });
             loadActivities();
         } catch (error) {
             alert("Erro ao salvar atividade.");
@@ -108,7 +111,7 @@ export default function ActivitiesPage() {
     const totalBatismos = filteredActivities.filter(a => a.category === 'Batismo').reduce((acc, curr) => acc + curr.quantity, 0);
     const totalCasamentos = filteredActivities.filter(a => a.category === 'Casamento').length;
     const totalVisitas = filteredActivities.filter(a => a.category === 'Visita Pastoral').length;
-    const totalAcaoSocial = filteredActivities.filter(a => a.category === 'Ação Social').reduce((acc, curr) => acc + curr.quantity, 0);
+    const totalAcaoSocial = filteredActivities.filter(a => a.category === 'Ação Social').length;
 
     // --- FUNÇÃO DE IMPRESSÃO ---
     const handlePrint = () => {
@@ -126,8 +129,8 @@ export default function ActivitiesPage() {
             <tr style="border-bottom: 1px solid #eee;">
                 <td style="padding: 10px; font-size: 12px;">${new Date(act.date + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                 <td style="padding: 10px; font-size: 12px;"><strong>${act.category}</strong></td>
-                <td style="padding: 10px; font-size: 12px;">${act.title} <br> <span style="color:#666; font-size:10px;">${act.department}</span></td>
-                <td style="padding: 10px; font-size: 12px; text-align: center;">${act.quantity}</td>
+                <td style="padding: 10px; font-size: 12px;">${act.title}</td>
+                <td style="padding: 10px; font-size: 12px; text-align: center;">${(act.category === 'Batismo' || act.category === 'Ação Social') ? act.quantity : '-'}</td>
             </tr>
         `).join('');
 
@@ -161,12 +164,12 @@ export default function ActivitiesPage() {
                 <div class="card"><h3>Batismos (Vidas)</h3><p>${totalBatismos}</p></div>
                 <div class="card"><h3>Casamentos</h3><p>${totalCasamentos}</p></div>
                 <div class="card"><h3>Visitas Pastorais</h3><p>${totalVisitas}</p></div>
-                <div class="card"><h3>Ação Social (Atendimentos)</h3><p>${totalAcaoSocial}</p></div>
+                <div class="card"><h3>Ações Sociais</h3><p>${totalAcaoSocial}</p></div>
             </div>
 
             <h3 style="margin-top:40px; border-bottom:1px solid #eee; padding-bottom:5px;">Histórico de Ocorrências</h3>
             <table>
-                <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th style="text-align:center;">Qtd/Pessoas</th></tr></thead>
+                <thead><tr><th>Data</th><th>Categoria</th><th>Descrição / Nomes</th><th style="text-align:center;">Qtd/Vidas</th></tr></thead>
                 <tbody>${tableRows || '<tr><td colspan="4" style="text-align:center; padding:20px;">Nenhuma atividade registrada neste ano.</td></tr>'}</tbody>
             </table>
 
@@ -270,16 +273,18 @@ export default function ActivitiesPage() {
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase rounded">{act.category}</span>
-                                                <span className="text-[10px] text-slate-400 font-semibold">{act.department}</span>
                                             </div>
                                             <h4 className="font-bold text-slate-800 text-lg leading-tight">{act.title}</h4>
                                             {act.description && <p className="text-sm text-slate-600 mt-2">{act.description}</p>}
                                         </div>
                                         <div className="flex flex-row md:flex-col justify-between items-end md:items-center pl-4 border-t md:border-t-0 md:border-l border-slate-200 pt-4 md:pt-0">
-                                            <div className="text-center">
-                                                <span className="block text-[10px] font-bold text-slate-400 uppercase">Quantidade/Pessoas</span>
-                                                <span className="block text-xl font-black text-slate-800">{act.quantity}</span>
-                                            </div>
+                                            {/* SÓ MOSTRA O NÚMERO SE FOR BATISMO OU AÇÃO SOCIAL */}
+                                            {(act.category === 'Batismo' || act.category === 'Ação Social') && (
+                                                <div className="text-center">
+                                                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Qtd/Vidas</span>
+                                                    <span className="block text-xl font-black text-slate-800">{act.quantity}</span>
+                                                </div>
+                                            )}
                                             {(userRole === 'admin' || act.createdBy === userRole) && (
                                                 <button onClick={() => handleDelete(act.id!)} className="text-red-400 hover:text-red-600 transition p-2 bg-red-50 rounded-lg opacity-100 md:opacity-0 group-hover:opacity-100 mt-2">
                                                     <Trash2 size={16} />
@@ -316,27 +321,26 @@ export default function ActivitiesPage() {
                                 </div>
                             </div>
                             
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Título Curto</label>
-                                <input required type="text" placeholder="Ex: Casamento do João e Maria" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-3 border rounded-lg mt-1" />
+                            {/* LINHA DINÂMICA: Título e Quantidade (se for batismo) */}
+                            <div className={`grid ${formData.category === 'Batismo' ? 'grid-cols-2 gap-4' : 'grid-cols-1'}`}>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">
+                                        {formData.category === 'Casamento' ? 'Nome dos Noivos' : 'Título Curto'}
+                                    </label>
+                                    <input required type="text" placeholder={formData.category === 'Casamento' ? "Ex: João e Maria" : "Ex: Culto de Ceia"} value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full p-3 border rounded-lg mt-1" />
+                                </div>
+                                
+                                {formData.category === 'Batismo' && (
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Qtd de Vidas</label>
+                                        <input required type="number" min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: Number(e.target.value)})} className="w-full p-3 border rounded-lg mt-1" />
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Departamento</label>
-                                    <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full p-3 border rounded-lg mt-1 bg-white">
-                                        {departments.map(dep => <option key={dep} value={dep}>{dep}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Qtd de Pessoas/Vidas</label>
-                                    <input required type="number" min="1" value={formData.quantity} onChange={e => setFormData({...formData, quantity: Number(e.target.value)})} className="w-full p-3 border rounded-lg mt-1" />
-                                </div>
-                            </div>
-
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Detalhes (Opcional)</label>
-                                <textarea rows={3} placeholder="Escreva observações ou detalhes do evento..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-3 border rounded-lg mt-1 resize-none" />
+                                <label className="text-xs font-bold text-slate-500 uppercase">Detalhes / Relatório da Atividade</label>
+                                <textarea rows={4} placeholder="Escreva aqui todas as observações, texto base que foi pregado, ou detalhes da visita..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-3 border rounded-lg mt-1 resize-none bg-slate-50" />
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
