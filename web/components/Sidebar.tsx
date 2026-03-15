@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone, Heart
+  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone, Heart, BookOpen
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
 import { auth } from "../lib/firebase";
@@ -45,6 +45,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     if (module === 'prayers') return userRole === 'pastor' || hasPermission('pastor');
     if (module === 'settings') return userRole === 'treasurer' || userRole === 'admin';
     if (module === 'dashboard') return true;
+    
+    // Nova permissão para a tela de Atividades/Relatórios
+    if (module === 'activities') return userRole === 'admin' || userRole === 'pastor' || userRole === 'leader';
 
     return false;
   };
@@ -73,6 +76,14 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     ...(canAccess('secretary') ? [{ icon: FolderOpen, label: "Secretaria", href: "/secretary" }] : []),
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
     ...(canAccess('ministry') ? [{ icon: Music, label: "Departamentos", href: "/ministries" }] : []),
+    
+    // NOVO MENU DE ATIVIDADES AQUI (com nome dinâmico)
+    ...(canAccess('activities') ? [{ 
+        icon: BookOpen, 
+        label: userRole === 'admin' ? "Relatório Pastoral" : "Rel. de Atividades", 
+        href: "/activities" 
+    }] : []),
+
     ...(canAccess('posts') ? [{ icon: Megaphone, label: "Mural de Avisos", href: "/posts" }] : []),
     ...(canAccess('prayers') ? [{ icon: Heart, label: "Pedidos de Oração", href: "/prayers" }] : []),
     ...(canAccess('settings') ? [{ icon: Settings, label: "Configurações", href: "/settings" }] : []),
