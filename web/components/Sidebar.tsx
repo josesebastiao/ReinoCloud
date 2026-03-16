@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone, Heart, BookOpen
+  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone, Heart, BookOpen, Globe
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
 import { auth } from "../lib/firebase";
@@ -16,7 +16,9 @@ interface SidebarProps {
 export function Sidebar({ onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, userRole, hasPermission, churchModules } = useChurch();
+  
+  // ADICIONADO: isHeadquarters para checar se a igreja logada é uma SEDE
+  const { user, userRole, hasPermission, churchModules, isHeadquarters } = useChurch();
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
@@ -45,8 +47,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     if (module === 'prayers') return userRole === 'pastor' || hasPermission('pastor');
     if (module === 'settings') return userRole === 'treasurer' || userRole === 'admin';
     if (module === 'dashboard') return true;
-    
-    // Nova permissão para a tela de Atividades/Relatórios
     if (module === 'activities') return userRole === 'admin' || userRole === 'pastor' || userRole === 'leader';
 
     return false;
@@ -55,7 +55,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const userEmail = user?.email ? user.email.toLowerCase() : "";
   const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
 
-  // --- NOVA FUNÇÃO PARA TRADUZIR O CARGO CORRETAMENTE ---
   const getRoleLabel = () => {
     if (isSuperAdmin) return "SUPER ADMIN";
 
@@ -70,19 +69,16 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     }
   };
 
-  // --- MENU REORGANIZADO CONFORME SOLICITADO ---
+  // --- MENU REORGANIZADO ---
   const menuItems = [
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Início", href: "/" }] : []),
     ...(canAccess('secretary') ? [{ icon: FolderOpen, label: "Secretaria", href: "/secretary" }] : []),
     ...(canAccess('financial') ? [{ icon: DollarSign, label: "Tesouraria", href: "/financial" }] : []),
     ...(canAccess('ministry') ? [{ icon: Music, label: "Departamentos", href: "/ministries" }] : []),
+    ...(canAccess('activities') ? [{ icon: BookOpen, label: userRole === 'admin' ? "Relatório Pastoral" : "Rel. de Atividades", href: "/activities" }] : []),
     
-    // NOVO MENU DE ATIVIDADES AQUI (com nome dinâmico)
-    ...(canAccess('activities') ? [{ 
-        icon: BookOpen, 
-        label: userRole === 'admin' ? "Relatório Pastoral" : "Rel. de Atividades", 
-        href: "/activities" 
-    }] : []),
+    // NOVO MENU DA REDE: Só aparece para a SEDE
+    ...(isHeadquarters ? [{ icon: Globe, label: "Visão Global", href: "/rede" }] : []),
 
     ...(canAccess('posts') ? [{ icon: Megaphone, label: "Mural de Avisos", href: "/posts" }] : []),
     ...(canAccess('prayers') ? [{ icon: Heart, label: "Pedidos de Oração", href: "/prayers" }] : []),
