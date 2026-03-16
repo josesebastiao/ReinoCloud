@@ -102,6 +102,17 @@ export default function MembersPage() {
         }
     };
 
+    const translateStatus = (status: string | undefined) => {
+        switch (status) {
+            case 'active': return 'Ativo';
+            case 'inactive': return 'Inativo';
+            case 'disciplined': return 'Subdisciplina/Afastado';
+            case 'transferred': return 'Transferido';
+            case 'excluded': return 'Excluído';
+            default: return 'Inativo';
+        }
+    };
+
     const isHighLeadershipRole = (role?: string) => {
         return role === 'admin' || role === 'administrator'|| role === 'treasurer';
     };
@@ -202,6 +213,8 @@ export default function MembersPage() {
         if (filterCategory === 'active') return m.status === 'active';
         if (filterCategory === 'inactive') return m.status === 'inactive';
         if (filterCategory === 'disciplined') return m.status === 'disciplined';
+        if (filterCategory === 'transferred') return m.status === 'transferred';
+        if (filterCategory === 'excluded') return m.status === 'excluded';
         if (filterCategory === 'men') return m.gender === 'male';
         if (filterCategory === 'women') return m.gender === 'female';
 
@@ -681,14 +694,16 @@ export default function MembersPage() {
                 <td style="padding: 8px;"><strong>${escapeHtml(m.fullName)}</strong></td>
                 <td style="padding: 8px;">${escapeHtml(translateRole(m.role))}</td>
                 <td style="padding: 8px;">${escapeHtml(m.phone || '-')}</td>
-                <td style="padding: 8px;">${m.status === 'active' ? 'Ativo' : m.status === 'disciplined' ? 'Subdisciplina' : 'Inativo'}</td>
+                <td style="padding: 8px;">${escapeHtml(translateStatus(m.status))}</td>
             </tr>
         `).join('');
 
             const categoryTitles: Record<string, string> = {
                 all: 'Todos os Membros',
                 active: 'Membros Ativos',
-                disciplined: 'Membros em Disciplina',
+                disciplined: 'Membros em Subdisciplina/Afastados',
+                transferred: 'Membros Transferidos',
+                excluded: 'Membros Excluídos',
                 inactive: 'Membros Inativos',
                 men: 'Homens',
                 women: 'Mulheres',
@@ -820,7 +835,9 @@ export default function MembersPage() {
                                     <option value="all">Todos os Membros</option>
                                     <option value="active">🟢 Ativos</option>
                                     <option value="inactive">🔴 Inativos</option>
-                                    <option value="disciplined">🟡 Subdisciplina</option>
+                                    <option value="disciplined">🟡 Subdisciplina/Afastado</option>
+                                    <option value="transferred">✈️ Transferidos</option>
+                                    <option value="excluded">✖️ Excluídos</option>
                                     <option value="men">🧔 Homens</option>
                                     <option value="women">👩 Mulheres</option>
                                     <option value="children">👧 Crianças (0-12 anos)</option>
@@ -1009,9 +1026,13 @@ export default function MembersPage() {
                                             </span>
                                             <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.status === 'active'
                                                 ? 'bg-green-100 text-green-700'
-                                                : member.status === 'disciplined' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                                : member.status === 'disciplined' 
+                                                    ? 'bg-yellow-100 text-yellow-700' 
+                                                    : member.status === 'inactive' 
+                                                        ? 'bg-red-100 text-red-700' 
+                                                        : 'bg-slate-100 text-slate-600'
                                                 }`}>
-                                                {member.status === 'active' ? 'Ativo' : member.status === 'disciplined' ? 'Subdisciplina' : 'Inativo'}
+                                                {translateStatus(member.status)}
                                             </span>
                                         </div>
                                     </div>
@@ -1128,8 +1149,10 @@ export default function MembersPage() {
                                         ? 'text-green-600'
                                         : viewMember.status === 'disciplined'
                                             ? 'text-yellow-600'
-                                            : 'text-red-500'
-                                        }`}>{viewMember.status === 'active' ? 'Ativo' : viewMember.status === 'disciplined' ? 'Subdisciplina' : 'Inativo'}</p>
+                                            : viewMember.status === 'inactive'
+                                                ? 'text-red-500'
+                                                : 'text-slate-600'
+                                        }`}>{translateStatus(viewMember.status)}</p>
                                 </div>
                                 <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 text-center">
                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Estado Civil</span>
@@ -1262,7 +1285,7 @@ export default function MembersPage() {
 </div>                                <div>
     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label>
     <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full p-3 border rounded-lg bg-white">
-        <option value="active">Ativo</option><option value="inactive">Inativo</option><option value="disciplined">Subdisciplina/Afastado</option>
+        <option value="active">Ativo</option><option value="inactive">Inativo</option><option value="disciplined">Subdisciplina/Afastado</option><option value="transferred">Transferido</option><option value="excluded">Excluído</option>
     </select>
 </div><div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({ ...formData, baptismDate: e.target.value })} className="w-full p-3 border rounded-lg bg-white" /></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({ ...formData, isTither: !formData.isTither })}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white" />}</div><span className="text-sm font-semibold text-slate-700">É Dizimista?</span></div></div></div></div>
 
