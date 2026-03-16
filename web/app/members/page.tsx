@@ -200,7 +200,8 @@ export default function MembersPage() {
 
         if (filterCategory === 'all') return true;
         if (filterCategory === 'active') return m.status === 'active';
-        if (filterCategory === 'inactive') return m.status !== 'active';
+        if (filterCategory === 'inactive') return m.status === 'inactive';
+        if (filterCategory === 'disciplined') return m.status === 'disciplined';
         if (filterCategory === 'men') return m.gender === 'male';
         if (filterCategory === 'women') return m.gender === 'female';
 
@@ -680,13 +681,14 @@ export default function MembersPage() {
                 <td style="padding: 8px;"><strong>${escapeHtml(m.fullName)}</strong></td>
                 <td style="padding: 8px;">${escapeHtml(translateRole(m.role))}</td>
                 <td style="padding: 8px;">${escapeHtml(m.phone || '-')}</td>
-                <td style="padding: 8px;">${m.status === 'active' ? 'Ativo' : 'Inativo'}</td>
+                <td style="padding: 8px;">${m.status === 'active' ? 'Ativo' : m.status === 'disciplined' ? 'Subdisciplina' : 'Inativo'}</td>
             </tr>
         `).join('');
 
             const categoryTitles: Record<string, string> = {
                 all: 'Todos os Membros',
                 active: 'Membros Ativos',
+                disciplined: 'Membros em Disciplina',
                 inactive: 'Membros Inativos',
                 men: 'Homens',
                 women: 'Mulheres',
@@ -818,6 +820,7 @@ export default function MembersPage() {
                                     <option value="all">Todos os Membros</option>
                                     <option value="active">🟢 Ativos</option>
                                     <option value="inactive">🔴 Inativos</option>
+                                    <option value="disciplined">🟡 Subdisciplina</option>
                                     <option value="men">🧔 Homens</option>
                                     <option value="women">👩 Mulheres</option>
                                     <option value="children">👧 Crianças (0-12 anos)</option>
@@ -996,17 +999,19 @@ export default function MembersPage() {
                                             {member.permissions && member.permissions.includes('financial') && <Shield size={12} className="text-green-500 fill-green-100" />}
                                         </h3>
                                         <div className="flex flex-wrap gap-1 mt-1">
-                                            <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${
-                                                member.role === 'admin' || member.role === 'administrator'
-                                                    ? 'bg-purple-100 text-purple-700'
-                                                    : member.role === 'visitor'
-                                                        ? 'bg-orange-100 text-orange-700'
-                                                        : 'bg-gray-100 text-gray-500'
+                                            <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.role === 'admin' || member.role === 'administrator'
+                                                ? 'bg-purple-100 text-purple-700'
+                                                : member.role === 'visitor'
+                                                    ? 'bg-orange-100 text-orange-700'
+                                                    : 'bg-gray-100 text-gray-500'
                                                 }`}>
                                                 {translateRole(member.role)}
                                             </span>
-                                            <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                {member.status === 'active' ? 'Ativo' : 'Inativo'}
+                                            <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold ${member.status === 'active'
+                                                ? 'bg-green-100 text-green-700'
+                                                : member.status === 'disciplined' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                                }`}>
+                                                {member.status === 'active' ? 'Ativo' : member.status === 'disciplined' ? 'Subdisciplina' : 'Inativo'}
                                             </span>
                                         </div>
                                     </div>
@@ -1119,7 +1124,12 @@ export default function MembersPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 text-center">
                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Status</span>
-                                    <p className={`font-semibold ${viewMember.status === 'active' ? 'text-green-600' : 'text-red-500'}`}>{viewMember.status === 'active' ? 'Ativo' : 'Inativo'}</p>
+                                    <p className={`font-semibold ${viewMember.status === 'active'
+                                        ? 'text-green-600'
+                                        : viewMember.status === 'disciplined'
+                                            ? 'text-yellow-600'
+                                            : 'text-red-500'
+                                        }`}>{viewMember.status === 'active' ? 'Ativo' : viewMember.status === 'disciplined' ? 'Subdisciplina' : 'Inativo'}</p>
                                 </div>
                                 <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 text-center">
                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Estado Civil</span>
@@ -1249,7 +1259,12 @@ export default function MembersPage() {
         )}
     </select>
     {userRole !== 'admin' && <div className="text-[10px] text-slate-500 mt-1 font-medium">Cargos de Alta Liderança são restritos ao Pastor.</div>}
-</div>                                <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label><select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full p-3 border rounded-lg bg-white"><option value="active">Ativo</option><option value="inactive">Inativo</option></select></div><div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({ ...formData, baptismDate: e.target.value })} className="w-full p-3 border rounded-lg bg-white" /></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({ ...formData, isTither: !formData.isTither })}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white" />}</div><span className="text-sm font-semibold text-slate-700">É Dizimista?</span></div></div></div></div>
+</div>                                <div>
+    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</label>
+    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full p-3 border rounded-lg bg-white">
+        <option value="active">Ativo</option><option value="inactive">Inativo</option><option value="disciplined">Subdisciplina/Afastado</option>
+    </select>
+</div><div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Data Batismo</label><input type="date" value={formData.baptismDate} onChange={e => setFormData({ ...formData, baptismDate: e.target.value })} className="w-full p-3 border rounded-lg bg-white" /></div><div className="flex items-end"><div className="w-full bg-white p-3 rounded-lg border border-amber-200 flex items-center gap-3 cursor-pointer hover:bg-amber-100" onClick={() => setFormData({ ...formData, isTither: !formData.isTither })}><div className={`w-5 h-5 rounded border flex items-center justify-center ${formData.isTither ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{formData.isTither && <HandCoins size={12} className="text-white" />}</div><span className="text-sm font-semibold text-slate-700">É Dizimista?</span></div></div></div></div>
 
                             {userRole === 'admin' && (
                                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 animate-in fade-in">
