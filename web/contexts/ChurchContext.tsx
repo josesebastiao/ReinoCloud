@@ -4,6 +4,12 @@ import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
+// --- NOVAS INTERFACES PARA A REDE ---
+export interface BranchInfo {
+  id: string;
+  name: string;
+}
+
 interface ChurchContextData {
   user: User | null;
   churchId: string | null;
@@ -19,6 +25,12 @@ interface ChurchContextData {
   setChurchData: (id: string | null, name: string | null, role: string | null, userName: string | null, logoUrl: string | null, signatureUrl: string | null, currency: string, modules?: string) => void;
   hasPermission: (permission: string) => boolean;
   churchModules: string | null;
+  
+  // --- NOVOS DADOS PARA O MÓDULO VISÃO GLOBAL ---
+  isHeadquarters: boolean;
+  headquartersId: string | null; // Guarda o ID da sede quando o pastor estiver "visitando" uma filial
+  branches: BranchInfo[];
+  switchChurch: (targetChurchId: string, targetChurchName: string) => Promise<void>;
 }
 
 const ChurchContext = createContext<ChurchContextData>({} as ChurchContextData);
@@ -36,7 +48,11 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
   const [churchModules, setChurchModules] = useState<string | null>("full");
   const [loading, setLoading] = useState(true);
 
-  // BLINDAGEM DE PERFORMANCE: useCallback impede que a função entre em loop de re-renderização
+  // --- NOVOS ESTADOS ---
+  const [isHeadquarters, setIsHeadquarters] = useState(false);
+  const [headquartersId, setHeadquartersId] = useState<string | null>(null);
+  const [branches, setBranches] = useState<BranchInfo[]>([]);
+
   const hasPermission = useCallback((permission: string) => {
     if (userRole === 'admin') return true;
     return userPermissions.includes(permission);
@@ -62,12 +78,51 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     if (modules) localStorage.setItem("churchModules", modules);
   }, []);
 
+  // --- FUNÇÃO PARA ALTERNAR ENTRE SEDE E FILIAL ---
+  const switchChurch = async (targetChurchId: string, targetChurchName: string) => {
+    setLoading(true);
+    
+    // Se estiver indo para uma filial, salva o ID da Sede para poder voltar
+    if (isHeadquarters && targetChurchId !== churchId) {
+      localStorage.setItem("headquartersId", churchId || "");
+      setHeadquartersId(churchId);
+    } 
+    // Se estiver voltando para a Sede, limpa o headquartersId
+    else if (headquartersId && targetChurchId === headquartersId) {
+      localStorage.removeItem("headquartersId");
+      setHeadquartersId(null);
+    }
+
+    // Atualiza o contexto e o localStorage com a nova igreja
+    setChurchId(targetChurchId);
+    setChurchName(targetChurchName);
+    localStorage.setItem("churchId", targetChurchId);
+    localStorage.setItem("churchName", targetChurchName);
+    
+    // Puxa as configurações da nova igreja (Logo, Moeda, etc)
+    try {
+        const churchDocRef = doc(db, "churches", targetChurchId);
+        const churchDocSnap = await getDoc(churchDocRef);
+        if (churchDocSnap.exists()) {
+            const data = churchDocSnap.data();
+            setLogoUrl(data.logoUrl || null);
+            setCurrency(data.currency || "AO");
+            localStorage.setItem("churchLogo", data.logoUrl || "");
+            localStorage.setItem("churchCurrency", data.currency || "AO");
+        }
+    } catch(e) { console.error("Erro ao buscar dados da nova igreja", e); }
+    
+    setLoading(false);
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
 
       if (currentUser) {
         const storedId = localStorage.getItem("churchId");
+        const storedHQId = localStorage.getItem("headquartersId");
+        
         if (storedId) {
           setChurchId(storedId);
           setChurchName(localStorage.getItem("churchName"));
@@ -78,9 +133,10 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
           setCurrency(localStorage.getItem("churchCurrency") || "AO");
           setChurchModules(localStorage.getItem("churchModules") || "full");
         }
+        
+        if (storedHQId) setHeadquartersId(storedHQId);
 
         try {
-          // Tenta buscar como membro primeiro
           const q = query(collection(db, "members"), where("email", "==", currentUser.email));
           const querySnapshot = await getDocs(q);
 
@@ -89,29 +145,48 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
             setUserPermissions(data.permissions || []);
             if (data.role) setUserRole(data.role);
           } else {
-            // FALLBACK DE SEGURANÇA: Garante que o Dono da Igreja sempre seja Admin
             const churchDocRef = doc(db, "churches", currentUser.uid);
             const churchDocSnap = await getDoc(churchDocRef);
             if (churchDocSnap.exists()) {
               const data = churchDocSnap.data();
               setSignatureUrl(data.signatureUrl);
-              setUserRole('admin'); // Força o nível máximo de acesso
+              setUserRole('admin'); 
             }
           }
 
-          // SEMPRE valida os módulos contratados pelo documento da Igreja
-          if (storedId) {
-            const churchDocRef = doc(db, "churches", storedId);
+          // --- VERIFICAÇÃO DE SEDE E CONGREGAÇÕES ---
+          // Verifica a igreja que ele está logado originalmente (ou a sede, se ele estiver visitando)
+          const actualChurchIdToCheck = storedHQId || storedId; 
+          
+          if (actualChurchIdToCheck) {
+            const churchDocRef = doc(db, "churches", actualChurchIdToCheck);
             const churchDocSnap = await getDoc(churchDocRef);
+            
             if (churchDocSnap.exists()) {
               const data = churchDocSnap.data();
-              const forceModules = data.planModules || "full";
-              setChurchModules(forceModules);
-              localStorage.setItem("churchModules", forceModules);
+              setChurchModules(data.planModules || "full");
+              
+              // Verifica se é uma Sede (Headquarters)
+              if (data.isHeadquarters === true) {
+                  setIsHeadquarters(true);
+                  
+                  // Se é Sede, busca todas as congregações ligadas a ela
+                  const branchesQuery = query(collection(db, "churches"), where("parentId", "==", actualChurchIdToCheck));
+                  const branchesSnap = await getDocs(branchesQuery);
+                  
+                  const branchesList: BranchInfo[] = [];
+                  branchesSnap.forEach(doc => {
+                      branchesList.push({ id: doc.id, name: doc.data().name });
+                  });
+                  setBranches(branchesList);
+              } else {
+                  setIsHeadquarters(false);
+                  setBranches([]);
+              }
             }
           }
         } catch (error) {
-          console.error("Erro ao carregar permissões:", error);
+          console.error("Erro ao carregar dados:", error);
         }
 
       } else {
@@ -123,6 +198,9 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
         setLogoUrl(null);
         setSignatureUrl(null);
         setChurchModules("full");
+        setIsHeadquarters(false);
+        setHeadquartersId(null);
+        setBranches([]);
         localStorage.clear();
       }
       setLoading(false);
@@ -141,7 +219,8 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
   return (
     <ChurchContext.Provider value={{
       user, churchId, churchName, userRole, userName, loading, logoUrl, signatureUrl,
-      currency, formatMoney, setChurchData, userPermissions, hasPermission, churchModules
+      currency, formatMoney, setChurchData, userPermissions, hasPermission, churchModules,
+      isHeadquarters, headquartersId, branches, switchChurch
     }}>
       {children}
     </ChurchContext.Provider>
