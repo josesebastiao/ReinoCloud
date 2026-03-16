@@ -214,7 +214,7 @@ export default function MembersPage() {
         }
 
         return true;
-    });
+    }).sort((a, b) => a.fullName.localeCompare(b.fullName));
 
     const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
     const currentMembers = filteredMembers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
