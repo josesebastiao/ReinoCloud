@@ -655,7 +655,7 @@ export default function MembersPage() {
             }
         };
 
-        reader.readAsText(file, 'UTF-8');
+        reader.readAsText(file, 'ISO-8859-1');
     };
 
     const handlePrintExecute = async () => {
