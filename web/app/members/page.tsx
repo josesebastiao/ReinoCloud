@@ -477,7 +477,7 @@ export default function MembersPage() {
     };
 
     const openAccessModal = (member: Member) => {
-        if (!member.email) { alert("Este membro precisa de um e-mail cadastrado."); return; }
+        if (!member.email && !member.phone) { alert("Este membro precisa de um e-mail ou telefone cadastrado."); return; }
         if (userRole === 'secretary' && isHighLeadershipRole(member.role)) {
             alert("Secretaria não pode alterar o acesso de cargos de Alta Liderança (Pastor/Admin).");
             return;
@@ -506,11 +506,12 @@ export default function MembersPage() {
             return;
         }
 
-        if (!selectedMemberForAccess?.email) return;
+        const loginIdentifier = selectedMemberForAccess?.email || selectedMemberForAccess?.phone;
+        if (!loginIdentifier) return;
         setCreatingAccess(true);
         try {
-            await createSystemUser(selectedMemberForAccess.email, newPassword);
-            alert(`✅ Acesso criado com sucesso!\n\nUsuário: ${selectedMemberForAccess.email}\nSenha: ${newPassword}\n\nInforme a senha ao membro.`);
+            await createSystemUser(loginIdentifier, newPassword);
+            alert(`✅ Acesso criado com sucesso!\n\nUsuário: ${loginIdentifier}\nSenha: ${newPassword}\n\nInforme a senha ao membro.`);
             setShowAccessModal(false);
         } catch (error: any) {
             console.error("Erro ao criar acesso:", error);
@@ -518,7 +519,7 @@ export default function MembersPage() {
             const errMsg = (error && error.message ? String(error.message) : "").toLowerCase();
 
             if (errCode === 'auth/email-already-in-use') {
-                alert("Este e-mail já possui um acesso cadastrado no sistema.");
+                alert("Este e-mail ou telefone já possui um acesso cadastrado no sistema.");
             } else if (errCode === 'permission-denied' || errMsg.includes('permission')) {
                 alert("🚫 Acesso Negado pelo Banco de Dados.\n\nOcorreu uma falha de permissão durante a gravação. Isso geralmente acontece porque a criação do usuário interferiu na sua sessão atual.\n\nVerifique se o usuário foi criado apesar do erro.");
             } else {
@@ -961,7 +962,7 @@ export default function MembersPage() {
                                             <td className="p-4"><div className="flex flex-col gap-1">{member.phone && <span className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12} /> {member.phone}</span>}{member.email && <span className="flex items-center gap-1 text-xs text-slate-500"><Mail size={12} /> {member.email}</span>}</div></td>
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    {member.email && (userRole === 'admin' || userRole === 'secretary') && (
+                                                    {(member.email || member.phone) && (userRole === 'admin' || userRole === 'secretary') && (
                                                         <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="p-2 bg-yellow-50 rounded-lg text-yellow-600 hover:bg-yellow-100 transition" title="Criar Acesso"><Key size={16} /></button>
                                                     )}
                                                     {(userRole === 'admin' || userRole === 'secretary') && (
@@ -1039,7 +1040,7 @@ export default function MembersPage() {
                                 </div>
 
                                 <div className="flex justify-end gap-2 mt-2 pt-3 border-t border-slate-100">
-                                    {(userRole === 'admin' || userRole === 'secretary') && member.email && (
+                                    {(userRole === 'admin' || userRole === 'secretary') && (member.email || member.phone) && (
                                         <button onClick={(e) => { e.stopPropagation(); openAccessModal(member); }} className="flex items-center justify-center gap-1 py-2 rounded-lg bg-yellow-50 text-yellow-600 font-bold text-xs">
                                             <Key size={14} /> Acesso
                                         </button>
@@ -1363,7 +1364,7 @@ export default function MembersPage() {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
                         <div className="text-center mb-6"><div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4"><Lock size={32} /></div><h2 className="text-xl font-bold">Criar Acesso</h2></div>
                         <form onSubmit={handleCreateAccess} className="space-y-4">
-                            <input type="text" disabled value={selectedMemberForAccess?.email} className="w-full p-3 border rounded-lg bg-slate-100 text-slate-500" />
+                            <input type="text" disabled value={selectedMemberForAccess?.email || selectedMemberForAccess?.phone || ''} className="w-full p-3 border rounded-lg bg-slate-100 text-slate-500" />
                             <input type="text" required minLength={8} value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full p-3 border rounded-lg" placeholder="Nova Senha (mín. 8 caracteres)" />
                             <div className="text-xs text-slate-500 p-2 bg-slate-50 rounded-md">
                                 A senha deve conter letras maiúsculas, minúsculas e números.
