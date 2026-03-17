@@ -45,6 +45,9 @@ export default function MembersPage() {
 
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
     const [isDeletingMass, setIsDeletingMass] = useState(false);
+    
+    const [phoneCountry, setPhoneCountry] = useState("+55");
+    const [localPhone, setLocalPhone] = useState("");
 
     const [formData, setFormData] = useState({
         fullName: "", email: "", phone: "", document: "",
@@ -205,6 +208,29 @@ export default function MembersPage() {
         return age;
     };
 
+    const handlePhoneChange = (country: string, value: string) => {
+        // Apenas números
+        const digits = value.replace(/\D/g, "");
+        let formatted = digits;
+        
+        if (country === "+55") {
+             // Máscara Brasil: (XX) XXXXX-XXXX
+             if (digits.length > 0) formatted = formatted.replace(/^(\d{2})/, "($1) ");
+             if (digits.length > 5) formatted = formatted.replace(/(\d{5})(\d)/, "$1-$2");
+        } else if (country === "+244") {
+             // Máscara Angola: 9XX XXX XXX
+             if (digits.length > 3) formatted = formatted.replace(/^(\d{3})(\d)/, "$1 $2");
+             if (digits.length > 6) formatted = formatted.replace(/(\d{3})\s(\d{3})(\d)/, "$1 $2 $3");
+        }
+        
+        setPhoneCountry(country);
+        setLocalPhone(formatted);
+        
+        // Atualiza formData com o DDI
+        const fullPhone = digits ? `${country} ${formatted}` : "";
+        setFormData(prev => ({ ...prev, phone: fullPhone }));
+    };
+
     const filteredMembers = members.filter(m => {
         const matchesSearch = m.fullName.toLowerCase().includes(searchTerm.toLowerCase());
         if (!matchesSearch) return false;
@@ -260,6 +286,23 @@ export default function MembersPage() {
         if (member) {
             setEditingId(member.id || null);
             let addr: any = member.address || {};
+
+            // Separa DDI do número para exibição correta
+            const rawPhone = member.phone || "";
+            let pCountry = "+55";
+            let pLocal = "";
+            if (rawPhone.includes("+244")) {
+                pCountry = "+244";
+                pLocal = rawPhone.replace("+244", "").trim();
+            } else if (rawPhone.includes("+55")) {
+                pCountry = "+55";
+                pLocal = rawPhone.replace("+55", "").trim();
+            } else {
+                pLocal = rawPhone;
+            }
+            setPhoneCountry(pCountry);
+            setLocalPhone(pLocal);
+
             setFormData({
                 fullName: member.fullName, email: member.email || "", phone: member.phone || "",
                 document: member.document || "", birthDate: member.birthDate || "", baptismDate: member.baptismDate || "",
@@ -275,6 +318,8 @@ export default function MembersPage() {
             });
         } else {
             setEditingId(null);
+            setPhoneCountry("+55");
+            setLocalPhone("");
             setFormData({
                 fullName: "", email: "", phone: "", document: "", birthDate: "", baptismDate: "", photoUrl: "",
                 gender: "male", maritalStatus: "single", role: "visitor", status: "active", isTither: false,
@@ -510,7 +555,14 @@ export default function MembersPage() {
         if (!loginIdentifier) return;
         setCreatingAccess(true);
         try {
-            await createSystemUser(loginIdentifier, newPassword);
+            // Se for telefone (não tem @), cria um email fictício para o Firebase
+            let firebaseLogin = loginIdentifier;
+            if (!loginIdentifier.includes('@')) {
+                const cleanPhone = loginIdentifier.replace(/[^\d+]/g, '');
+                firebaseLogin = `${cleanPhone}@login.com`;
+            }
+
+            await createSystemUser(firebaseLogin, newPassword);
             alert(`✅ Acesso criado com sucesso!\n\nUsuário: ${loginIdentifier}\nSenha: ${newPassword}\n\nInforme a senha ao membro.`);
             setShowAccessModal(false);
         } catch (error: any) {
@@ -1240,7 +1292,13 @@ export default function MembersPage() {
 
                                     <div>
                                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Telefone</label>
-                                        <input type="text" value={formData.phone} onChange={e => setFormData({ ...formData, phone: formatPhone(e.target.value) })} placeholder="+55 (11) 99999-9999 ou +244 923 000 000" maxLength={20} className="w-full p-3 border rounded-lg bg-white" />
+                                        <div className="flex gap-2">
+                                            <select value={phoneCountry} onChange={e => handlePhoneChange(e.target.value, localPhone)} className="p-3 border rounded-lg bg-white w-[110px]">
+                                                <option value="+55">🇧🇷 +55</option>
+                                                <option value="+244">🇦🇴 +244</option>
+                                            </select>
+                                            <input type="text" value={localPhone} onChange={e => handlePhoneChange(phoneCountry, e.target.value)} placeholder={phoneCountry === '+55' ? '(99) 99999-9999' : '999 999 999'} maxLength={15} className="w-full p-3 border rounded-lg bg-white" />
+                                        </div>
                                     </div>
 
                                     <div>

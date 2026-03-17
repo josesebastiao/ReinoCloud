@@ -10,33 +10,19 @@ import { auth } from "../lib/firebase";
 
 const SUPER_ADMINS = ["alfaministro1@gmail.com", "alfaministro1@hotmail.com"];
 
-interface SidebarProps {
-  onNavigate?: () => void;
-}
-
-export function Sidebar({ onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   
   const { user, churchId, churchName, userRole, hasPermission, churchModules, isHeadquarters, headquartersId, branches, switchChurch } = useChurch();
-
-  // ESTADO DO MENU INSTAGRAM (Única coisa nova aqui)
   const [showSwitcher, setShowSwitcher] = useState(false);
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
-  // LÓGICA INTACTA
   const handleLogout = async () => {
-    try {
-      await auth.signOut();
-      if (onNavigate) onNavigate();
-      router.push("/login");
-    } catch (error) {
-      console.error("Erro ao sair:", error);
-    }
+    try { await auth.signOut(); if (onNavigate) onNavigate(); router.push("/login"); } catch (error) { console.error(error); }
   };
 
-  // LÓGICA INTACTA
   const canAccess = (module: string) => {
     if (churchModules === 'admin' && ['ministry', 'posts', 'prayers'].includes(module)) return false;
     if (userRole === 'admin') return true;
@@ -51,25 +37,15 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     return false;
   };
 
-  // LÓGICA INTACTA
-  const userEmail = user?.email ? user.email.toLowerCase() : "";
-  const isSuperAdmin = SUPER_ADMINS.includes(userEmail);
-
-  // LÓGICA INTACTA
+  const isSuperAdmin = SUPER_ADMINS.includes(user?.email ? user.email.toLowerCase() : "");
   const getRoleLabel = () => {
     if (isSuperAdmin) return "SUPER ADMIN";
     switch (userRole) {
-      case 'admin': return 'PASTOR TITULAR';
-      case 'secretary': return 'SECRETARIA';
-      case 'treasurer': return 'TESOURARIA';
-      case 'leader': return 'LÍDER';
-      case 'deacon': return 'DIÁCONO(A)';
-      case 'member': return 'MEMBRO';
-      default: return 'MEMBRO / VISITANTE';
+      case 'admin': return 'PASTOR TITULAR'; case 'secretary': return 'SECRETARIA'; case 'treasurer': return 'TESOURARIA';
+      case 'leader': return 'LÍDER'; case 'deacon': return 'DIÁCONO(A)'; case 'member': return 'MEMBRO'; default: return 'MEMBRO / VISITANTE';
     }
   };
 
-  // LÓGICA INTACTA
   const menuItems = [
     ...(canAccess('dashboard') ? [{ icon: LayoutDashboard, label: "Início", href: "/" }] : []),
     ...(canAccess('secretary') ? [{ icon: FolderOpen, label: "Secretaria", href: "/secretary" }] : []),
@@ -89,16 +65,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     <div className="w-full h-full bg-[#0F172A] text-white flex flex-col border-r border-slate-800 relative z-40">
 
       <div className="p-6 relative">
-        {/* CABEÇALHO ESTILO INSTAGRAM (Clicável) */}
-        <div 
-            onClick={() => canSwitchChurch && setShowSwitcher(!showSwitcher)}
-            className={`flex items-center justify-between ${canSwitchChurch ? 'cursor-pointer hover:bg-slate-800 p-2 -mx-2 rounded-xl transition' : ''}`}
-        >
+        <div onClick={() => canSwitchChurch && setShowSwitcher(!showSwitcher)} className={`flex items-center justify-between ${canSwitchChurch ? 'cursor-pointer hover:bg-slate-800 p-2 -mx-2 rounded-xl transition' : ''}`}>
             <div className="flex items-center gap-3 w-full">
                 <img src="/icon.svg" alt="ReinoCloud" className="w-8 h-8 object-contain shrink-0" />
                 <div className="min-w-0 flex-1">
                     <h1 className="text-lg font-bold text-white tracking-tight leading-none truncate flex items-center gap-2">
-                        <span className="truncate">{churchName}</span>
+                        <span className="truncate">{churchName || "Carregando..."}</span>
                         {canSwitchChurch && <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform ${showSwitcher ? 'rotate-180' : ''}`} />}
                     </h1>
                     <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest truncate mt-1">
@@ -108,47 +80,17 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             </div>
         </div>
 
-        {/* MENU SUSPENSO (Dropdown das Filiais) */}
         {showSwitcher && canSwitchChurch && (
-            <div className="absolute top-[75px] left-4 right-4 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2">
-                <div className="p-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 bg-slate-800/50">
-                    Alternar Conta
-                </div>
-                
+            <div className="absolute top-[75px] left-4 right-4 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in">
+                <div className="p-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 bg-slate-800/50">Alternar Conta</div>
                 <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                    {/* Botão da Sede */}
-                    <button
-                        onClick={async () => {
-                            setShowSwitcher(false);
-                            if (headquartersId) {
-                                await switchChurch(headquartersId, "Sede Principal");
-                                window.location.href = "/";
-                            }
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition flex items-center justify-between group"
-                    >
-                        <span className={!headquartersId ? 'font-bold text-white' : 'text-slate-300 group-hover:text-white transition'}>
-                            🏛️ Sede Principal
-                        </span>
+                    <button onClick={async () => { setShowSwitcher(false); if (headquartersId) { await switchChurch(headquartersId); window.location.href = "/"; } }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition flex items-center justify-between group">
+                        <span className={!headquartersId ? 'font-bold text-white' : 'text-slate-300 group-hover:text-white transition'}>🏛️ Retornar à Sede</span>
                         {!headquartersId && <Check size={16} className="text-blue-500" />}
                     </button>
-
-                    {/* Botões das Filiais */}
                     {branches.map(branch => (
-                        <button
-                            key={branch.id}
-                            onClick={async () => {
-                                setShowSwitcher(false);
-                                if (churchId !== branch.id) {
-                                    await switchChurch(branch.id, branch.name);
-                                    window.location.href = "/";
-                                }
-                            }}
-                            className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition flex items-center justify-between border-t border-slate-700/50 group"
-                        >
-                            <span className={`truncate pr-2 ${churchId === branch.id ? 'font-bold text-white' : 'text-slate-300 group-hover:text-white transition'}`}>
-                                📍 {branch.name}
-                            </span>
+                        <button key={branch.id} onClick={async () => { setShowSwitcher(false); if (churchId !== branch.id) { await switchChurch(branch.id); window.location.href = "/"; } }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition flex items-center justify-between border-t border-slate-700/50 group">
+                            <span className={`truncate pr-2 ${churchId === branch.id ? 'font-bold text-white' : 'text-slate-300 group-hover:text-white transition'}`}>📍 {branch.name}</span>
                             {churchId === branch.id && <Check size={16} className="text-blue-500 shrink-0" />}
                         </button>
                     ))}
@@ -156,23 +98,13 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             </div>
         )}
 
-        {/* LABEL DO CARGO (Mantido) */}
         <div className={`mt-4 flex items-center gap-2 text-[10px] font-bold px-3 py-2 rounded-lg border uppercase tracking-wider ${isSuperAdmin ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
-          <Shield size={10} />
-          <span className="truncate max-w-[150px]">
-            {getRoleLabel()}
-          </span>
+          <Shield size={10} /> <span className="truncate max-w-[150px]">{getRoleLabel()}</span>
         </div>
 
-        {/* BOTÃO MÁGICO "SALVA VIDAS" (Mantido) */}
+        {/* BOTAO EXTRA SALVA VIDAS */}
         {headquartersId && (
-            <button
-                onClick={async () => {
-                    await switchChurch(headquartersId, "Sede Principal");
-                    window.location.href = "/";
-                }}
-                className="mt-4 w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-900/40 border border-indigo-500"
-            >
+            <button onClick={async () => { await switchChurch(headquartersId); window.location.href = "/"; }} className="mt-4 w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-xl text-xs font-bold transition shadow-lg border border-indigo-500">
                 <Globe size={16} /> Voltar para Sede
             </button>
         )}
@@ -180,13 +112,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-slate-700">
         {menuItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group ${(item as any).special ? "bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 mt-6" : pathname === item.href ? "bg-blue-600 text-white shadow-lg shadow-blue-900/40 font-bold translate-x-1" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}
-          >
-            <item.icon size={20} className={pathname === item.href ? "text-white" : (item as any).special ? "text-red-400" : "text-slate-500 group-hover:text-white transition-colors"} />
+          <Link key={item.href} href={item.href} onClick={onNavigate} className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group ${(item as any).special ? "bg-red-500/10 text-red-400 border border-red-500/20 mt-6" : pathname === item.href ? "bg-blue-600 text-white shadow-lg font-bold translate-x-1" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}>
+            <item.icon size={20} className={pathname === item.href ? "text-white" : (item as any).special ? "text-red-400" : "text-slate-500 group-hover:text-white"} />
             <span className="text-sm">{item.label}</span>
           </Link>
         ))}
@@ -194,8 +121,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       <div className="p-4 border-t border-slate-800 bg-slate-900/50">
         <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200 group">
-          <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="text-sm font-medium">Sair do Sistema</span>
+          <LogOut size={20} className="group-hover:-translate-x-1" /> <span className="text-sm font-medium">Sair do Sistema</span>
         </button>
       </div>
     </div>
