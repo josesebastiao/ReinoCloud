@@ -42,15 +42,35 @@ export default function LoginPage() {
       } else {
           let querySnapshot;
           if (user.email) {
-             const q = query(collection(db, "members"), where("email", "==", user.email));
-             querySnapshot = await getDocs(q);
-          } else if (user.phoneNumber) {
-             const q1 = query(collection(db, "members"), where("phone", "==", user.phoneNumber));
-             querySnapshot = await getDocs(q1);
-             if (querySnapshot.empty) {
-                 const localPhone = user.phoneNumber.replace('+244', '').replace('+55', '').trim();
-                 const q2 = query(collection(db, "members"), where("phone", "==", localPhone));
-                 querySnapshot = await getDocs(q2);
+             // Verifica se é um login via celular (email técnico termina em @login.com)
+             if (user.email.endsWith('@login.com')) {
+                 const rawPhone = user.email.replace('@login.com', '');
+                 let searchPhone = "";
+
+                 // Reconstrói a formatação usada no cadastro (members/page.tsx)
+                 if (rawPhone.startsWith('+55')) {
+                     const d = rawPhone.substring(3); // Remove +55
+                     if (d.length >= 10) { // (XX) XXXX-XXXX ou (XX) XXXXX-XXXX
+                        const ddd = d.substring(0, 2);
+                        const numberPart = d.substring(2);
+                        const formattedNumber = numberPart.length === 9 
+                            ? `${numberPart.substring(0,5)}-${numberPart.substring(5)}`
+                            : `${numberPart.substring(0,4)}-${numberPart.substring(4)}`;
+                        searchPhone = `+55 (${ddd}) ${formattedNumber}`;
+                     }
+                 } else if (rawPhone.startsWith('+244')) {
+                     const d = rawPhone.substring(4); // Remove +244
+                     if (d.length === 9) {
+                         searchPhone = `+244 ${d.substring(0,3)} ${d.substring(3,6)} ${d.substring(6)}`;
+                     }
+                 }
+
+                 const q = query(collection(db, "members"), where("phone", "==", searchPhone));
+                 querySnapshot = await getDocs(q);
+             } else {
+                 // Login normal por email
+                 const q = query(collection(db, "members"), where("email", "==", user.email));
+                 querySnapshot = await getDocs(q);
              }
           }
           if (querySnapshot && !querySnapshot.empty) {
