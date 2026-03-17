@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone, Heart, BookOpen, Globe, ChevronDown, Check
+  LayoutDashboard, FolderOpen, Music, Settings, DollarSign, LogOut, Shield, ShieldAlert, Megaphone, Heart, BookOpen, Globe, ChevronDown, Check, Search
 } from "lucide-react";
 import { useChurch } from "../contexts/ChurchContext";
 import { auth } from "../lib/firebase";
@@ -15,7 +15,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
   
   const { user, churchId, churchName, userRole, hasPermission, churchModules, isHeadquarters, headquartersId, branches, switchChurch } = useChurch();
+  
   const [showSwitcher, setShowSwitcher] = useState(false);
+  // ESTADO DA BARRA DE PESQUISA
+  const [searchTerm, setSearchTerm] = useState("");
 
   if (pathname && (pathname.includes("/login") || pathname.includes("/register"))) return null;
 
@@ -61,6 +64,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   const canSwitchChurch = isHeadquarters || headquartersId !== null;
 
+  // FILTRO INTELIGENTE DE FILIAIS
+  const filteredBranches = branches.filter(b => b.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
   return (
     <div className="w-full h-full bg-[#0F172A] text-white flex flex-col border-r border-slate-800 relative z-40">
 
@@ -80,20 +86,49 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </div>
         </div>
 
+        {/* MENU SUSPENSO COM BARRA DE PESQUISA */}
         {showSwitcher && canSwitchChurch && (
-            <div className="absolute top-[75px] left-4 right-4 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in">
-                <div className="p-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 bg-slate-800/50">Alternar Conta</div>
-                <div className="max-h-60 overflow-y-auto custom-scrollbar">
+            <div className="absolute top-[75px] left-4 right-4 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in flex flex-col max-h-[400px]">
+                
+                <div className="p-3 border-b border-slate-700 bg-slate-800/50 flex flex-col gap-3 shrink-0">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Alternar Conta</span>
+                    
+                    {/* BARRA DE PESQUISA */}
+                    {branches.length > 3 && (
+                        <div className="relative">
+                            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <input
+                                type="text"
+                                placeholder="Buscar filial..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onClick={(e) => e.stopPropagation()} // Impede o clique de fechar o menu
+                                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                            />
+                        </div>
+                    )}
+                </div>
+                
+                <div className="overflow-y-auto custom-scrollbar flex-1 pb-2">
+                    {/* Botão da Sede */}
                     <button onClick={async () => { setShowSwitcher(false); if (headquartersId) { await switchChurch(headquartersId); window.location.href = "/"; } }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition flex items-center justify-between group">
-                        <span className={!headquartersId ? 'font-bold text-white' : 'text-slate-300 group-hover:text-white transition'}>🏛️ Retornar à Sede</span>
-                        {!headquartersId && <Check size={16} className="text-blue-500" />}
+                        <span className={!headquartersId ? 'font-bold text-white' : 'text-slate-300 group-hover:text-white transition'}>🏛️ Sede Principal</span>
+                        {!headquartersId && <Check size={16} className="text-indigo-500" />}
                     </button>
-                    {branches.map(branch => (
+                    
+                    {/* Lista de Filiais Filtrada */}
+                    {filteredBranches.map(branch => (
                         <button key={branch.id} onClick={async () => { setShowSwitcher(false); if (churchId !== branch.id) { await switchChurch(branch.id); window.location.href = "/"; } }} className="w-full text-left px-4 py-3 text-sm hover:bg-slate-700 transition flex items-center justify-between border-t border-slate-700/50 group">
                             <span className={`truncate pr-2 ${churchId === branch.id ? 'font-bold text-white' : 'text-slate-300 group-hover:text-white transition'}`}>📍 {branch.name}</span>
-                            {churchId === branch.id && <Check size={16} className="text-blue-500 shrink-0" />}
+                            {churchId === branch.id && <Check size={16} className="text-indigo-500 shrink-0" />}
                         </button>
                     ))}
+                    
+                    {filteredBranches.length === 0 && (
+                        <div className="px-4 py-6 text-center text-xs text-slate-500">
+                            Nenhuma filial encontrada.
+                        </div>
+                    )}
                 </div>
             </div>
         )}
@@ -102,7 +137,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <Shield size={10} /> <span className="truncate max-w-[150px]">{getRoleLabel()}</span>
         </div>
 
-        {/* BOTAO EXTRA SALVA VIDAS */}
         {headquartersId && (
             <button onClick={async () => { await switchChurch(headquartersId); window.location.href = "/"; }} className="mt-4 w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-xl text-xs font-bold transition shadow-lg border border-indigo-500">
                 <Globe size={16} /> Voltar para Sede

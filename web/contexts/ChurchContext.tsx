@@ -54,17 +54,13 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     if (modules) localStorage.setItem("churchModules", modules);
   }, []);
 
-  // --- O BUG FOI CORRIGIDO AQUI ---
   const switchChurch = async (targetChurchId: string) => {
     setLoading(true);
     
-    // Só salva o ID da sede se nós estivermos atualmente na Sede!
     if (!headquartersId && isHeadquarters && targetChurchId !== churchId) {
       localStorage.setItem("headquartersId", churchId || "");
       setHeadquartersId(churchId);
-    } 
-    // Limpa se estivermos voltando para a Sede
-    else if (headquartersId && targetChurchId === headquartersId) {
+    } else if (headquartersId && targetChurchId === headquartersId) {
       localStorage.removeItem("headquartersId");
       setHeadquartersId(null);
     }
@@ -77,9 +73,15 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
         const churchDocSnap = await getDoc(churchDocRef);
         if (churchDocSnap.exists()) {
             const data = churchDocSnap.data();
-            // Puxa o nome REAL da igreja
             setChurchName(data.name);
             localStorage.setItem("churchName", data.name);
+            
+            // CORREÇÃO: Atualiza o nome do Pastor Responsável pela igreja atual
+            if (data.ownerName) {
+                setUserName(data.ownerName);
+                localStorage.setItem("userName", data.ownerName);
+            }
+
             setLogoUrl(data.logoUrl || null);
             setCurrency(data.currency || "AO");
             localStorage.setItem("churchLogo", data.logoUrl || "");
@@ -134,6 +136,8 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
                   const branchesSnap = await getDocs(branchesQuery);
                   const branchesList: BranchInfo[] = [];
                   branchesSnap.forEach(doc => { branchesList.push({ id: doc.id, name: doc.data().name }); });
+                  // Ordena alfabeticamente para facilitar
+                  branchesList.sort((a, b) => a.name.localeCompare(b.name));
                   setBranches(branchesList);
               } else {
                   setIsHeadquarters(false);

@@ -12,9 +12,8 @@ export function AppFooter({ className = "" }: { className?: string }) {
         </a>
       </div>
       <div className="font-medium text-center md:text-right">
-        COPYRIGHT © {new Date().getFullYear()} SEBASTEC SYSTEM.
+        COPYRIGHT © {new Date().getFullYear()} SEBASTEC SYSTEM - TODOS OS DIREITOS RESERVADOS
       </div>
     </footer>
   );
 }
-

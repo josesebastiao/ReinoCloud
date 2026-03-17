@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, ArrowLeft, Phone, MessageSquare } from "lucide-react";
 
-import { signInWithEmailAndPassword, sendPasswordResetEmail, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../../lib/firebase";
 import { useChurch } from "../../contexts/ChurchContext";
@@ -23,10 +23,8 @@ export default function LoginPage() {
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
 
-  const [phone, setPhone] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
-  const [step, setStep] = useState<'input_phone' | 'verify_code'>('input_phone');
+  const [phoneCountry, setPhoneCountry] = useState("+55");
+  const [localPhone, setLocalPhone] = useState("");
 
   const fetchUserAndRedirect = async (user: any) => {
       if (user.email === "alfaministro1@gmail.com" || user.email === "alfaministro1@hotmail.com") {
@@ -113,12 +111,43 @@ export default function LoginPage() {
       router.push("/");
   };
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handlePhoneChange = (country: string, value: string) => {
+    // Remove tudo que não é dígito
+    const digits = value.replace(/\D/g, "");
+    let formatted = digits;
+    
+    if (country === "+55") {
+         // Máscara Brasil: (XX) XXXXX-XXXX
+         if (digits.length > 0) formatted = formatted.replace(/^(\d{2})/, "($1) ");
+         if (digits.length > 5) formatted = formatted.replace(/(\d{5})(\d)/, "$1-$2");
+    } else if (country === "+244") {
+         // Máscara Angola: 9XX XXX XXX
+         if (digits.length > 3) formatted = formatted.replace(/^(\d{3})(\d)/, "$1 $2");
+         if (digits.length > 6) formatted = formatted.replace(/(\d{3})\s(\d{3})(\d)/, "$1 $2 $3");
+    }
+    
+    setPhoneCountry(country);
+    setLocalPhone(formatted);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
+
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      let loginIdentifier = email;
+
+      // Se for login por telefone, construímos o "email técnico"
+      if (method === 'phone') {
+          const cleanDigits = localPhone.replace(/\D/g, "");
+          if (!cleanDigits) throw new Error("Por favor, digite o número do telefone.");
+          
+          // O login final deve ser: +5511999999999@login.com (igual ao que salvamos no cadastro)
+          loginIdentifier = `${phoneCountry}${cleanDigits}@login.com`;
+      }
+
+      const userCredential = await signInWithEmailAndPassword(auth, loginIdentifier, password);
       await fetchUserAndRedirect(userCredential.user);
     } catch (err: any) {
       console.error("Erro login:", err);
@@ -144,56 +173,6 @@ export default function LoginPage() {
         else setError("Erro ao enviar e-mail. Tente novamente.");
     } finally {
         setLoading(false);
-    }
-  };
-
-  const setupRecaptcha = () => {
-    if (!(window as any).recaptchaVerifier) {
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        'size': 'invisible',
-        'callback': () => {}
-      });
-    }
-  };
-
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    let formattedPhone = phone.trim();
-    if (!formattedPhone.startsWith('+')) { formattedPhone = `+244${formattedPhone}`; }
-
-    try {
-      setupRecaptcha();
-      const appVerifier = (window as any).recaptchaVerifier;
-      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
-      setConfirmationResult(confirmation);
-      setStep('verify_code');
-    } catch (err: any) {
-      console.error(err);
-      setError("Erro ao enviar SMS. Verifique o número.");
-      if ((window as any).recaptchaVerifier) {
-          (window as any).recaptchaVerifier.clear();
-          (window as any).recaptchaVerifier = null;
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await confirmationResult.confirm(verificationCode);
-      await fetchUserAndRedirect(res.user);
-    } catch (err: any) {
-      console.error(err);
-      if (err.message === "Usuário sem cadastro no sistema. Fale com a secretaria.") setError(err.message);
-      else setError("Código inválido. Tente novamente.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -255,7 +234,7 @@ export default function LoginPage() {
               <>
                 <div className="text-center mb-5">
                     <h2 className="text-2xl font-bold text-gray-900 mb-1">Bem-vindo!</h2>
-                    <p className="text-gray-400 text-xs">Escolha como deseja entrar.</p>
+                    <p className="text-gray-400 text-xs">Acesse sua conta para continuar.</p>
                 </div>
 
                 <div className="flex bg-gray-100 p-1 rounded-xl mb-5">
@@ -273,8 +252,9 @@ export default function LoginPage() {
                     </div>
                 )}
 
-                {method === 'email' ? (
-                    <form onSubmit={handleEmailLogin} className="space-y-4 animate-in fade-in slide-in-from-left-4">
+                <form onSubmit={handleLogin} className="space-y-4">
+                    {method === 'email' ? (
+                        <div className="space-y-1 animate-in fade-in slide-in-from-left-4">
                         <div className="space-y-1">
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-1">E-mail</label>
                             <div className="relative group">
@@ -282,6 +262,31 @@ export default function LoginPage() {
                                 <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 text-sm" placeholder="exemplo@igreja.com" />
                             </div>
                         </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-1 animate-in fade-in slide-in-from-right-4">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-1">WhatsApp / Celular</label>
+                        <div className="flex gap-2">
+                            <select 
+                                value={phoneCountry} 
+                                onChange={e => handlePhoneChange(e.target.value, localPhone)} 
+                                className="p-2.5 border border-gray-200 rounded-xl bg-gray-50 font-bold text-gray-700 w-[90px] outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm"
+                            >
+                                <option value="+55">🇧🇷 +55</option>
+                                <option value="+244">🇦🇴 +244</option>
+                            </select>
+                            <input 
+                                type="tel" 
+                                required
+                                value={localPhone} 
+                                onChange={e => handlePhoneChange(phoneCountry, e.target.value)} 
+                                placeholder={phoneCountry === '+55' ? '(99) 99999-9999' : '999 999 999'} 
+                                className="flex-1 p-2.5 border border-gray-200 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition font-medium text-gray-900 text-sm"
+                            />
+                        </div>
+                        </div>
+                    )}
+
                         <div className="space-y-1">
                             <div className="flex justify-between items-center ml-1">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Senha</label>
@@ -292,43 +297,11 @@ export default function LoginPage() {
                                 <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 text-sm" placeholder="••••••••" />
                             </div>
                         </div>
+
                         <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] disabled:opacity-70 mt-2">
                             {loading ? <Loader2 className="animate-spin" size={18} /> : <>Entrar <ArrowRight size={16}/></>}
                         </button>
-                    </form>
-                ) : (
-                    <div className="animate-in fade-in slide-in-from-right-4">
-                        {step === 'input_phone' ? (
-                            <form onSubmit={handleSendCode} className="space-y-4">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-1">Número do Celular</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Phone size={16} className="text-gray-400 group-focus-within:text-blue-600 transition" /></div>
-                                        <input required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="block w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-gray-900 text-sm" placeholder="923 000 000" />
-                                    </div>
-                                    <p className="text-[9px] text-gray-400 mt-1 ml-1">O código +244 é automático.</p>
-                                </div>
-                                <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] disabled:opacity-70">
-                                    {loading ? <Loader2 className="animate-spin" size={18} /> : <>Receber Código SMS <MessageSquare size={16}/></>}
-                                </button>
-                            </form>
-                        ) : (
-                            <form onSubmit={handleVerifyCode} className="space-y-4">
-                                <div className="text-center">
-                                    <p className="text-xs text-gray-600">Enviamos um código para <strong>{phone}</strong></p>
-                                    <button type="button" onClick={() => setStep('input_phone')} className="text-[10px] text-blue-600 font-bold hover:underline mt-1">Corrigir número</button>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-1">Código de 6 dígitos</label>
-                                    <input required type="text" maxLength={6} value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)} className="block w-full px-3 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-900 text-center text-xl tracking-[0.5em]" placeholder="------" />
-                                </div>
-                                <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-xl text-sm font-bold text-white bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/30 transition-all active:scale-[0.98] disabled:opacity-70">
-                                    {loading ? <Loader2 className="animate-spin" size={18} /> : <>Confirmar Acesso <ShieldCheck size={16}/></>}
-                                </button>
-                            </form>
-                        )}
-                    </div>
-                )}
+                </form>
 
                 <div className="mt-6 pt-4 border-t border-gray-100 text-center">
                     <p className="text-[10px] text-gray-400 mb-2">É membro e ainda não tem cadastro?</p>
