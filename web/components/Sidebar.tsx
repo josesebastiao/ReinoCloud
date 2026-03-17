@@ -56,8 +56,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     ...(canAccess('ministry') ? [{ icon: Music, label: "Departamentos", href: "/ministries" }] : []),
     ...(canAccess('activities') ? [{ icon: BookOpen, label: userRole === 'admin' ? "Relatório Pastoral" : "Rel. de Atividades", href: "/activities" }] : []),
     ...(isHeadquarters ? [{ icon: Globe, label: "Visão Global", href: "/rede" }] : []),
-    ...(canAccess('posts') ? [{ icon: Megaphone, label: "Mural de Avisos", href: "/posts" }] : []),
-    ...(canAccess('prayers') ? [{ icon: Heart, label: "Pedidos de Oração", href: "/prayers" }] : []),
+    ...(canAccess('posts') || canAccess('prayers') ? [{ icon: Megaphone, label: "Mural & Orações", href: "/posts" }] : []),
     ...(canAccess('settings') ? [{ icon: Settings, label: "Configurações", href: "/settings" }] : []),
     ...(isSuperAdmin ? [{ icon: ShieldAlert, label: "Painel SaaS", href: "/admin", special: true }] : []),
   ];

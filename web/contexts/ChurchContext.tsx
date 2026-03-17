@@ -76,7 +76,6 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
             setChurchName(data.name);
             localStorage.setItem("churchName", data.name);
             
-            // CORREÇÃO: Atualiza o nome do Pastor Responsável pela igreja atual
             if (data.ownerName) {
                 setUserName(data.ownerName);
                 localStorage.setItem("userName", data.ownerName);
@@ -91,6 +90,40 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     
     setLoading(false);
   };
+
+  // --- O "CÃO DE GUARDA" DA REDE ---
+  // Roda automaticamente sempre que o ID da igreja mudar (seja por login ou switch)
+  useEffect(() => {
+    const fetchNetworkData = async () => {
+        const actualChurchIdToCheck = headquartersId || churchId;
+        if (!actualChurchIdToCheck) return;
+
+        try {
+            const churchDocRef = doc(db, "churches", actualChurchIdToCheck);
+            const churchDocSnap = await getDoc(churchDocRef);
+            if (churchDocSnap.exists()) {
+                const data = churchDocSnap.data();
+                setChurchModules(data.planModules || "full");
+                if (data.isHeadquarters === true) {
+                    setIsHeadquarters(true);
+                    const branchesQuery = query(collection(db, "churches"), where("parentId", "==", actualChurchIdToCheck));
+                    const branchesSnap = await getDocs(branchesQuery);
+                    const branchesList: BranchInfo[] = [];
+                    branchesSnap.forEach(doc => { branchesList.push({ id: doc.id, name: doc.data().name }); });
+                    branchesList.sort((a, b) => a.name.localeCompare(b.name));
+                    setBranches(branchesList);
+                } else {
+                    setIsHeadquarters(false);
+                    setBranches([]);
+                }
+            }
+        } catch (error) {
+            console.error("Erro ao carregar dados da rede:", error);
+        }
+    };
+
+    fetchNetworkData();
+  }, [churchId, headquartersId]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -120,29 +153,6 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
             if (churchDocSnap.exists()) {
               setSignatureUrl(churchDocSnap.data().signatureUrl);
               setUserRole('admin'); 
-            }
-          }
-
-          const actualChurchIdToCheck = storedHQId || storedId; 
-          if (actualChurchIdToCheck) {
-            const churchDocRef = doc(db, "churches", actualChurchIdToCheck);
-            const churchDocSnap = await getDoc(churchDocRef);
-            if (churchDocSnap.exists()) {
-              const data = churchDocSnap.data();
-              setChurchModules(data.planModules || "full");
-              if (data.isHeadquarters === true) {
-                  setIsHeadquarters(true);
-                  const branchesQuery = query(collection(db, "churches"), where("parentId", "==", actualChurchIdToCheck));
-                  const branchesSnap = await getDocs(branchesQuery);
-                  const branchesList: BranchInfo[] = [];
-                  branchesSnap.forEach(doc => { branchesList.push({ id: doc.id, name: doc.data().name }); });
-                  // Ordena alfabeticamente para facilitar
-                  branchesList.sort((a, b) => a.name.localeCompare(b.name));
-                  setBranches(branchesList);
-              } else {
-                  setIsHeadquarters(false);
-                  setBranches([]);
-              }
             }
           }
         } catch (error) { console.error(error); }
