@@ -114,20 +114,21 @@ export default function LoginPage() {
   const handlePhoneChange = (country: string, value: string) => {
     // Remove tudo que não é dígito
     const digits = value.replace(/\D/g, "");
-    let formatted = digits;
+    let formattedValue = "";
     
     if (country === "+55") {
-         // Máscara Brasil: (XX) XXXXX-XXXX
-         if (digits.length > 0) formatted = formatted.replace(/^(\d{2})/, "($1) ");
-         if (digits.length > 5) formatted = formatted.replace(/(\d{5})(\d)/, "$1-$2");
+        // Máscara Brasil: (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
+        let v = digits.slice(0, 11);
+        if (v.length > 2) v = `(${v.slice(0, 2)}) ${v.slice(2)}`;
+        if (v.length > 9) v = v.replace(/-/, "").replace(/(\d{4})$/, "-$1");
+        formattedValue = v;
     } else if (country === "+244") {
-         // Máscara Angola: 9XX XXX XXX
-         if (digits.length > 3) formatted = formatted.replace(/^(\d{3})(\d)/, "$1 $2");
-         if (digits.length > 6) formatted = formatted.replace(/(\d{3})\s(\d{3})(\d)/, "$1 $2 $3");
+        // Máscara Angola: XXX XXX XXX (sem parênteses)
+        formattedValue = digits.slice(0, 9).replace(/(\d{3})(?=\d)/g, '$1 ');
     }
     
     setPhoneCountry(country);
-    setLocalPhone(formatted);
+    setLocalPhone(formattedValue);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
