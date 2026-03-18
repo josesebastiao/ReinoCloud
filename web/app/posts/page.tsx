@@ -2,19 +2,17 @@
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
 import { db } from "../../lib/firebase";
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy } from "firebase/firestore";
 import { 
     Megaphone, Heart, PlusCircle, Trash2, Loader2, X, 
-    MessageSquare, CheckCircle2, Clock, Pin, User, Image as ImageIcon, Calendar, BookOpen, ChevronDown, History
+    MessageSquare, CheckCircle2, Clock, Pin, User, Image as ImageIcon, Calendar, BookOpen, ChevronDown, History, MessageCircle, Send
 } from "lucide-react";
 
 export default function PostsAndPrayersPage() {
-    const { churchId, userName, userRole, hasPermission } = useChurch();
+    // PUXANDO O 'user' PARA O ID DAS CURTIDAS E COMENTÁRIOS
+    const { churchId, userName, userRole, hasPermission, user } = useChurch();
     
-    // Controle das Abas (Tabs)
     const [activeTab, setActiveTab] = useState<'posts' | 'prayers'>('posts');
-    
-    // Estados Compartilhados
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     
@@ -28,7 +26,13 @@ export default function PostsAndPrayersPage() {
     // Paginação e Expiração
     const [visibleCount, setVisibleCount] = useState(5);
     const [expandedTexts, setExpandedTexts] = useState<Record<string, boolean>>({});
-    const [showExpired, setShowExpired] = useState(false); // Para o pastor ver o que já expirou
+    const [showExpired, setShowExpired] = useState(false);
+
+    // INTERAÇÕES SOCIAIS (CURTIDAS E COMENTÁRIOS)
+    const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+    const [postComments, setPostComments] = useState<Record<string, any[]>>({});
+    const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+    const [loadingCommentsId, setLoadingCommentsId] = useState<string | null>(null);
 
     // --- ESTADOS DE ORAÇÃO ---
     const [prayers, setPrayers] = useState<any[]>([]);
@@ -45,7 +49,7 @@ export default function PostsAndPrayersPage() {
             if (activeTab === 'posts') {
                 const q = query(collection(db, "posts"), where("churchId", "==", churchId));
                 const snap = await getDocs(q);
-                const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime());
                 setPosts(data);
             } else {
                 const q = query(collection(db, "prayers"), where("churchId", "==", churchId));
@@ -57,9 +61,60 @@ export default function PostsAndPrayersPage() {
         finally { setLoading(false); }
     };
 
-    // --- LÓGICA DE EXPIRAÇÃO (Igual ao MemberDashboard) ---
+    // --- LÓGICA DE INTERAÇÕES (CURTIR E COMENTAR) ---
+    const handleLike = async (post: any) => {
+        if (!user?.uid) return;
+        const isLiked = post.likes?.includes(user.uid);
+        const newLikes = isLiked 
+            ? (post.likes || []).filter((id: string) => id !== user.uid) 
+            : [...(post.likes || []), user.uid];
+
+        setPosts(prev => prev.map(p => p.id === post.id ? { ...p, likes: newLikes } : p));
+        try { await updateDoc(doc(db, "posts", post.id), { likes: newLikes }); } catch(e) { console.error(e); }
+    };
+
+    const toggleComments = async (postId: string) => {
+        if (expandedPostId === postId) {
+            setExpandedPostId(null);
+            return;
+        }
+        setExpandedPostId(postId);
+        if (!postComments[postId]) {
+            setLoadingCommentsId(postId);
+            try {
+                const q = query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc"));
+                const snap = await getDocs(q);
+                setPostComments(prev => ({ ...prev, [postId]: snap.docs.map(d => d.data()) }));
+            } catch (e) {
+                setPostComments(prev => ({ ...prev, [postId]: [] }));
+            }
+            setLoadingCommentsId(null);
+        }
+    };
+
+    const handleInputChange = (postId: string, text: string) => setCommentInputs(prev => ({ ...prev, [postId]: text }));
+
+    const handleSendComment = async (postId: string) => {
+        const text = commentInputs[postId];
+        if (!postId || !text?.trim() || !user?.uid) return;
+
+        const newComment = {
+            userId: user.uid,
+            userName: userName || "Liderança",
+            userPhoto: "", // O painel admin não lida com fotos por padrão
+            content: text,
+            createdAt: Date.now()
+        };
+
+        setPostComments(prev => ({ ...prev, [postId]: [...(prev[postId] || []), newComment] }));
+        setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+
+        try { await addDoc(collection(db, "posts", postId, "comments"), newComment); } catch(e) { alert("Erro ao enviar comentário."); }
+    };
+
+    // --- LÓGICA DE EXPIRAÇÃO ---
     const filteredPosts = posts.filter(post => {
-        if (showExpired) return true; // Se ativou o histórico, mostra tudo
+        if (showExpired) return true; 
         if (!post.date) return true;
         
         const pDate = new Date(post.date + 'T00:00:00');
@@ -67,10 +122,10 @@ export default function PostsAndPrayersPage() {
         today.setHours(0,0,0,0);
 
         if (post.type === 'event') {
-            return pDate >= today; // Evento expira depois que a data passa
+            return pDate >= today; 
         } else {
             const limitDate = new Date();
-            limitDate.setDate(limitDate.getDate() - 15); // Avisos normais expiram em 15 dias
+            limitDate.setDate(limitDate.getDate() - 15); 
             limitDate.setHours(0,0,0,0);
             return pDate >= limitDate;
         }
@@ -163,13 +218,12 @@ export default function PostsAndPrayersPage() {
                         {activeTab === 'posts' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                                 
-                                {/* Botões de Ação do Mural */}
                                 {canManagePosts && (
                                     <div className="flex justify-between items-center bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
                                         <button 
                                             onClick={() => setShowExpired(!showExpired)} 
                                             className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${showExpired ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
-                                            title="Ver publicações antigas que já sumiram do app dos membros"
+                                            title="Ver publicações antigas"
                                         >
                                             <History size={16}/> {showExpired ? 'Ocultar Histórico' : 'Ver Histórico'}
                                         </button>
@@ -188,16 +242,25 @@ export default function PostsAndPrayersPage() {
                                     </div>
                                 ) : (
                                     displayedPosts.map(post => {
-                                        // Lógica de "Ler Mais" para textos gigantes
                                         const textLimit = 200;
                                         const shouldTruncate = post.content.length > textLimit;
                                         const isExpanded = expandedTexts[post.id] || false;
                                         const displayedContent = isExpanded || !shouldTruncate ? post.content : post.content.slice(0, textLimit) + "...";
 
-                                        // Identifica se o post está expirado (visualmente)
                                         const pDate = new Date(post.date + 'T00:00:00');
                                         const limitDate = new Date(); limitDate.setDate(limitDate.getDate() - 15); limitDate.setHours(0,0,0,0);
                                         const isExpired = post.type !== 'event' && pDate < limitDate;
+
+                                        // Variáveis Sociais
+                                        const isLiked = post.likes?.includes(user?.uid || "");
+                                        const likeCount = post.likes?.length || 0;
+                                        const isCommentsExpanded = expandedPostId === post.id;
+                                        const currentComments = postComments[post.id] || [];
+                                        
+                                        // Correção do "Invalid Date"
+                                        const displayDate = post.date 
+                                            ? new Date(post.date + 'T12:00:00').toLocaleDateString('pt-BR') 
+                                            : new Date(post.createdAt).toLocaleDateString('pt-BR');
 
                                         return (
                                         <div key={post.id} className={`bg-white rounded-3xl shadow-xl border ${post.isImportant ? 'border-amber-300 shadow-amber-100/50' : 'border-slate-100 shadow-slate-200/50'} relative overflow-hidden group ${isExpired ? 'opacity-70 grayscale-[30%]' : ''}`}>
@@ -228,16 +291,57 @@ export default function PostsAndPrayersPage() {
                                                 </div>
                                             )}
                                             
-                                            <div className="mt-4 px-6 pb-5 flex items-center justify-between text-xs text-slate-400 font-medium">
+                                            {/* BARRA DE AÇÕES (CURTIR E COMENTAR) */}
+                                            <div className="mt-4 px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-medium bg-slate-50/50">
+                                                <div className="flex items-center gap-6">
+                                                    <button onClick={() => handleLike(post)} className={`flex items-center gap-1.5 transition ${isLiked ? 'text-red-500' : 'hover:text-red-500'}`}>
+                                                        <Heart size={16} fill={isLiked ? "currentColor" : "none"}/>
+                                                        <span className="font-bold text-sm">{likeCount > 0 ? likeCount : 'Curtir'}</span>
+                                                    </button>
+                                                    <button onClick={() => toggleComments(post.id)} className={`flex items-center gap-1.5 transition ${isCommentsExpanded ? 'text-blue-600' : 'hover:text-blue-500'}`}>
+                                                        <MessageCircle size={16}/>
+                                                        <span className="font-bold text-sm">Comentar</span>
+                                                    </button>
+                                                </div>
                                                 <div className="flex items-center gap-4">
                                                     <span className="flex items-center gap-1"><User size={14}/> {post.author}</span>
-                                                    <span className="flex items-center gap-1"><Clock size={14}/> {new Date(post.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                                                    <span className="flex items-center gap-1"><Heart size={14}/> {post.likes?.length || 0} curtidas</span>
+                                                    <span className="flex items-center gap-1"><Clock size={14}/> {displayDate}</span>
+                                                    {canManagePosts && (
+                                                        <button onClick={() => handleDeletePost(post.id)} className="text-slate-300 hover:text-red-500 transition p-2 hover:bg-red-50 rounded-lg" title="Excluir Postagem"><Trash2 size={16}/></button>
+                                                    )}
                                                 </div>
-                                                {canManagePosts && (
-                                                    <button onClick={() => handleDeletePost(post.id)} className="text-slate-300 hover:text-red-500 transition p-2 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
-                                                )}
                                             </div>
+
+                                            {/* SESSÃO DE COMENTÁRIOS EXPANSÍVEL */}
+                                            {isCommentsExpanded && (
+                                                <div className="bg-slate-50 border-t border-slate-100 p-4 animate-in slide-in-from-top-2">
+                                                    <div className="space-y-3 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
+                                                        {loadingCommentsId === post.id ? (
+                                                            <div className="text-center py-2"><Loader2 className="animate-spin w-4 h-4 mx-auto text-slate-400"/></div>
+                                                        ) : currentComments.length === 0 ? (
+                                                            <p className="text-xs text-slate-400 text-center italic">Nenhum comentário ainda. Seja o primeiro!</p>
+                                                        ) : (
+                                                            currentComments.map((c, idx) => (
+                                                                <div key={idx} className="flex gap-2">
+                                                                    <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden shrink-0 mt-1 flex items-center justify-center text-slate-400">
+                                                                        <User size={14}/>
+                                                                    </div>
+                                                                    <div className="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-slate-100 flex-1">
+                                                                        <p className="text-[10px] font-bold text-slate-800 mb-0.5">{c.userName}</p>
+                                                                        <p className="text-xs text-slate-600 leading-relaxed">{c.content}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                    <div className="flex gap-2 items-center">
+                                                        <div className="flex-1 relative">
+                                                            <input type="text" value={commentInputs[post.id] || ""} onChange={(e) => handleInputChange(post.id, e.target.value)} placeholder="Escreva um comentário..." className="w-full bg-white border border-slate-200 rounded-full py-2.5 px-4 text-sm focus:ring-2 ring-blue-100 outline-none pr-12 transition"/>
+                                                            <button onClick={() => handleSendComment(post.id)} disabled={!commentInputs[post.id]?.trim()} className="absolute right-1 top-1 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"><Send size={14}/></button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )})
                                 )}

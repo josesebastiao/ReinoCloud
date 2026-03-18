@@ -1,379 +1,275 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { ministryService } from "../../services/ministryService";
 import { memberService } from "../../services/memberService";
 import { useChurch } from "../../contexts/ChurchContext";
 import { Ministry } from "../../types/ministry";
 import { Member } from "../../types/member";
-import {
-  Users, Plus, Pencil, Trash2, Music, Heart, BookOpen,
-  Mic2, X, Search, UserPlus, UserMinus, ShieldCheck, Star, Calendar, ArrowRight, Lock, Loader2
-} from "lucide-react";
+import { Music, Plus, Users, Search, Loader2, X, Star, Calendar, Trash2 } from "lucide-react";
 
-export default function Ministries() {
+export default function MinistriesPage() {
   const router = useRouter();
+  const { churchId, userRole, hasPermission, userName } = useChurch();
 
-  // Pegamos o 'loading' do auth para garantir que não vamos redirecionar antes da hora
-  const { user, userRole, hasPermission, loading: authLoading, churchModules } = useChurch();
-
-  const [churchId, setChurchId] = useState("");
-
-  // Dados
+  const [loading, setLoading] = useState(true);
   const [ministries, setMinistries] = useState<Ministry[]>([]);
-  const [allMembers, setAllMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
 
-  // Modal CRIAR/EDITAR
+  // Estados do Modal de Criar
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [newMinistry, setNewMinistry] = useState({ name: "", description: "" });
+  const [saving, setSaving] = useState(false);
 
-  // Modal GERENCIAR EQUIPE
-  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
-  const [searchMember, setSearchMember] = useState("");
+  // Estados do Modal de Líder
+  const [isLeaderModalOpen, setIsLeaderModalOpen] = useState(false);
+  const [selectedMinistryId, setSelectedMinistryId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // --- 1. BLINDAGEM DE ROTA E MÓDULO ---
+  const canManage = userRole === 'admin' || userRole === 'pastor' || userRole === 'secretary' || hasPermission('secretary');
+
   useEffect(() => {
-    if (!authLoading) {
-      // Se o plano da igreja não incluir ministérios, expulsa
-      if (churchModules === 'admin') {
-        router.push("/");
-        return;
-      }
-
-      // Lista de quem PODE entrar nesta página
-      const allowedRoles = ['admin', 'pastor', 'leader', 'secretary'];
-
-      // CORREÇÃO: Garante que userRole é string para o .includes()
-      const currentRole = userRole || "";
-      const isAllowed = allowedRoles.includes(currentRole) || hasPermission('secretary');
-
-      // Se for membro comum, manda para a home
-      if (!isAllowed) {
-        router.push("/");
-      }
+    if (churchId) {
+      loadData();
     }
-  }, [userRole, authLoading, hasPermission, router, churchModules]);
+  }, [churchId]);
 
-  // --- 2. CARREGAMENTO DE DADOS ---
-  useEffect(() => {
-    const idSalvo = localStorage.getItem("churchId");
-
-    // Só carrega se tiver ID, Usuário e o Auth já tiver terminado
-    if (idSalvo && user && !authLoading) {
-      setChurchId(idSalvo);
-      carregarDados(idSalvo);
-    }
-  }, [user, authLoading]);
-
-  const carregarDados = async (id: string) => {
+  const loadData = async () => {
     try {
-      const [listaMin, listaMembros] = await Promise.all([
-        ministryService.listByChurch(id),
-        memberService.listByChurch(id)
+      setLoading(true);
+      const [allMinistries, allMembers] = await Promise.all([
+        ministryService.listByChurch(churchId!),
+        memberService.listByChurch(churchId!)
       ]);
-
-      setAllMembers(listaMembros);
-
-      // --- LÓGICA DE FILTRO (LÍDER VÊ APENAS O SEU) ---
-      // Encontra o cadastro do usuário logado na lista de membros
-      const me = listaMembros.find(m => m.email === user?.email);
-
-      const canViewAll = userRole === 'admin' || userRole === 'pastor' || userRole === 'secretary' || hasPermission('secretary');
-
-      if (canViewAll) {
-        // Admin vê tudo
-        setMinistries(listaMin);
-      } else if (userRole === 'leader' && me) {
-        // Líder vê apenas onde ele é o líder (leaderId == me.id)
-        const myMinistries = listaMin.filter(m => m.leaderId === me.id);
-        setMinistries(myMinistries);
-      } else {
-        // Caso de borda
-        setMinistries([]);
-      }
-
-    } catch (e) { console.error(e); }
-  };
-
-  const countMembers = (ministryId: string) => {
-    return allMembers.filter(m => m.ministries?.includes(ministryId)).length;
-  };
-
-  const abrirGestaoEquipe = (ministry: Ministry) => {
-    setSelectedMinistry(ministry);
-    setSearchMember("");
-    setIsTeamModalOpen(true);
-  };
-
-  const handleAddMemberToMinistry = async (member: Member) => {
-    if (!selectedMinistry) return;
-    const currentMinistries = member.ministries || [];
-    if (currentMinistries.includes(selectedMinistry.id!)) return;
-    const newMinistries = [...currentMinistries, selectedMinistry.id!];
-    await memberService.update(member.id!, { ministries: newMinistries });
-    setAllMembers(prev => prev.map(m => m.id === member.id ? { ...m, ministries: newMinistries } : m));
-  };
-
-  const handleRemoveMemberFromMinistry = async (member: Member) => {
-    if (!selectedMinistry) return;
-    if (selectedMinistry.leaderId === member.id) {
-      await ministryService.update(selectedMinistry.id!, { leaderId: null });
-      setSelectedMinistry({ ...selectedMinistry, leaderId: undefined });
-      setMinistries(prev => prev.map(m => m.id === selectedMinistry.id ? { ...m, leaderId: undefined } : m));
-    }
-    const currentMinistries = member.ministries || [];
-    const newMinistries = currentMinistries.filter(id => id !== selectedMinistry.id);
-    await memberService.update(member.id!, { ministries: newMinistries });
-    setAllMembers(prev => prev.map(m => m.id === member.id ? { ...m, ministries: newMinistries } : m));
-  };
-
-  const handleSetLeader = async (memberId: string) => {
-    if (!selectedMinistry) return;
-    const newLeaderId = selectedMinistry.leaderId === memberId ? null : memberId;
-    await ministryService.update(selectedMinistry.id!, { leaderId: newLeaderId });
-    setSelectedMinistry({ ...selectedMinistry, leaderId: newLeaderId || undefined });
-    setMinistries(prev => prev.map(m => m.id === selectedMinistry.id ? { ...m, leaderId: newLeaderId || undefined } : m));
-  };
-
-  const abrirModal = (ministry?: Ministry) => {
-    if (ministry) {
-      setEditingId(ministry.id || null);
-      setName(ministry.name);
-      setDescription(ministry.description || "");
-    } else {
-      setEditingId(null);
-      setName("");
-      setDescription("");
-    }
-    setIsModalOpen(true);
-  };
-
-  const handleSalvar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (editingId) {
-        await ministryService.update(editingId, { name, description });
-      } else {
-        await ministryService.create({ name, description, churchId });
-      }
-      setIsModalOpen(false);
-      carregarDados(churchId);
+      setMinistries(allMinistries);
+      setMembers(allMembers);
     } catch (error) {
-      alert("Erro ao salvar.");
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExcluir = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este ministério?")) {
-      await ministryService.delete(id);
-      carregarDados(churchId);
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!churchId || !newMinistry.name.trim()) return;
+
+    setSaving(true);
+    try {
+      await ministryService.create({
+        churchId,
+        name: newMinistry.name,
+        description: newMinistry.description,
+      });
+      setIsModalOpen(false);
+      setNewMinistry({ name: "", description: "" });
+      loadData();
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao criar ministério.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const getRandomIcon = (index: number) => {
-    const icons = [Music, Heart, BookOpen, Mic2, Users];
-    const IconComponent = icons[index % icons.length];
-    return <IconComponent size={24} />;
+  const handleDelete = async (id: string, name: string) => {
+    if (confirm(`Tem certeza que deseja apagar a equipe "${name}"? Todas as escalas serão perdidas.`)) {
+      try {
+        await ministryService.delete(id);
+        loadData();
+      } catch (error) {
+        console.error(error);
+        alert("Erro ao excluir.");
+      }
+    }
   };
 
-  const membersInTeam = selectedMinistry
-    ? allMembers.filter(m => m.ministries?.includes(selectedMinistry.id!))
-    : [];
+  const handleSetLeader = async (memberId: string, memberName: string) => {
+    if (!selectedMinistryId) return;
+    try {
+      // CORREÇÃO TS AQUI: 'as any' para aceitar o leaderName
+      await ministryService.update(selectedMinistryId, {
+        leaderId: memberId,
+        leaderName: memberName
+      } as any);
+      
+      setIsLeaderModalOpen(false);
+      setSearchTerm("");
+      loadData();
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao definir líder.");
+    }
+  };
 
-  const membersNotInTeam = selectedMinistry
-    ? allMembers.filter(m =>
-      !m.ministries?.includes(selectedMinistry.id!) &&
-      m.fullName.toLowerCase().includes(searchMember.toLowerCase())
-    )
-    : [];
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-600" size={40} /></div>;
+  }
 
-  // Permissão para CRIAR/EDITAR ministérios (Só Admin/Pastor)
-  const canManageStructure = userRole === 'admin' || userRole === 'pastor';
+  let visibleMinistries = ministries;
+  
+  if (!canManage) {
+      const me = members.find(m => m.fullName === userName);
+      if (me) {
+          // CORREÇÃO TS AQUI: Forçando a leitura como any para ignorar a tipagem estrita
+          visibleMinistries = ministries.filter((m: any) => 
+              m.leaderId === me.id || 
+              m.leaderName === me.fullName || 
+              m.leaderName === userName
+          );
+      } else {
+          visibleMinistries = ministries.filter((m: any) => m.leaderName === userName);
+      }
+  }
 
-  // Se estiver carregando auth, mostra loader
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+  const filteredMembers = members.filter(m =>
+    m.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24"> {/* Removido o 'font-sans' redundante */}
-
-      {/* CABEÇALHO */}
-      <div className="bg-blue-800 pt-10 pb-24 px-8 shadow-sm">
-        <div className="max-w-6xl mx-auto flex justify-between items-end">
+    <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+      <div className="bg-blue-800 pt-10 pb-32 px-4 md:px-8 shadow-sm">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-              <Users className="text-blue-300" /> Ministérios
+              <Users className="text-blue-300" size={32} /> Ministérios
             </h1>
             <p className="text-blue-100 text-lg opacity-90">Gestão de departamentos, equipes e escalas.</p>
           </div>
-
-          {/* Botão de Criar (Só aparece para Admin/Pastor) */}
-          {canManageStructure && (
-            <button onClick={() => abrirModal()} className="hidden md:flex bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl font-bold transition items-center gap-2">
+          {canManage && (
+            <button onClick={() => setIsModalOpen(true)} className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-sm backdrop-blur-sm">
               <Plus size={20} /> Nova Equipe
             </button>
           )}
         </div>
       </div>
 
-      {/* CONTEÚDO */}
-      <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-16 relative z-10">
+      <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-20 relative z-10">
+        {visibleMinistries.length === 0 ? (
+          <div className="bg-white p-12 text-center rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col items-center">
+            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+              <Users size={40} className="text-gray-300" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-700">Nenhum ministério disponível.</h3>
+            <p className="text-gray-400 mt-2 max-w-md">
+              {canManage
+                ? "Clique no botão 'Nova Equipe' acima para começar a organizar os departamentos da igreja."
+                : "Você ainda não foi definido como líder de nenhum ministério. Peça ao administrador."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visibleMinistries.map((ministry: any) => {
+              const teamSize = members.filter(m => m.ministries?.includes(ministry.id)).length;
 
-        {canManageStructure && (
-          <button onClick={() => abrirModal()} className="md:hidden w-full mb-6 bg-blue-600 text-white py-3 rounded-xl font-bold shadow-lg flex justify-center items-center gap-2">
-            <Plus size={20} /> Criar Nova Equipe
-          </button>
+              return (
+                <div key={ministry.id} className="bg-white rounded-3xl p-6 shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col h-full hover:-translate-y-1 transition duration-300 group">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition border border-blue-100">
+                      <Music size={24} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg text-gray-800 truncate leading-tight" title={ministry.name}>{ministry.name}</h3>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-1">{teamSize} MEMBROS</p>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-500 mb-6 flex-1 line-clamp-2">{ministry.description || "Sem descrição."}</p>
+
+                  <div className="mt-auto space-y-3">
+                    <div
+                      onClick={() => {
+                        if (canManage) {
+                          setSelectedMinistryId(ministry.id);
+                          setIsLeaderModalOpen(true);
+                        }
+                      }}
+                      className={`p-3 rounded-xl flex items-center gap-2 text-xs font-bold border transition ${ministry.leaderId ? 'bg-yellow-50 border-yellow-100 text-yellow-700' : 'bg-gray-50 border-gray-200 text-gray-500'} ${canManage ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}
+                      title={canManage ? "Clique para alterar o líder" : "Líder atual"}
+                    >
+                      <Star size={16} className={ministry.leaderId ? "fill-yellow-500 text-yellow-600" : ""} />
+                      Líder: {ministry.leaderName || "Não definido"}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button onClick={() => router.push(`/ministries/${ministry.id}`)} className="flex-1 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold text-xs rounded-xl transition flex justify-center items-center gap-2 border border-gray-200">
+                        <Users size={16} /> Equipe
+                      </button>
+                      <button onClick={() => router.push(`/ministries/${ministry.id}`)} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-200 transition flex justify-center items-center gap-2">
+                        <Calendar size={16} /> Agenda &rarr;
+                      </button>
+                      {canManage && (
+                        <button onClick={() => handleDelete(ministry.id, ministry.name)} className="px-3 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-xl transition border border-red-100">
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-          {/* Mensagem se não tiver nada */}
-          {ministries.length === 0 && (
-            <div className="col-span-full text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300 shadow-sm">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lock size={30} className="text-gray-400" />
-              </div>
-              <p className="text-gray-600 font-bold text-lg">Nenhum ministério disponível.</p>
-              <p className="text-sm text-gray-400 mt-1 max-w-md mx-auto">
-                {userRole === 'leader'
-                  ? "Você ainda não foi definido como líder de nenhum ministério. Peça ao administrador."
-                  : "Nenhum ministério cadastrado na igreja."}
-              </p>
-            </div>
-          )}
-
-          {ministries.map((m, index) => (
-            <div key={m.id} className="bg-white p-6 rounded-3xl shadow-xl shadow-blue-900/5 border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition duration-300 group relative flex flex-col">
-
-              {/* Ações de Edição (Só Admin/Pastor) */}
-              {canManageStructure && (
-                <div className="absolute top-4 right-4 flex gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity z-10">
-                  <button onClick={() => abrirModal(m)} className="p-2 text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition"><Pencil size={16} /></button>
-                  <button onClick={() => handleExcluir(m.id!)} className="p-2 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-red-50 rounded-lg transition"><Trash2 size={16} /></button>
-                </div>
-              )}
-
-              {/* Ícone e Título */}
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner shrink-0">
-                  {getRandomIcon(index)}
-                </div>
-                <div>
-                  <Link href={`/ministries/${m.id}`} className="hover:text-blue-600 transition cursor-pointer">
-                    <h3 className="text-xl font-bold text-gray-800 leading-tight">{m.name}</h3>
-                  </Link>
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{countMembers(m.id!)} Membros</span>
-                </div>
-              </div>
-
-              <p className="text-sm text-gray-500 line-clamp-2 min-h-[40px] mb-4 leading-relaxed">{m.description || "Sem descrição."}</p>
-
-              {/* Badge do Líder */}
-              {m.leaderId && (
-                <div className="mb-6 flex items-center gap-2 bg-yellow-50 p-2 rounded-lg border border-yellow-100">
-                  <Star size={12} className="text-yellow-600 fill-yellow-600" />
-                  <span className="text-xs font-bold text-yellow-700 truncate">
-                    Líder: {allMembers.find(mem => mem.id === m.leaderId)?.fullName || "Desconhecido"}
-                  </span>
-                </div>
-              )}
-
-              {/* BOTÕES DE AÇÃO */}
-              <div className="mt-auto pt-4 border-t border-gray-50 flex gap-2">
-                <button
-                  onClick={() => abrirGestaoEquipe(m)}
-                  className="flex-1 py-2.5 rounded-xl bg-gray-50 text-gray-600 font-bold text-xs hover:bg-gray-100 transition flex items-center justify-center gap-2"
-                >
-                  <Users size={14} /> Equipe
-                </button>
-
-                <Link
-                  href={`/ministries/${m.id}`}
-                  className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 shadow-md shadow-blue-200 transition flex items-center justify-center gap-2"
-                >
-                  <Calendar size={14} /> Agenda <ArrowRight size={12} />
-                </Link>
-              </div>
-
-            </div>
-          ))}
-        </div>
       </div>
 
-      {/* --- MODAIS DE GESTÃO --- */}
-
-      {/* Modal 1: Criar/Editar (Só renderiza se for Admin/Pastor) */}
-      {isModalOpen && canManageStructure && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-in zoom-in-95">
-            <h2 className="text-xl font-bold text-gray-800 mb-6">{editingId ? 'Editar Ministério' : 'Novo Ministério'}</h2>
-            <form onSubmit={handleSalvar} className="space-y-4">
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
+            <div className="bg-gray-50 p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Plus className="text-blue-600" /> Nova Equipe</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition bg-white p-2 rounded-full shadow-sm"><X size={20} /></button>
+            </div>
+            <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome da Equipe</label>
-                <input value={name} onChange={e => setName(e.target.value)} className="w-full p-3 border rounded-xl focus:ring-2 ring-blue-100 outline-none" placeholder="Ex: Louvor" required />
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block ml-1">Nome do Departamento</label>
+                <input required type="text" value={newMinistry.name} onChange={e => setNewMinistry({ ...newMinistry, name: e.target.value })} className="w-full p-3.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 ring-blue-50 transition bg-gray-50 focus:bg-white" placeholder="Ex: Coral, Diaconato, Louvor..." />
               </div>
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Descrição</label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 border rounded-xl focus:ring-2 ring-blue-100 outline-none" placeholder="Objetivo do grupo..." rows={3} />
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block ml-1">Descrição (Opcional)</label>
+                <textarea rows={3} value={newMinistry.description} onChange={e => setNewMinistry({ ...newMinistry, description: e.target.value })} className="w-full p-3.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-4 ring-blue-50 transition resize-none bg-gray-50 focus:bg-white" placeholder="Qual o propósito desta equipe?" />
               </div>
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition">{loading ? 'Salvando...' : 'Salvar'}</button>
-              </div>
+              <button type="submit" disabled={saving} className="w-full py-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-200 transition flex items-center justify-center gap-2 disabled:opacity-70 mt-2">
+                {saving ? <Loader2 className="animate-spin" size={20} /> : 'Salvar Equipe'}
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Modal 2: Gerenciar Equipe */}
-      {isTeamModalOpen && selectedMinistry && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl h-[650px] flex flex-col overflow-hidden animate-in zoom-in-95">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+      {isLeaderModalOpen && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 h-[80vh] md:h-auto max-h-[600px] flex flex-col">
+            <div className="bg-yellow-50 p-6 border-b border-yellow-100 flex justify-between items-center shrink-0">
               <div>
-                <h2 className="text-xl font-bold text-gray-800">Gerenciar Equipe</h2>
-                <p className="text-sm text-blue-600 font-bold flex items-center gap-1"><ShieldCheck size={14} /> {selectedMinistry.name}</p>
+                <h2 className="text-xl font-bold text-yellow-800 flex items-center gap-2"><Star className="fill-yellow-500 text-yellow-600" /> Eleger Líder</h2>
+                <p className="text-xs font-bold text-yellow-600/70 mt-1 uppercase">Selecione o responsável</p>
               </div>
-              <button onClick={() => setIsTeamModalOpen(false)} className="bg-gray-200 hover:bg-red-100 hover:text-red-500 p-2 rounded-full transition"><X size={20} /></button>
+              <button onClick={() => setIsLeaderModalOpen(false)} className="text-yellow-600/50 hover:text-yellow-700 transition bg-white p-2 rounded-full shadow-sm"><X size={20} /></button>
             </div>
 
-            <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-              <div className="flex-1 p-6 overflow-y-auto border-r border-gray-100 bg-white custom-scrollbar">
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Membros Atuais ({membersInTeam.length})</h3>
-                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 mb-4 text-xs text-yellow-800">💡 Clique na <strong>Estrela</strong> para definir o Líder.</div>
-                {membersInTeam.length === 0 && <div className="text-center py-10 opacity-50"><Users size={40} className="mx-auto mb-2 text-gray-300" /><p className="text-sm text-gray-400 italic">Equipe vazia.</p></div>}
-                <div className="space-y-2">
-                  {membersInTeam.map(member => (
-                    <div key={member.id} className={`flex justify-between items-center p-3 rounded-xl transition border ${selectedMinistry.leaderId === member.id ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-transparent hover:border-gray-200'}`}>
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => handleSetLeader(member.id!)} className={`p-1 rounded hover:bg-black/5 transition ${selectedMinistry.leaderId === member.id ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`} title="Definir como Líder"><Star size={18} fill={selectedMinistry.leaderId === member.id ? "currentColor" : "none"} /></button>
-                        <div><span className={`text-sm font-bold ${selectedMinistry.leaderId === member.id ? 'text-yellow-800' : 'text-gray-700'}`}>{member.fullName}</span>{selectedMinistry.leaderId === member.id && <p className="text-[10px] text-yellow-600 font-bold uppercase">Líder</p>}</div>
-                      </div>
-                      <button onClick={() => handleRemoveMemberFromMinistry(member)} className="text-gray-400 hover:text-red-600 p-2 bg-white rounded-lg shadow-sm hover:shadow transition" title="Remover da equipe"><UserMinus size={16} /></button>
-                    </div>
-                  ))}
-                </div>
+            <div className="p-6 pb-2 shrink-0">
+              <div className="relative">
+                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input type="text" placeholder="Buscar por nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-yellow-400 focus:bg-white transition text-sm font-medium" />
               </div>
-              <div className="flex-1 p-6 bg-gray-50/50 overflow-y-auto custom-scrollbar">
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">Adicionar Membro</h3>
-                <div className="relative mb-4"><Search className="absolute left-3 top-3 text-gray-400" size={18} /><input type="text" placeholder="Buscar nome..." value={searchMember} onChange={(e) => setSearchMember(e.target.value)} className="w-full pl-10 p-3 border rounded-xl text-sm focus:ring-2 ring-blue-100 outline-none bg-white shadow-sm" /></div>
-                <div className="space-y-2">
-                  {membersNotInTeam.slice(0, 10).map(member => (
-                    <div key={member.id} className="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-xl hover:border-blue-300 transition shadow-sm group">
-                      <span className="text-sm font-medium text-gray-700 truncate max-w-[150px]">{member.fullName}</span>
-                      <button onClick={() => handleAddMemberToMinistry(member)} className="text-gray-400 group-hover:text-blue-600 group-hover:bg-blue-50 p-1.5 rounded-lg transition"><UserPlus size={18} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 pt-2 space-y-2 custom-scrollbar">
+              {filteredMembers.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 text-sm">Nenhum membro encontrado.</div>
+              ) : (
+                filteredMembers.map(member => (
+                  <button key={member.id} onClick={() => handleSetLeader(member.id!, member.fullName)} className="w-full p-4 rounded-2xl border border-gray-100 bg-white hover:border-yellow-300 hover:bg-yellow-50 hover:shadow-md transition flex items-center gap-4 text-left group">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 overflow-hidden shrink-0 group-hover:bg-white group-hover:border group-hover:border-yellow-200 transition">
+                      {member.photoUrl ? <img src={member.photoUrl} className="w-full h-full object-cover" /> : <Users size={20} />}
                     </div>
-                  ))}
-                  {searchMember && membersNotInTeam.length === 0 && <p className="text-sm text-gray-400 text-center py-4">Ninguém encontrad.</p>}
-                </div>
-              </div>
+                    <div>
+                      <p className="font-bold text-gray-800 text-sm group-hover:text-yellow-800 transition">{member.fullName}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{member.role === 'admin' ? 'Pastor' : member.role === 'leader' ? 'Líder' : 'Membro'}</p>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
