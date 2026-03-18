@@ -87,7 +87,6 @@ export default function MinistriesPage() {
   const handleSetLeader = async (memberId: string, memberName: string) => {
     if (!selectedMinistryId) return;
     try {
-      // CORREÇÃO TS AQUI: 'as any' para aceitar o leaderName
       await ministryService.update(selectedMinistryId, {
         leaderId: memberId,
         leaderName: memberName
@@ -111,7 +110,6 @@ export default function MinistriesPage() {
   if (!canManage) {
       const me = members.find(m => m.fullName === userName);
       if (me) {
-          // CORREÇÃO TS AQUI: Forçando a leitura como any para ignorar a tipagem estrita
           visibleMinistries = ministries.filter((m: any) => 
               m.leaderId === me.id || 
               m.leaderName === me.fullName || 
@@ -162,6 +160,11 @@ export default function MinistriesPage() {
             {visibleMinistries.map((ministry: any) => {
               const teamSize = members.filter(m => m.ministries?.includes(ministry.id)).length;
 
+              // --- A MÁGICA ESTÁ AQUI: Busca o nome dinamicamente usando o ID ---
+              const leaderMember = members.find(m => m.id === ministry.leaderId);
+              const displayLeaderName = leaderMember?.fullName || ministry.leaderName || "Não definido";
+              const hasLeader = displayLeaderName !== "Não definido";
+
               return (
                 <div key={ministry.id} className="bg-white rounded-3xl p-6 shadow-xl shadow-blue-900/5 border border-gray-100 flex flex-col h-full hover:-translate-y-1 transition duration-300 group">
                   <div className="flex items-start gap-4 mb-4">
@@ -184,11 +187,11 @@ export default function MinistriesPage() {
                           setIsLeaderModalOpen(true);
                         }
                       }}
-                      className={`p-3 rounded-xl flex items-center gap-2 text-xs font-bold border transition ${ministry.leaderId ? 'bg-yellow-50 border-yellow-100 text-yellow-700' : 'bg-gray-50 border-gray-200 text-gray-500'} ${canManage ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}
+                      className={`p-3 rounded-xl flex items-center gap-2 text-xs font-bold border transition ${hasLeader ? 'bg-yellow-50 border-yellow-100 text-yellow-700' : 'bg-gray-50 border-gray-200 text-gray-500'} ${canManage ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}
                       title={canManage ? "Clique para alterar o líder" : "Líder atual"}
                     >
-                      <Star size={16} className={ministry.leaderId ? "fill-yellow-500 text-yellow-600" : ""} />
-                      Líder: {ministry.leaderName || "Não definido"}
+                      <Star size={16} className={hasLeader ? "fill-yellow-500 text-yellow-600" : ""} />
+                      Líder: {displayLeaderName}
                     </div>
 
                     <div className="flex gap-2">
