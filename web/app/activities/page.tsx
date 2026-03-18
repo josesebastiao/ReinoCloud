@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
-import { db } from "../../lib/firebase";
+import { db, auth } from "../../lib/firebase";
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
 import {
     PlusCircle, Printer, Calendar, Users, HeartHandshake,
@@ -12,6 +12,7 @@ import {
 export interface ChurchActivity {
     id?: string;
     churchId: string;
+    departmentId?: string;
     title: string;
     date: string;
     category: string;
@@ -25,6 +26,8 @@ export default function ActivitiesPage() {
     const { churchId, churchName, userRole, logoUrl } = useChurch();
 
     const [activities, setActivities] = useState<ChurchActivity[]>([]);
+    const [userDepartmentId, setUserDepartmentId] = useState<string | null>(null);
+    const [totalMembers, setTotalMembers] = useState(0);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [printing, setPrinting] = useState(false);
@@ -38,20 +41,65 @@ export default function ActivitiesPage() {
     const [saving, setSaving] = useState(false);
 
     // Categorias padrão
-    const categories = ["Visita Pastoral", "Batismo", "Casamento", "Ação Social", "Culto Especial", "Reunião Administrativa", "Outros"];
+    const allCategories = ["Visita Pastoral", "Batismo", "Casamento", "Ação Social", "Culto Especial", "Reunião Administrativa", "Outros"];
+    // Filtra categorias baseadas no cargo (Líder não vê Batismo/Casamento)
+    const categories = userRole === 'admin' ? allCategories : allCategories.filter(c => c !== "Batismo" && c !== "Casamento");
 
     // Nome dinâmico da aba
     const pageTitle = userRole === 'admin' ? "Relatório Pastoral" : "Relatório de Atividades";
 
     useEffect(() => {
         if (churchId) loadActivities();
-    }, [churchId]);
+    }, [churchId, userRole]);
 
     const loadActivities = async () => {
         if (!churchId) return;
         setLoading(true);
         try {
-            const q = query(collection(db, "activities"), where("churchId", "==", churchId));
+            let currentDeptId = null;
+
+            // 1. SE FOR LÍDER, DESCOBRE O DEPARTAMENTO PRIMEIRO
+            if (userRole !== 'admin') {
+                const user = auth.currentUser;
+                if (user?.email) {
+                    // Achar o membro pelo email
+                    const qMember = query(collection(db, "members"), where("churchId", "==", churchId), where("email", "==", user.email));
+                    const memberSnap = await getDocs(qMember);
+                    
+                    if (!memberSnap.empty) {
+                        const leaderMemberId = memberSnap.docs[0].id;
+                        
+                        // Achar o departamento que ele lidera
+                        const qDepartment = query(collection(db, "ministries"), where("churchId", "==", churchId), where("leaderId", "==", leaderMemberId));
+                        const departmentSnap = await getDocs(qDepartment);
+                        
+                        if (!departmentSnap.empty) {
+                            currentDeptId = departmentSnap.docs[0].id;
+                            setUserDepartmentId(currentDeptId);
+
+                            // Contar membros desse departamento para o card do dashboard
+                            const qMembers = query(collection(db, "members"), where("churchId", "==", churchId), where("status", "==", "active"), where("ministries", "array-contains", currentDeptId));
+                            const membersSnap = await getDocs(qMembers);
+                            setTotalMembers(membersSnap.size);
+                        }
+                    }
+                }
+            }
+
+            // 2. CARREGA ATIVIDADES (FILTRANDO SE FOR LÍDER)
+            let q;
+            if (userRole !== 'admin' && currentDeptId) {
+                q = query(collection(db, "activities"), where("churchId", "==", churchId), where("departmentId", "==", currentDeptId));
+            } else if (userRole !== 'admin' && !currentDeptId) {
+                // Líder sem departamento não vê atividades (ou vê vazio)
+                setActivities([]);
+                setLoading(false);
+                return;
+            } else {
+                // Admin vê tudo
+                q = query(collection(db, "activities"), where("churchId", "==", churchId));
+            }
+
             const querySnapshot = await getDocs(q);
             const data: ChurchActivity[] = [];
             querySnapshot.forEach((doc) => {
@@ -60,6 +108,7 @@ export default function ActivitiesPage() {
             // Ordena da mais recente para a mais antiga
             data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             setActivities(data);
+
         } catch (error) {
             console.error("Erro ao carregar atividades:", error);
         } finally {
@@ -80,6 +129,7 @@ export default function ActivitiesPage() {
             const payload: ChurchActivity = {
                 ...formData,
                 churchId,
+                departmentId: userDepartmentId || undefined, // Salva o ID do departamento na atividade
                 quantity: finalQuantity,
                 createdBy: userRole || "unknown",
                 createdAt: Date.now()
@@ -112,6 +162,8 @@ export default function ActivitiesPage() {
     const totalCasamentos = filteredActivities.filter(a => a.category === 'Casamento').length;
     const totalVisitas = filteredActivities.filter(a => a.category === 'Visita Pastoral').length;
     const totalAcaoSocial = filteredActivities.filter(a => a.category === 'Ação Social').length;
+    const totalActivities = filteredActivities.length;
+    const isLeaderView = userRole !== 'admin';
 
     // --- FUNÇÃO DE IMPRESSÃO ---
     const handlePrint = () => {
@@ -133,6 +185,20 @@ export default function ActivitiesPage() {
                 <td style="padding: 10px; font-size: 12px; text-align: center;">${(act.category === 'Batismo' || act.category === 'Ação Social') ? act.quantity : '-'}</td>
             </tr>
         `).join('');
+
+        const dashboardHtml = isLeaderView ? `
+            <div class="dashboard">
+                <div class="card"><h3>Membros do Departamento</h3><p>${totalMembers}</p></div>
+                <div class="card"><h3>Atividades Realizadas</h3><p>${totalActivities}</p></div>
+            </div>
+        ` : `
+            <div class="dashboard">
+                <div class="card"><h3>Batismos (Vidas)</h3><p>${totalBatismos}</p></div>
+                <div class="card"><h3>Casamentos</h3><p>${totalCasamentos}</p></div>
+                <div class="card"><h3>Visitas Pastorais</h3><p>${totalVisitas}</p></div>
+                <div class="card"><h3>Ações Sociais</h3><p>${totalAcaoSocial}</p></div>
+            </div>
+        `;
 
         const html = `
         <html>
@@ -160,12 +226,7 @@ export default function ActivitiesPage() {
                 <h2 style="color:#64748b; margin:0;">${pageTitle} Consolidado - ${filterYear}</h2>
             </div>
 
-            <div class="dashboard">
-                <div class="card"><h3>Batismos (Vidas)</h3><p>${totalBatismos}</p></div>
-                <div class="card"><h3>Casamentos</h3><p>${totalCasamentos}</p></div>
-                <div class="card"><h3>Visitas Pastorais</h3><p>${totalVisitas}</p></div>
-                <div class="card"><h3>Ações Sociais</h3><p>${totalAcaoSocial}</p></div>
-            </div>
+            ${dashboardHtml}
 
             <h3 style="margin-top:40px; border-bottom:1px solid #eee; padding-bottom:5px;">Histórico de Ocorrências</h3>
             <table>
@@ -224,28 +285,43 @@ export default function ActivitiesPage() {
             <div className="max-w-6xl mx-auto px-4 md:px-0 -mt-20 relative z-10 space-y-6">
                 
                 {/* DASHBOARD CARDS */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-3"><Droplet size={24} /></div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Batismos (Vidas)</p>
-                        <h2 className="text-3xl font-black text-slate-800 mt-1">{totalBatismos}</h2>
+                {isLeaderView ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-3"><Users size={24} /></div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Membros do Departamento</p>
+                            <h2 className="text-3xl font-black text-slate-800 mt-1">{totalMembers}</h2>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-3"><BookOpen size={24} /></div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Atividades Realizadas</p>
+                            <h2 className="text-3xl font-black text-slate-800 mt-1">{totalActivities}</h2>
+                        </div>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mb-3"><HeartHandshake size={24} /></div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Casamentos</p>
-                        <h2 className="text-3xl font-black text-slate-800 mt-1">{totalCasamentos}</h2>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-3"><Droplet size={24} /></div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Batismos (Vidas)</p>
+                            <h2 className="text-3xl font-black text-slate-800 mt-1">{totalBatismos}</h2>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-pink-50 text-pink-500 rounded-full flex items-center justify-center mb-3"><HeartHandshake size={24} /></div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Casamentos</p>
+                            <h2 className="text-3xl font-black text-slate-800 mt-1">{totalCasamentos}</h2>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-3"><Users size={24} /></div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Visitas Pastorais</p>
+                            <h2 className="text-3xl font-black text-slate-800 mt-1">{totalVisitas}</h2>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-3"><TrendingUp size={24} /></div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ações Sociais</p>
+                            <h2 className="text-3xl font-black text-slate-800 mt-1">{totalAcaoSocial}</h2>
+                        </div>
                     </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-3"><Users size={24} /></div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Visitas Pastorais</p>
-                        <h2 className="text-3xl font-black text-slate-800 mt-1">{totalVisitas}</h2>
-                    </div>
-                    <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-3"><TrendingUp size={24} /></div>
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ações Sociais</p>
-                        <h2 className="text-3xl font-black text-slate-800 mt-1">{totalAcaoSocial}</h2>
-                    </div>
-                </div>
+                )}
 
                 {/* LISTA / TIMELINE */}
                 <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">

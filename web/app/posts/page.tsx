@@ -2,10 +2,10 @@
 import { useState, useEffect } from "react";
 import { useChurch } from "../../contexts/ChurchContext";
 import { db } from "../../lib/firebase";
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { 
     Megaphone, Heart, PlusCircle, Trash2, Loader2, X, 
-    MessageSquare, CheckCircle2, Clock, Pin, User 
+    MessageSquare, CheckCircle2, Clock, Pin, User, Image as ImageIcon, Calendar, BookOpen, ChevronDown, History
 } from "lucide-react";
 
 export default function PostsAndPrayersPage() {
@@ -18,20 +18,25 @@ export default function PostsAndPrayersPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     
-    // Estados do Mural
+    // --- ESTADOS DO MURAL ---
     const [posts, setPosts] = useState<any[]>([]);
     const [showPostModal, setShowPostModal] = useState(false);
-    const [postForm, setPostForm] = useState({ title: "", content: "", isImportant: false });
+    const [postForm, setPostForm] = useState({ 
+        title: "", content: "", type: "notice", imageUrl: "", isImportant: false 
+    });
+    
+    // Paginação e Expiração
+    const [visibleCount, setVisibleCount] = useState(5);
+    const [expandedTexts, setExpandedTexts] = useState<Record<string, boolean>>({});
+    const [showExpired, setShowExpired] = useState(false); // Para o pastor ver o que já expirou
 
-    // Estados de Oração
+    // --- ESTADOS DE ORAÇÃO ---
     const [prayers, setPrayers] = useState<any[]>([]);
     const [showPrayerModal, setShowPrayerModal] = useState(false);
     const [prayerForm, setPrayerForm] = useState({ requestor: userName || "", request: "" });
 
     useEffect(() => {
-        if (churchId) {
-            fetchData();
-        }
+        if (churchId) fetchData();
     }, [churchId, activeTab]);
 
     const fetchData = async () => {
@@ -40,7 +45,7 @@ export default function PostsAndPrayersPage() {
             if (activeTab === 'posts') {
                 const q = query(collection(db, "posts"), where("churchId", "==", churchId));
                 const snap = await getDocs(q);
-                const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => b.createdAt - a.createdAt);
+                const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setPosts(data);
             } else {
                 const q = query(collection(db, "prayers"), where("churchId", "==", churchId));
@@ -48,12 +53,31 @@ export default function PostsAndPrayersPage() {
                 const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a: any, b: any) => b.createdAt - a.createdAt);
                 setPrayers(data);
             }
-        } catch (error) {
-            console.error("Erro ao buscar dados:", error);
-        } finally {
-            setLoading(false);
-        }
+        } catch (error) { console.error("Erro ao buscar dados:", error); } 
+        finally { setLoading(false); }
     };
+
+    // --- LÓGICA DE EXPIRAÇÃO (Igual ao MemberDashboard) ---
+    const filteredPosts = posts.filter(post => {
+        if (showExpired) return true; // Se ativou o histórico, mostra tudo
+        if (!post.date) return true;
+        
+        const pDate = new Date(post.date + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        if (post.type === 'event') {
+            return pDate >= today; // Evento expira depois que a data passa
+        } else {
+            const limitDate = new Date();
+            limitDate.setDate(limitDate.getDate() - 15); // Avisos normais expiram em 15 dias
+            limitDate.setHours(0,0,0,0);
+            return pDate >= limitDate;
+        }
+    });
+
+    const displayedPosts = filteredPosts.slice(0, visibleCount);
+    const toggleText = (id: string) => setExpandedTexts(prev => ({ ...prev, [id]: !prev[id] }));
 
     // --- FUNÇÕES DO MURAL DE AVISOS ---
     const handleSavePost = async (e: React.FormEvent) => {
@@ -65,16 +89,18 @@ export default function PostsAndPrayersPage() {
                 ...postForm,
                 churchId,
                 author: userName || "Liderança",
+                date: new Date().toISOString().split('T')[0],
                 createdAt: Date.now(),
+                likes: [],
             });
             setShowPostModal(false);
-            setPostForm({ title: "", content: "", isImportant: false });
+            setPostForm({ title: "", content: "", type: "notice", imageUrl: "", isImportant: false });
             fetchData();
         } catch (error) { alert("Erro ao salvar aviso."); } finally { setSaving(false); }
     };
 
     const handleDeletePost = async (id: string) => {
-        if (!confirm("Excluir este aviso?")) return;
+        if (!confirm("Excluir esta publicação definitivamente?")) return;
         try { await deleteDoc(doc(db, "posts", id)); fetchData(); } catch (e) { alert("Erro ao excluir."); }
     };
 
@@ -85,10 +111,7 @@ export default function PostsAndPrayersPage() {
         setSaving(true);
         try {
             await addDoc(collection(db, "prayers"), {
-                ...prayerForm,
-                churchId,
-                status: 'pending', // pending | answered
-                createdAt: Date.now(),
+                ...prayerForm, churchId, status: 'pending', createdAt: Date.now(),
             });
             setShowPrayerModal(false);
             setPrayerForm({ requestor: userName || "", request: "" });
@@ -98,15 +121,12 @@ export default function PostsAndPrayersPage() {
 
     const handleAnswerPrayer = async (id: string, currentStatus: string) => {
         const newStatus = currentStatus === 'pending' ? 'answered' : 'pending';
-        try {
-            await updateDoc(doc(db, "prayers", id), { status: newStatus });
-            fetchData();
-        } catch (e) { alert("Erro ao atualizar status."); }
+        try { await updateDoc(doc(db, "prayers", id), { status: newStatus }); fetchData(); } catch (e) { alert("Erro."); }
     };
 
     const handleDeletePrayer = async (id: string) => {
-        if (!confirm("Excluir este pedido de oração?")) return;
-        try { await deleteDoc(doc(db, "prayers", id)); fetchData(); } catch (e) { alert("Erro ao excluir."); }
+        if (!confirm("Excluir?")) return;
+        try { await deleteDoc(doc(db, "prayers", id)); fetchData(); } catch (e) { alert("Erro."); }
     };
 
     const canManagePosts = userRole === 'admin' || userRole === 'pastor' || userRole === 'secretary' || hasPermission('secretary');
@@ -114,7 +134,6 @@ export default function PostsAndPrayersPage() {
     return (
         <div className="min-h-screen bg-slate-50 pb-24 font-sans">
             
-            {/* CABEÇALHO E TABS */}
             <div className="bg-[#0F172A] pt-8 pb-32 px-4 md:px-8 shadow-sm">
                 <div className="max-w-4xl mx-auto text-center">
                     <h1 className="text-3xl font-bold text-white mb-2 flex items-center justify-center gap-3">
@@ -124,18 +143,11 @@ export default function PostsAndPrayersPage() {
                         Fique por dentro dos avisos da igreja e interceda pelos irmãos.
                     </p>
 
-                    {/* ESTILO DAS ABAS (TABS) */}
                     <div className="flex bg-slate-800/50 p-1 rounded-2xl border border-slate-700/50 max-w-md mx-auto relative z-20 shadow-xl">
-                        <button 
-                            onClick={() => setActiveTab('posts')}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'posts' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
-                        >
-                            <Megaphone size={18}/> Mural de Avisos
+                        <button onClick={() => setActiveTab('posts')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'posts' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}>
+                            <Megaphone size={18}/> Mural da Igreja
                         </button>
-                        <button 
-                            onClick={() => setActiveTab('prayers')}
-                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'prayers' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/40' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
-                        >
+                        <button onClick={() => setActiveTab('prayers')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${activeTab === 'prayers' ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/40' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}>
                             <Heart size={18}/> Pedidos de Oração
                         </button>
                     </div>
@@ -150,39 +162,96 @@ export default function PostsAndPrayersPage() {
                         {/* ---------------- TELA DO MURAL ---------------- */}
                         {activeTab === 'posts' && (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                                
+                                {/* Botões de Ação do Mural */}
                                 {canManagePosts && (
-                                    <div className="flex justify-end">
-                                        <button onClick={() => setShowPostModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 transition">
-                                            <PlusCircle size={20}/> Novo Aviso
+                                    <div className="flex justify-between items-center bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+                                        <button 
+                                            onClick={() => setShowExpired(!showExpired)} 
+                                            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${showExpired ? 'bg-slate-800 text-white' : 'text-slate-500 hover:bg-slate-100'}`}
+                                            title="Ver publicações antigas que já sumiram do app dos membros"
+                                        >
+                                            <History size={16}/> {showExpired ? 'Ocultar Histórico' : 'Ver Histórico'}
+                                        </button>
+
+                                        <button onClick={() => setShowPostModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 transition text-sm">
+                                            <PlusCircle size={18}/> Nova Publicação
                                         </button>
                                     </div>
                                 )}
 
-                                {posts.length === 0 ? (
+                                {displayedPosts.length === 0 ? (
                                     <div className="bg-white p-12 text-center rounded-3xl shadow-xl border border-slate-100 flex flex-col items-center">
                                         <Megaphone size={48} className="text-slate-200 mb-4"/>
-                                        <h3 className="text-lg font-bold text-slate-700">Nenhum aviso no mural</h3>
-                                        <p className="text-slate-400 text-sm mt-1">A liderança ainda não publicou nada por aqui.</p>
+                                        <h3 className="text-lg font-bold text-slate-700">Nenhum aviso ativo</h3>
+                                        {showExpired && <p className="text-slate-400 text-sm mt-1">O histórico também está vazio.</p>}
                                     </div>
                                 ) : (
-                                    posts.map(post => (
-                                        <div key={post.id} className={`bg-white p-6 rounded-3xl shadow-xl border ${post.isImportant ? 'border-amber-300 shadow-amber-100/50' : 'border-slate-100 shadow-slate-200/50'} relative overflow-hidden group`}>
-                                            {post.isImportant && <div className="absolute top-0 right-0 bg-amber-400 text-amber-900 text-[10px] font-black uppercase px-4 py-1.5 rounded-bl-xl flex items-center gap-1"><Pin size={12}/> Importante</div>}
+                                    displayedPosts.map(post => {
+                                        // Lógica de "Ler Mais" para textos gigantes
+                                        const textLimit = 200;
+                                        const shouldTruncate = post.content.length > textLimit;
+                                        const isExpanded = expandedTexts[post.id] || false;
+                                        const displayedContent = isExpanded || !shouldTruncate ? post.content : post.content.slice(0, textLimit) + "...";
+
+                                        // Identifica se o post está expirado (visualmente)
+                                        const pDate = new Date(post.date + 'T00:00:00');
+                                        const limitDate = new Date(); limitDate.setDate(limitDate.getDate() - 15); limitDate.setHours(0,0,0,0);
+                                        const isExpired = post.type !== 'event' && pDate < limitDate;
+
+                                        return (
+                                        <div key={post.id} className={`bg-white rounded-3xl shadow-xl border ${post.isImportant ? 'border-amber-300 shadow-amber-100/50' : 'border-slate-100 shadow-slate-200/50'} relative overflow-hidden group ${isExpired ? 'opacity-70 grayscale-[30%]' : ''}`}>
+                                            {post.isImportant && <div className="absolute top-0 right-0 z-10 bg-amber-400 text-amber-900 text-[10px] font-black uppercase px-4 py-1.5 rounded-bl-xl flex items-center gap-1"><Pin size={12}/> Importante</div>}
+                                            {isExpired && <div className="absolute top-0 right-0 z-10 bg-slate-800 text-white text-[10px] font-black uppercase px-4 py-1.5 rounded-bl-xl flex items-center gap-1"><History size={12}/> Expirado</div>}
                                             
-                                            <h3 className="text-xl font-bold text-slate-800 mb-2 pr-20">{post.title}</h3>
-                                            <p className="text-slate-600 whitespace-pre-wrap text-sm leading-relaxed">{post.content}</p>
+                                            <div className="px-6 pt-5 pb-2 flex items-center gap-2">
+                                                {post.type === 'event' && <span className="bg-orange-100 text-orange-700 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md flex items-center gap-1"><Calendar size={12}/> Evento</span>}
+                                                {post.type === 'devotional' && <span className="bg-purple-100 text-purple-700 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md flex items-center gap-1"><BookOpen size={12}/> Palavra</span>}
+                                                {post.type === 'notice' && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold uppercase px-2 py-0.5 rounded-md flex items-center gap-1"><Megaphone size={12}/> Aviso</span>}
+                                            </div>
+
+                                            <div className="px-6">
+                                                <h3 className="text-xl font-bold text-slate-800 mb-2 pr-20">{post.title}</h3>
+                                                <p className="text-slate-600 whitespace-pre-wrap text-sm leading-relaxed">
+                                                    {displayedContent}
+                                                    {shouldTruncate && (
+                                                        <button onClick={() => toggleText(post.id)} className="text-blue-600 font-bold ml-1 hover:underline text-xs">
+                                                            {isExpanded ? "Ler menos" : "Ler mais"}
+                                                        </button>
+                                                    )}
+                                                </p>
+                                            </div>
+
+                                            {post.imageUrl && (
+                                                <div className="mt-4 bg-slate-50 border-y border-slate-100 p-2 flex justify-center max-h-64 overflow-hidden">
+                                                    <img src={post.imageUrl} className="max-h-60 object-contain rounded-xl" alt="Anexo" />
+                                                </div>
+                                            )}
                                             
-                                            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-medium">
+                                            <div className="mt-4 px-6 pb-5 flex items-center justify-between text-xs text-slate-400 font-medium">
                                                 <div className="flex items-center gap-4">
                                                     <span className="flex items-center gap-1"><User size={14}/> {post.author}</span>
-                                                    <span className="flex items-center gap-1"><Clock size={14}/> {new Date(post.createdAt).toLocaleDateString('pt-BR')}</span>
+                                                    <span className="flex items-center gap-1"><Clock size={14}/> {new Date(post.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                                                    <span className="flex items-center gap-1"><Heart size={14}/> {post.likes?.length || 0} curtidas</span>
                                                 </div>
                                                 {canManagePosts && (
                                                     <button onClick={() => handleDeletePost(post.id)} className="text-slate-300 hover:text-red-500 transition p-2 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
                                                 )}
                                             </div>
                                         </div>
-                                    ))
+                                    )})
+                                )}
+
+                                {/* BOTÃO "VER MAIS" (Paginação) */}
+                                {filteredPosts.length > visibleCount && (
+                                    <div className="flex justify-center pt-2">
+                                        <button 
+                                            onClick={() => setVisibleCount(prev => prev + 5)} 
+                                            className="bg-white border border-slate-200 text-slate-600 font-bold text-sm px-6 py-3 rounded-xl hover:bg-slate-50 hover:text-blue-600 transition flex items-center gap-2 shadow-sm"
+                                        >
+                                            Carregar mais publicações <ChevronDown size={16}/>
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -200,7 +269,6 @@ export default function PostsAndPrayersPage() {
                                     <div className="bg-white p-12 text-center rounded-3xl shadow-xl border border-slate-100 flex flex-col items-center">
                                         <Heart size={48} className="text-slate-200 mb-4"/>
                                         <h3 className="text-lg font-bold text-slate-700">Nenhum pedido de oração</h3>
-                                        <p className="text-slate-400 text-sm mt-1">Sinta-se à vontade para compartilhar seu pedido.</p>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -244,22 +312,33 @@ export default function PostsAndPrayersPage() {
                 )}
             </div>
 
-            {/* MODAL: NOVO AVISO */}
+            {/* MODAL: NOVO AVISO / POST */}
             {showPostModal && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95">
-                        <div className="bg-slate-50 p-5 flex justify-between items-center border-b border-slate-100">
-                            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Megaphone size={18} className="text-blue-500"/> Criar Aviso</h3>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 h-[90vh] md:h-auto flex flex-col">
+                        <div className="bg-slate-50 p-5 flex justify-between items-center border-b border-slate-100 shrink-0">
+                            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Megaphone size={18} className="text-blue-500"/> Nova Publicação</h3>
                             <button onClick={() => setShowPostModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
                         </div>
-                        <form onSubmit={handleSavePost} className="p-6 space-y-4">
+                        <form onSubmit={handleSavePost} className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                            
+                            <div className="grid grid-cols-3 gap-2">
+                                <button type="button" onClick={() => setPostForm({...postForm, type: 'notice'})} className={`py-2 rounded-xl text-xs font-bold border flex flex-col items-center gap-1 transition ${postForm.type === 'notice' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}><Megaphone size={16}/> Aviso</button>
+                                <button type="button" onClick={() => setPostForm({...postForm, type: 'event'})} className={`py-2 rounded-xl text-xs font-bold border flex flex-col items-center gap-1 transition ${postForm.type === 'event' ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}><Calendar size={16}/> Evento</button>
+                                <button type="button" onClick={() => setPostForm({...postForm, type: 'devotional'})} className={`py-2 rounded-xl text-xs font-bold border flex flex-col items-center gap-1 transition ${postForm.type === 'devotional' ? 'bg-purple-50 border-purple-200 text-purple-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}><BookOpen size={16}/> Palavra</button>
+                            </div>
+
                             <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Título do Aviso</label>
+                                <label className="text-xs font-bold text-slate-500 uppercase">Título da Publicação</label>
                                 <input required type="text" value={postForm.title} onChange={e => setPostForm({...postForm, title: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl mt-1 outline-none focus:border-blue-500" placeholder="Ex: Culto Jovem Especial" />
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase">Mensagem Completa</label>
                                 <textarea required rows={5} value={postForm.content} onChange={e => setPostForm({...postForm, content: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl mt-1 outline-none focus:border-blue-500 resize-none" placeholder="Escreva os detalhes aqui..." />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><ImageIcon size={14}/> Link da Imagem (Opcional)</label>
+                                <input type="url" value={postForm.imageUrl} onChange={e => setPostForm({...postForm, imageUrl: e.target.value})} className="w-full p-3 border border-slate-200 rounded-xl mt-1 outline-none focus:border-blue-500 text-sm" placeholder="Cole o link da foto do Google Drive aqui..." />
                             </div>
                             <label className="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100 cursor-pointer">
                                 <input type="checkbox" checked={postForm.isImportant} onChange={e => setPostForm({...postForm, isImportant: e.target.checked})} className="w-5 h-5 accent-amber-500" />
@@ -268,7 +347,7 @@ export default function PostsAndPrayersPage() {
                                     <span className="text-[10px] text-amber-700">Destaca o aviso com um selo e cor diferente.</span>
                                 </div>
                             </label>
-                            <button type="submit" disabled={saving} className="w-full py-3.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 flex justify-center items-center gap-2">{saving ? <Loader2 className="animate-spin" size={20}/> : 'Publicar Aviso no Mural'}</button>
+                            <button type="submit" disabled={saving} className="w-full py-3.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 flex justify-center items-center gap-2 mt-4 shrink-0">{saving ? <Loader2 className="animate-spin" size={20}/> : 'Publicar no Mural'}</button>
                         </form>
                     </div>
                 </div>
