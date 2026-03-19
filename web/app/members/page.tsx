@@ -582,7 +582,7 @@ export default function MembersPage() {
         }
     };
 
-    // --- LÓGICA DE IMPORTAÇÃO DE PLANILHA (AGORA COM DATA DE NASCIMENTO E LIMPANDO ASPAS) ---
+    // --- LÓGICA DE IMPORTAÇÃO DE PLANILHA (AGORA COM DATA DE NASCIMENTO) ---
     const downloadTemplate = () => {
         // Definindo o cabeçalho padrão com Data de Nascimento adicionada
         const headers = "Nome Completo;Email;Telefone;Sexo (M/F);Estado Civil (solteiro/casado/divorciado/viuvo);Cargo (membro/visitante/diacono);Dizimista (S/N);Data de Nascimento (DD/MM/AAAA)\n";
@@ -641,14 +641,10 @@ export default function MembersPage() {
                 // Processa linha por linha
                 let successCount = 0;
                 for (let i = 0; i < dataRows.length; i++) {
-                    // --- AQUI É ONDE LIMPAMOS AS ASPAS ---
+                    
+                    // --- METÓDO NUCLEAR: ARRANCA QUALQUER ASPA DO TEXTO ---
                     const columns = dataRows[i].split(separator).map(col => {
-                        let cleaned = col.trim();
-                        // Remove aspas do começo e do fim se o Excel colocou
-                        if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
-                            cleaned = cleaned.slice(1, -1).trim();
-                        }
-                        return cleaned;
+                        return col.replace(/"/g, '').trim();
                     });
 
                     // Ignora linhas incompletas
