@@ -37,7 +37,13 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
   const [branches, setBranches] = useState<BranchInfo[]>([]);
 
   const hasPermission = useCallback((permission: string) => {
-    if (userRole === 'admin') return true;
+    // 1. Admin e Pastor têm acesso total a tudo (Super Usuários)
+    if (userRole === 'admin' || userRole === 'pastor') return true;
+
+    // 2. Se o cargo for igual à permissão (ex: role 'secretary' tem permissão 'secretary')
+    if (userRole === permission) return true;
+
+    // 3. Verifica a lista de permissões granulares extras
     return userPermissions.includes(permission);
   }, [userRole, userPermissions]);
 
