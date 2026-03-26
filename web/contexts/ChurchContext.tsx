@@ -40,6 +40,9 @@ export function ChurchProvider({ children }: { children: React.ReactNode }) {
     // 1. Admin e Pastor têm acesso total a tudo (Super Usuários)
     if (userRole === 'admin' || userRole === 'pastor') return true;
 
+    // 2. Líderes têm permissão específica para o Mural de Avisos
+    if (userRole === 'leader' && permission === 'notices') return true;
+
     // 2. Se o cargo for igual à permissão (ex: role 'secretary' tem permissão 'secretary')
     if (userRole === permission) return true;
 
